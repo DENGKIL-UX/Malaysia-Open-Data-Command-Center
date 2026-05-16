@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useMemo, useCallback } from 'react';
+import { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Printer, X, Download, Calendar, Database, Building2, Monitor, Smartphone, Maximize2 } from 'lucide-react';
 import { STATES, DATASET_CATEGORIES, MALAYSIA_TOTALS } from '@/lib/data/malaysia-data';
@@ -194,6 +194,31 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
   const isPortrait = aspectRatio === '9:16';
   const isAuto = aspectRatio === 'auto';
 
+  // ─── Target dimensions for both preview and export ───
+  // The preview renders at these exact pixel dimensions.
+  // This guarantees WYSIWYG — what you see = what you get in the PNG.
+  const targetDims = useMemo(() => {
+    if (aspectRatio === '16:9') return { w: 960, h: 540 };
+    if (aspectRatio === '9:16') return { w: 540, h: 960 };
+    return { w: 0, h: 0 };
+  }, [aspectRatio]);
+
+  // Display zoom: scale the target-dimensioned preview to fit the modal viewport
+  const [displayZoom, setDisplayZoom] = useState(1);
+  const viewportRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isAuto || !viewportRef.current) {
+      setDisplayZoom(1);
+      return;
+    }
+    const vw = viewportRef.current.offsetWidth || 660;
+    const vh = Math.min(window.innerHeight * 0.55, 520);
+    const zoomW = vw / targetDims.w;
+    const zoomH = vh / targetDims.h;
+    setDisplayZoom(Math.min(zoomW, zoomH, 1));
+  }, [aspectRatio, targetDims, isAuto]);
+
   const toggleLayer = useCallback((id: string) => {
     setSelectedLayers(prev =>
       prev.includes(id) ? prev.filter(l => l !== id) : [...prev, id]
@@ -308,7 +333,10 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
         return;
       }
 
-      // Target export dimensions based on aspect ratio selection
+      // Target dimensions MUST match the preview render dimensions for WYSIWYG.
+      // The preview is already rendered at these exact pixel dimensions,
+      // so cloning into an offscreen container at the same dimensions
+      // produces IDENTICAL layout — no reflow, no misalignment.
       let targetW: number;
       let targetH: number;
       if (aspectRatio === '16:9') {
@@ -323,24 +351,19 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
         targetH = target.offsetHeight;
       }
 
-      const isAutoMode = aspectRatio === 'auto';
-      const pad = Math.round(targetW * 0.04); // 4% padding = clean margins at export size
-
-      // ─── Off-screen rendering approach ───
-      // Create an off-screen container at EXACT target dimensions.
-      // Clone the preview content into it. The browser lays out the content
-      // naturally at the target size, so everything (text, grids, padding)
-      // is properly proportioned. Then html2canvas captures it at scale:2
-      // for retina-quality output (e.g., 960→1920px for 16:9).
+      // ─── Off-screen rendering at SAME dimensions as preview ───
+      // The preview is already rendered at targetW × targetH.
+      // We clone it into an offscreen container at the SAME dimensions.
+      // Since the content was already laid out at this width, the clone's
+      // layout is IDENTICAL to the preview — guaranteed WYSIWYG.
       const offscreen = document.createElement('div');
       offscreen.style.cssText = `
         position: fixed;
         left: -99999px;
         top: 0;
         width: ${targetW}px;
-        min-height: ${targetH}px;
+        height: ${targetH}px;
         background: #0a0e1a;
-        padding: ${pad}px;
         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
         font-size: ${fs};
         color: #e0f7fa;
@@ -348,28 +371,35 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
         box-sizing: border-box;
       `;
 
-      // Clone the infographic content from the preview (children only, not the preview wrapper)
+      // Clone the infographic content from the preview
       const contentClone = target.cloneNode(true) as HTMLElement;
-      // Strip preview-only styling from the clone
+      // The preview was rendered at target dimensions with 24px padding.
+      // Preserve this exact layout — only strip visual chrome (border, radius, shadow).
       contentClone.style.cssText = `
-        background: transparent;
+        background: #0a0e1a;
         border: none;
         border-radius: 0;
         box-shadow: none;
-        padding: 0;
+        padding: 24px;
         margin: 0;
         width: 100%;
+        height: 100%;
         overflow: hidden;
+        box-sizing: border-box;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: ${fs};
+        color: #e0f7fa;
       `;
-      // Remove aspect-ratio / max-height constraints
+      // Clear any residual constraints
       contentClone.style.aspectRatio = '';
       contentClone.style.maxHeight = 'none';
-      contentClone.style.overflowY = 'visible';
+      contentClone.style.minHeight = 'none';
+      contentClone.style.overflowY = 'hidden';
 
       offscreen.appendChild(contentClone);
       document.body.appendChild(offscreen);
 
-      // Wait for layout to settle
+      // Wait for layout to settle (double rAF ensures paint)
       await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
       const canvas = await html2canvasFn(offscreen, {
@@ -406,35 +436,21 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
             }
           `;
           clonedDoc.head.appendChild(cloneStyle);
+
+          // Ensure the cloned offscreen container matches target dimensions exactly
+          clonedEl.style.width = `${targetW}px`;
+          clonedEl.style.height = `${targetH}px`;
+          clonedEl.style.overflow = 'hidden';
         },
       });
 
       // Clean up off-screen element
       offscreen.remove();
 
-      // Crop to exact target dimensions × 2 (scale:2)
-      const finalW = targetW * 2;
-      const finalH = targetH * 2;
-
-      let outputCanvas = canvas;
-      if (canvas.width !== finalW || canvas.height !== finalH) {
-        outputCanvas = document.createElement('canvas');
-        outputCanvas.width = finalW;
-        outputCanvas.height = finalH;
-        const ctx = outputCanvas.getContext('2d');
-        if (ctx) {
-          ctx.fillStyle = '#0a0e1a';
-          ctx.fillRect(0, 0, finalW, finalH);
-          ctx.drawImage(canvas, 0, 0, finalW, finalH);
-        } else {
-          outputCanvas = canvas;
-        }
-      }
-
       const link = document.createElement('a');
       const ratioStr = aspectRatio === '16:9' ? '16x9' : aspectRatio === '9:16' ? '9x16' : 'auto';
       link.download = `malaysia-open-data-infographic-${ratioStr}-${Date.now()}.png`;
-      link.href = outputCanvas.toDataURL('image/png');
+      link.href = canvas.toDataURL('image/png');
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -610,25 +626,43 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
               <div className="text-[10px] font-mono tracking-wider" style={{ color: '#06b6d4' }}>
                 {lang === 'ms' ? 'PRATONTON' : 'PREVIEW'}
               </div>
-              <div className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{
-                color: isPortrait ? '#ec4899' : '#06b6d4',
-                background: isPortrait ? 'rgba(236,72,153,0.1)' : 'rgba(6,182,212,0.1)',
-              }}>
-                {isPortrait ? '📱 PORTRAIT' : isAuto ? '📐 AUTO' : '🖥️ LANDSCAPE'}
+              <div className="flex items-center gap-2">
+                <div className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{
+                  color: isPortrait ? '#ec4899' : '#06b6d4',
+                  background: isPortrait ? 'rgba(236,72,153,0.1)' : 'rgba(6,182,212,0.1)',
+                }}>
+                  {isPortrait ? '📱 PORTRAIT' : isAuto ? '📐 AUTO' : '🖥️ LANDSCAPE'}
+                </div>
+                {!isAuto && (
+                  <div className="text-[8px] font-mono" style={{ color: '#64748b' }}>
+                    {Math.round(displayZoom * 100)}% fit
+                  </div>
+                )}
               </div>
             </div>
+            {/* Viewport container — clips and borders the scaled preview */}
             <div
-              ref={previewRef}
-              className="rounded-lg border p-6 overflow-hidden"
-              style={{
-                background: '#0a0e1a',
-                borderColor: 'rgba(6,182,212,0.12)',
-                fontSize: fs,
-                aspectRatio: isAuto ? undefined : aspectRatio.replace(':', '/'),
-                maxHeight: isPortrait ? '80vh' : undefined,
-                overflowY: isPortrait ? 'auto' : undefined,
-              }}
+              ref={viewportRef}
+              className="rounded-lg border overflow-hidden"
+              style={{ borderColor: 'rgba(6,182,212,0.12)' }}
             >
+              {/* Zoom wrapper — scales the target-dimensioned preview to fit the viewport */}
+              <div style={{ zoom: displayZoom, transformOrigin: 'top left' }}>
+                {/* The actual infographic rendered at target export dimensions */}
+                <div
+                  ref={previewRef}
+                  style={{
+                    width: isAuto ? '100%' : `${targetDims.w}px`,
+                    height: isAuto ? 'auto' : `${targetDims.h}px`,
+                    background: '#0a0e1a',
+                    fontSize: fs,
+                    overflow: 'hidden',
+                    boxSizing: 'border-box',
+                    padding: '24px',
+                    color: '#e0f7fa',
+                    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                  }}
+                >
               {/* ─── INFOGRAPHIC HEADER ─────────────────────────── */}
               <div className="text-center mb-6 pb-4 relative" style={{ borderBottom: '1px solid rgba(6,182,212,0.15)' }}>
                 {/* Decorative corner brackets */}
@@ -967,6 +1001,8 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
                 {/* Aspect ratio label in footer */}
                 <div className="text-[7px] font-mono mt-1" style={{ color: 'rgba(6,182,212,0.25)' }}>
                   {aspectRatio} • {exportDimLabel}
+                </div>
+              </div>
                 </div>
               </div>
             </div>
