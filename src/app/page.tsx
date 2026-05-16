@@ -6,7 +6,7 @@ import {
   Users, TrendingUp, Database, Briefcase, Activity,
   BarChart3, Map, LayoutDashboard, Printer, Info,
   HelpCircle, Languages, ArrowUp, Bell, Copyright,
-  ExternalLink, Heart, Download, ChevronRight,
+  ExternalLink, Heart, Download, ChevronRight, Layers,
 } from 'lucide-react';
 
 import BootSequence from '@/components/dashboard/boot-sequence';
@@ -27,6 +27,7 @@ import { SettingsPanel, SettingsGearButton } from '@/components/dashboard/settin
 import { useSettings } from '@/hooks/use-settings';
 import { SkeletonCard, SkeletonChart, SkeletonMap } from '@/components/dashboard/skeleton-loader';
 import { ScrollProgress } from '@/components/dashboard/scroll-progress';
+import { IconographyPanel } from '@/components/dashboard/iconography-panel';
 import type { TabId, Lang } from '@/lib/dashboard-types';
 
 // ─── Focus Trap Hook ──────────────────────────────────────────────
@@ -161,6 +162,7 @@ export default function Home() {
   const [showExportHub, setShowExportHub] = useState(false);
   const [showQuickStats, setShowQuickStats] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showIconography, setShowIconography] = useState(false);
   const { settings, updateSetting, resetToDefaults } = useSettings();
 
   // Focus trap refs for modals
@@ -298,6 +300,7 @@ export default function Home() {
         if (showNotifications) { setShowNotifications(false); return; }
         if (showSettings) { setShowSettings(false); return; }
         if (showExportHub) { setShowExportHub(false); return; }
+        if (showIconography) { setShowIconography(false); return; }
         if (profileStateId) { setProfileStateId(null); return; }
         return;
       }
@@ -566,6 +569,36 @@ export default function Home() {
                   <span className="hidden sm:inline">{lang === 'ms' ? 'Maklumat' : 'Info'}</span>
                 </button>
 
+                {/* Iconography Panel Toggle */}
+                <button
+                  onClick={() => setShowIconography(v => !v)}
+                  aria-label="Toggle iconography panel"
+                  aria-pressed={showIconography}
+                  className="flex items-center justify-center gap-1 min-w-[32px] px-2 py-1.5 rounded border text-[11px] font-mono tracking-wider transition-all duration-300"
+                  style={{
+                    background: showIconography ? 'rgba(6,182,212,0.1)' : 'rgba(10,14,26,0.8)',
+                    borderColor: showIconography ? 'rgba(6,182,212,0.3)' : 'rgba(6,182,212,0.15)',
+                    color: '#06b6d4',
+                  }}
+                  onMouseEnter={e => {
+                    if (!showIconography) {
+                      e.currentTarget.style.background = 'rgba(6,182,212,0.08)';
+                      e.currentTarget.style.borderColor = 'rgba(6,182,212,0.3)';
+                      e.currentTarget.style.boxShadow = '0 0 12px rgba(6,182,212,0.15)';
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (!showIconography) {
+                      e.currentTarget.style.background = 'rgba(10,14,26,0.8)';
+                      e.currentTarget.style.borderColor = 'rgba(6,182,212,0.15)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }
+                  }}
+                >
+                  <Layers size={10} />
+                  <span className="hidden sm:inline">{lang === 'ms' ? 'Ikon' : 'Icons'}</span>
+                </button>
+
                 {/* Notification Bell */}
                 <NotificationBell
                   lang={lang}
@@ -646,6 +679,20 @@ export default function Home() {
                 {activeTab === 'datasets' && <DatasetsSection lang={lang} />}
                 {activeTab === 'analytics' && <AnalyticsSection lang={lang} />}
               </motion.div>
+            </AnimatePresence>
+
+            {/* Iconography Panel (shown below main content when toggled) */}
+            <AnimatePresence>
+              {showIconography && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mt-6"
+                >
+                  <IconographyPanel lang={lang} />
+                </motion.div>
+              )}
             </AnimatePresence>
 
             {/* Info Section (shown below main content when toggled) */}

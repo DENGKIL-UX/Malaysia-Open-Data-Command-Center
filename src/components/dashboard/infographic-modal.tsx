@@ -1,24 +1,25 @@
 'use client';
 
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Printer, X, Download, Calendar, Database, Building2 } from 'lucide-react';
+import { Printer, X, Download, Calendar, Database, Building2, Monitor, Smartphone, Maximize2 } from 'lucide-react';
 import { STATES, DATASET_CATEGORIES, MALAYSIA_TOTALS } from '@/lib/data/malaysia-data';
 import { DATASETS } from '@/lib/data/datasets';
+import { MINISTRIES, MINISTRY_CATEGORY_LABELS, getDataGovMinistries } from '@/lib/data/malaysian-ministries';
 import type { Lang } from '@/lib/dashboard-types';
 
 // ─── Infographic Source & Date Data ────────────────────────────────
 const INFOGRAPHIC_SOURCES = [
-  { abbr: 'DOSM', full_en: 'Dept. of Statistics Malaysia', full_ms: 'Jabatan Perangkaan Malaysia', url: 'https://open.dosm.gov.my' },
-  { abbr: 'BNM', full_en: 'Bank Negara Malaysia', full_ms: 'Bank Negara Malaysia', url: 'https://www.bnm.gov.my' },
-  { abbr: 'KKM', full_en: 'Ministry of Health Malaysia', full_ms: 'Kementerian Kesihatan Malaysia', url: 'https://www.moh.gov.my' },
-  { abbr: 'JPN', full_en: 'National Registration Dept.', full_ms: 'Jabatan Pendaftaran Negara', url: 'https://www.jpn.gov.my' },
-  { abbr: 'MOT', full_en: 'Ministry of Transport', full_ms: 'Kementerian Pengangkutan', url: 'https://www.mot.gov.my' },
-  { abbr: 'KD', full_en: 'Ministry of Digital', full_ms: 'Kementerian Digital', url: 'https://data.gov.my' },
-  { abbr: 'JDN', full_en: 'National Data Dept.', full_ms: 'Jabatan Data Negara', url: 'https://data.gov.my' },
-  { abbr: 'KPM', full_en: 'Ministry of Education', full_ms: 'Kementerian Pendidikan', url: 'https://www.moe.gov.my' },
-  { abbr: 'KASA', full_en: 'Ministry of Environment', full_ms: 'Kementerian Alam Sekitar', url: 'https://www.kasa.gov.my' },
-  { abbr: 'data.gov.my', full_en: 'Malaysia Open Data Portal', full_ms: 'Portal Data Terbuka Malaysia', url: 'https://data.gov.my' },
+  { abbr: 'DOSM', full_en: 'Dept. of Statistics Malaysia', full_ms: 'Jabatan Perangkaan Malaysia', url: 'https://open.dosm.gov.my', emoji: '📊' },
+  { abbr: 'BNM', full_en: 'Bank Negara Malaysia', full_ms: 'Bank Negara Malaysia', url: 'https://www.bnm.gov.my', emoji: '🏦' },
+  { abbr: 'KKM', full_en: 'Ministry of Health Malaysia', full_ms: 'Kementerian Kesihatan Malaysia', url: 'https://www.moh.gov.my', emoji: '❤️' },
+  { abbr: 'JPN', full_en: 'National Registration Dept.', full_ms: 'Jabatan Pendaftaran Negara', url: 'https://www.jpn.gov.my', emoji: '📋' },
+  { abbr: 'MOT', full_en: 'Ministry of Transport', full_ms: 'Kementerian Pengangkutan', url: 'https://www.mot.gov.my', emoji: '🚄' },
+  { abbr: 'KD', full_en: 'Ministry of Digital', full_ms: 'Kementerian Digital', url: 'https://data.gov.my', emoji: '💻' },
+  { abbr: 'JDN', full_en: 'National Data Dept.', full_ms: 'Jabatan Data Negara', url: 'https://data.gov.my', emoji: '🗄️' },
+  { abbr: 'KPM', full_en: 'Ministry of Education', full_ms: 'Kementerian Pendidikan', url: 'https://www.moe.gov.my', emoji: '🎓' },
+  { abbr: 'NRES', full_en: 'Ministry of Natural Resources & Environment', full_ms: 'Kementerian Sumber Asli & Alam Sekitar', url: 'https://www.nres.gov.my', emoji: '🍃' },
+  { abbr: 'data.gov.my', full_en: 'Malaysia Open Data Portal', full_ms: 'Portal Data Terbuka Malaysia', url: 'https://data.gov.my', emoji: '🌐' },
 ];
 
 // Map layer IDs to the dataset categories they correspond to
@@ -29,6 +30,16 @@ const LAYER_CATEGORY_MAP: Record<string, string[]> = {
   healthcare: ['Healthcare'],
   environment: ['Environment'],
   education: ['Education'],
+};
+
+// Layer icon mapping for visual enhancement
+const LAYER_ICONS: Record<string, string> = {
+  population: '🧑',
+  gdp: '💰',
+  demography: '📊',
+  healthcare: '❤️',
+  environment: '🌿',
+  education: '🎓',
 };
 
 function LayerSourcesAndDates({ layerId, lang, fontSize }: { layerId: string; lang: Lang; fontSize: string }) {
@@ -132,12 +143,45 @@ function LayerSourcesAndDates({ layerId, lang, fontSize }: { layerId: string; la
   );
 }
 
+// ─── Coat of Arms Decorative SVG ────────────────────────────────────
+function CoatOfArmsDecoration({ size = 32 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Outer star / crescent ring */}
+      <circle cx="20" cy="20" r="18" stroke="#06b6d4" strokeWidth="1" opacity="0.3" />
+      <circle cx="20" cy="20" r="15" stroke="#06b6d4" strokeWidth="0.5" opacity="0.2" />
+      {/* 14-point star simplified */}
+      {[0, 25.7, 51.4, 77.1, 102.8, 128.5, 154.2, 180, 205.7, 231.4, 257.1, 282.8, 308.5, 334.2].map((angle, i) => (
+        <line key={i} x1="20" y1="20" x2={20 + 14 * Math.cos((angle * Math.PI) / 180)} y2={20 + 14 * Math.sin((angle * Math.PI) / 180)} stroke="#06b6d4" strokeWidth="0.8" opacity="0.25" />
+      ))}
+      {/* Inner crescent */}
+      <path d="M16 10 A12 12 0 1 0 16 30 A9 9 0 1 1 16 10Z" fill="#06b6d4" opacity="0.08" />
+      {/* Center star */}
+      <polygon points="20,12 21.5,17 27,17 22.5,20.5 24,25.5 20,22 16,25.5 17.5,20.5 13,17 18.5,17" fill="#06b6d4" opacity="0.2" />
+    </svg>
+  );
+}
+
+// ─── HUDBracket Component ────────────────────────────────────────────
+function HUDBracket() {
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+      <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-cyan-500/20 transition-colors duration-300 group-hover:border-cyan-500/40" />
+      <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-cyan-500/20 transition-colors duration-300 group-hover:border-cyan-500/40" />
+      <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-cyan-500/20 transition-colors duration-300 group-hover:border-cyan-500/40" />
+      <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-cyan-500/20 transition-colors duration-300 group-hover:border-cyan-500/40" />
+    </div>
+  );
+}
+
 // ─── Infographic Export Modal ────────────────────────────────────
 export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () => void }) {
   const [selectedLayers, setSelectedLayers] = useState<string[]>(['population', 'gdp', 'births']);
   const [fontSize, setFontSize] = useState<'S' | 'M' | 'L'>('M');
+  const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16' | 'auto'>('16:9');
   const [exporting, setExporting] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
+  const exportContainerRef = useRef<HTMLDivElement>(null);
 
   const layers = [
     { id: 'population', label_en: 'Population', label_ms: 'Penduduk', color: '#06b6d4' },
@@ -148,24 +192,89 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
     { id: 'education', label_en: 'Education', label_ms: 'Pendidikan', color: '#3b82f6' },
   ];
 
-  const toggleLayer = (id: string) => {
+  const isPortrait = aspectRatio === '9:16';
+  const isAuto = aspectRatio === 'auto';
+
+  const toggleLayer = useCallback((id: string) => {
     setSelectedLayers(prev =>
       prev.includes(id) ? prev.filter(l => l !== id) : [...prev, id]
     );
-  };
+  }, []);
+
+  // Get data.gov.my ministries for the visual section
+  const dataGovMinistries = useMemo(() => getDataGovMinistries(), []);
+
+  // Compute global date range across all selected layers
+  const globalDateInfo = useMemo(() => {
+    const allCategories = selectedLayers.flatMap(l => LAYER_CATEGORY_MAP[l] || []);
+    const matching = DATASETS.filter(d => allCategories.includes(d.category_en));
+    if (matching.length === 0) return { minBegin: 2020, maxEnd: 2024, latestUpdate: '', sources: [] as string[], totalDatasets: 0 };
+    let minBegin = 9999, maxEnd = 0, latestUpdate = '';
+    const sources = new Set<string>();
+    for (const d of matching) {
+      if (d.dataset_begin < minBegin) minBegin = d.dataset_begin;
+      if (d.dataset_end > maxEnd) maxEnd = d.dataset_end;
+      if (d.last_updated > latestUpdate) latestUpdate = d.last_updated;
+      d.data_source.forEach(s => sources.add(s));
+    }
+    return { minBegin, maxEnd, latestUpdate, sources: [...sources], totalDatasets: matching.length };
+  }, [selectedLayers]);
 
   const handleExport = async () => {
     setExporting(true);
     try {
       const html2canvas = (await import('html2canvas')).default;
-      if (previewRef.current) {
-        const canvas = await html2canvas(previewRef.current, {
+      const target = exportContainerRef.current || previewRef.current;
+      if (target) {
+        // Determine export dimensions based on aspect ratio
+        let exportWidth: number;
+        let exportHeight: number;
+        if (aspectRatio === '16:9') {
+          exportWidth = 1920;
+          exportHeight = 1080;
+        } else if (aspectRatio === '9:16') {
+          exportWidth = 1080;
+          exportHeight = 1920;
+        } else {
+          exportWidth = 1920;
+          exportHeight = 1080;
+        }
+
+        // Create off-screen container for clean export
+        const offscreen = document.createElement('div');
+        offscreen.style.position = 'fixed';
+        offscreen.style.left = '-9999px';
+        offscreen.style.top = '0';
+        offscreen.style.width = `${exportWidth}px`;
+        offscreen.style.minHeight = `${exportHeight}px`;
+        offscreen.style.background = '#0a0e1a';
+        offscreen.style.fontFamily = 'monospace';
+        offscreen.style.color = '#e0f7fa';
+        offscreen.style.overflow = 'hidden';
+
+        // Clone the preview content into the offscreen container
+        const clone = previewRef.current!.cloneNode(true) as HTMLElement;
+        clone.style.width = `${exportWidth}px`;
+        clone.style.minHeight = `${exportHeight}px`;
+        clone.style.aspectRatio = '';
+        clone.style.maxHeight = '';
+        clone.style.overflow = 'hidden';
+        offscreen.appendChild(clone);
+        document.body.appendChild(offscreen);
+
+        const canvas = await html2canvas(offscreen, {
           scale: 2,
           backgroundColor: '#0a0e1a',
           useCORS: true,
+          width: exportWidth,
+          height: exportHeight,
         });
+
+        document.body.removeChild(offscreen);
+
         const link = document.createElement('a');
-        link.download = `malaysia-data-infographic-${Date.now()}.png`;
+        const ratioStr = aspectRatio === '16:9' ? '16x9' : aspectRatio === '9:16' ? '9x16' : 'auto';
+        link.download = `malaysia-data-infographic-${ratioStr}-${Date.now()}.png`;
         link.href = canvas.toDataURL('image/png');
         link.click();
       }
@@ -177,21 +286,17 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
 
   const fs = fontSize === 'S' ? '10px' : fontSize === 'M' ? '12px' : '14px';
 
-  // Compute global date range across all selected layers
-  const globalDateInfo = useMemo(() => {
-    const allCategories = selectedLayers.flatMap(l => LAYER_CATEGORY_MAP[l] || []);
-    const matching = DATASETS.filter(d => allCategories.includes(d.category_en));
-    if (matching.length === 0) return { minBegin: 2020, maxEnd: 2024, latestUpdate: '', sources: new Set<string>(), totalDatasets: 0 };
-    let minBegin = 9999, maxEnd = 0, latestUpdate = '';
-    const sources = new Set<string>();
-    for (const d of matching) {
-      if (d.dataset_begin < minBegin) minBegin = d.dataset_begin;
-      if (d.dataset_end > maxEnd) maxEnd = d.dataset_end;
-      if (d.last_updated > latestUpdate) latestUpdate = d.last_updated;
-      d.data_source.forEach(s => sources.add(s));
-    }
-    return { minBegin, maxEnd, latestUpdate, sources: [...sources], totalDatasets: matching.length };
-  }, [selectedLayers]);
+  // Export dimension label
+  const exportDimLabel = useMemo(() => {
+    if (aspectRatio === '16:9') return '3840×2160';
+    if (aspectRatio === '9:16') return '2160×3840';
+    return '3840×auto';
+  }, [aspectRatio]);
+
+  // Filter INFOGRAPHIC_SOURCES that match actual sources in data
+  const activeSources = useMemo(() => {
+    return INFOGRAPHIC_SOURCES.filter(s => globalDateInfo.sources.includes(s.abbr) || s.abbr === 'data.gov.my');
+  }, [globalDateInfo.sources]);
 
   return (
     <motion.div
@@ -204,7 +309,7 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
       <motion.div
         initial={{ scale: 0.95, y: 20 }}
         animate={{ scale: 1, y: 0 }}
-        className="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-lg border custom-scrollbar"
+        className="w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-lg border custom-scrollbar"
         style={{
           background: '#0a0e1a',
           borderColor: 'rgba(6,182,212,0.2)',
@@ -218,6 +323,14 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
             <span className="text-sm font-mono font-bold" style={{ color: '#06b6d4' }}>
               {lang === 'ms' ? 'EKSPOR INFOGRAFIK' : 'INFOGRAPHIC EXPORT'}
             </span>
+            {/* Aspect ratio badge in header */}
+            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded border" style={{
+              borderColor: 'rgba(6,182,212,0.3)',
+              color: '#06b6d4',
+              background: 'rgba(6,182,212,0.08)',
+            }}>
+              {aspectRatio}
+            </span>
           </div>
           <button onClick={onClose} className="p-1 rounded hover:bg-cyan-950/30">
             <X size={16} style={{ color: 'rgba(6,182,212,0.5)' }} />
@@ -227,6 +340,39 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 p-4">
           {/* Controls */}
           <div className="space-y-4">
+            {/* Aspect Ratio Selector */}
+            <div>
+              <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: '#06b6d4' }}>
+                {lang === 'ms' ? 'NISBAH ASPEK' : 'ASPECT RATIO'}
+              </div>
+              <div className="flex gap-2">
+                {([
+                  { value: '16:9' as const, icon: Monitor, label: '16:9' },
+                  { value: '9:16' as const, icon: Smartphone, label: '9:16' },
+                  { value: 'auto' as const, icon: Maximize2, label: 'Auto' },
+                ]).map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setAspectRatio(opt.value)}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border text-[10px] font-mono transition-all"
+                    style={{
+                      background: aspectRatio === opt.value ? 'rgba(6,182,212,0.15)' : 'rgba(10,14,26,0.8)',
+                      borderColor: aspectRatio === opt.value ? 'rgba(6,182,212,0.4)' : 'rgba(6,182,212,0.1)',
+                      color: aspectRatio === opt.value ? '#06b6d4' : '#94a3b8',
+                    }}
+                  >
+                    <opt.icon size={12} />
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              {/* Dimension indicator */}
+              <div className="text-[8px] font-mono mt-1.5" style={{ color: '#64748b' }}>
+                {lang === 'ms' ? 'Eksport' : 'Export'}: {exportDimLabel} (2x)
+              </div>
+            </div>
+
+            {/* Layer Selection */}
             <div>
               <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: '#06b6d4' }}>
                 {lang === 'ms' ? 'PILIH LAPISAN' : 'SELECT LAYERS'}
@@ -243,6 +389,7 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
                       color: selectedLayers.includes(l.id) ? l.color : '#94a3b8',
                     }}
                   >
+                    <span className="text-sm">{LAYER_ICONS[l.id]}</span>
                     <div className="w-2.5 h-2.5 rounded-sm border" style={{
                       background: selectedLayers.includes(l.id) ? l.color : 'transparent',
                       borderColor: l.color,
@@ -253,6 +400,7 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
               </div>
             </div>
 
+            {/* Font Size */}
             <div>
               <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: '#06b6d4' }}>
                 {lang === 'ms' ? 'SAIZ FONT' : 'FONT SIZE'}
@@ -275,10 +423,11 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
               </div>
             </div>
 
+            {/* Export Button */}
             <button
               onClick={handleExport}
               disabled={exporting || selectedLayers.length === 0}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-md border text-xs font-mono font-bold disabled:opacity-30"
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-md border text-xs font-mono font-bold disabled:opacity-30 transition-all"
               style={{
                 background: 'linear-gradient(135deg, rgba(6,182,212,0.2), rgba(16,185,129,0.1))',
                 borderColor: 'rgba(6,182,212,0.3)',
@@ -288,23 +437,60 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
               <Download size={14} />
               {exporting
                 ? (lang === 'ms' ? 'MENGEKSPORT...' : 'EXPORTING...')
-                : (lang === 'ms' ? 'EKSPOR PNG (2x)' : 'EXPORT PNG (2x)')
+                : `EXPORT PNG ${aspectRatio} (${exportDimLabel})`
               }
             </button>
           </div>
 
           {/* Preview */}
           <div className="lg:col-span-2">
-            <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: '#06b6d4' }}>
-              {lang === 'ms' ? 'PRATONTON' : 'PREVIEW'}
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-[10px] font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+                {lang === 'ms' ? 'PRATONTON' : 'PREVIEW'}
+              </div>
+              <div className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{
+                color: isPortrait ? '#ec4899' : '#06b6d4',
+                background: isPortrait ? 'rgba(236,72,153,0.1)' : 'rgba(6,182,212,0.1)',
+              }}>
+                {isPortrait ? '📱 PORTRAIT' : isAuto ? '📐 AUTO' : '🖥️ LANDSCAPE'}
+              </div>
             </div>
-            <div ref={previewRef} className="rounded-lg border p-6" style={{
-              background: '#0a0e1a',
-              borderColor: 'rgba(6,182,212,0.12)',
-              fontSize: fs,
-            }}>
-              {/* Infographic Header */}
-              <div className="text-center mb-6 pb-4" style={{ borderBottom: '1px solid rgba(6,182,212,0.15)' }}>
+            <div
+              ref={previewRef}
+              className="rounded-lg border p-6 overflow-hidden"
+              style={{
+                background: '#0a0e1a',
+                borderColor: 'rgba(6,182,212,0.12)',
+                fontSize: fs,
+                aspectRatio: isAuto ? undefined : aspectRatio.replace(':', '/'),
+                maxHeight: isPortrait ? '80vh' : undefined,
+                overflowY: isPortrait ? 'auto' : undefined,
+              }}
+            >
+              {/* ─── INFOGRAPHIC HEADER ─────────────────────────── */}
+              <div className="text-center mb-6 pb-4 relative" style={{ borderBottom: '1px solid rgba(6,182,212,0.15)' }}>
+                {/* Decorative corner brackets */}
+                <div className="absolute top-0 left-0 w-3 h-3 border-t border-l" style={{ borderColor: 'rgba(6,182,212,0.25)' }} />
+                <div className="absolute top-0 right-0 w-3 h-3 border-t border-r" style={{ borderColor: 'rgba(6,182,212,0.25)' }} />
+
+                {/* Coat of Arms + MALAYSIA Badge */}
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <CoatOfArmsDecoration size={24} />
+                  <div
+                    className="px-3 py-1 rounded border font-mono font-bold tracking-[0.2em]"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(6,182,212,0.1), rgba(6,182,212,0.03))',
+                      borderColor: 'rgba(6,182,212,0.25)',
+                      color: '#06b6d4',
+                      textShadow: '0 0 10px rgba(6,182,212,0.3)',
+                      fontSize: fs === '10px' ? '10px' : fs === '12px' ? '12px' : '14px',
+                    }}
+                  >
+                    🇲🇾 MALAYSIA
+                  </div>
+                  <CoatOfArmsDecoration size={24} />
+                </div>
+
                 <div className="text-[9px] font-mono tracking-[0.3em] mb-1" style={{ color: 'rgba(6,182,212,0.5)' }}>DATA.GOV.MY</div>
                 <div className="text-xl font-bold" style={{ color: '#06b6d4', textShadow: '0 0 20px rgba(6,182,212,0.3)' }}>
                   {lang === 'ms' ? 'PUSAT PERINTAH DATA TERBUKA MALAYSIA' : 'MALAYSIA OPEN DATA COMMAND CENTER'}
@@ -312,31 +498,85 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
                 <div className="text-[10px] font-mono mt-1" style={{ color: '#94a3b8' }}>
                   {lang === 'ms' ? 'Infografik Data Nasional' : 'National Data Infographic'} — {new Date().getFullYear()}
                 </div>
+
+                {/* Decorative bottom brackets */}
+                <div className="absolute bottom-0 left-0 w-3 h-3 border-b border-l" style={{ borderColor: 'rgba(6,182,212,0.25)' }} />
+                <div className="absolute bottom-0 right-0 w-3 h-3 border-b border-r" style={{ borderColor: 'rgba(6,182,212,0.25)' }} />
               </div>
 
-              {/* Overview Stats */}
-              <div className="grid grid-cols-3 gap-3 mb-6">
-                <div className="text-center p-3 rounded border" style={{ background: 'rgba(6,182,212,0.05)', borderColor: 'rgba(6,182,212,0.1)' }}>
+              {/* ─── OVERVIEW STATS ─────────────────────────────── */}
+              <div
+                className={`gap-3 mb-6 ${isPortrait ? 'grid grid-cols-1' : 'grid grid-cols-3'}`}
+              >
+                <div className="text-center p-3 rounded border relative group" style={{ background: 'rgba(6,182,212,0.05)', borderColor: 'rgba(6,182,212,0.1)' }}>
+                  <HUDBracket />
                   <div className="text-lg font-bold font-mono" style={{ color: '#06b6d4' }}>34.3M</div>
                   <div className="text-[9px] font-mono" style={{ color: '#94a3b8' }}>{lang === 'ms' ? 'Penduduk' : 'Population'}</div>
                 </div>
-                <div className="text-center p-3 rounded border" style={{ background: 'rgba(245,158,11,0.05)', borderColor: 'rgba(245,158,11,0.1)' }}>
+                <div className="text-center p-3 rounded border relative group" style={{ background: 'rgba(245,158,11,0.05)', borderColor: 'rgba(245,158,11,0.1)' }}>
+                  <HUDBracket />
                   <div className="text-lg font-bold font-mono" style={{ color: '#f59e0b' }}>RM1.68T</div>
                   <div className="text-[9px] font-mono" style={{ color: '#94a3b8' }}>{lang === 'ms' ? 'KDNK' : 'GDP'}</div>
                 </div>
-                <div className="text-center p-3 rounded border" style={{ background: 'rgba(16,185,129,0.05)', borderColor: 'rgba(16,185,129,0.1)' }}>
+                <div className="text-center p-3 rounded border relative group" style={{ background: 'rgba(16,185,129,0.05)', borderColor: 'rgba(16,185,129,0.1)' }}>
+                  <HUDBracket />
                   <div className="text-lg font-bold font-mono" style={{ color: '#10b981' }}>287</div>
                   <div className="text-[9px] font-mono" style={{ color: '#94a3b8' }}>{lang === 'ms' ? 'Set Data' : 'Datasets'}</div>
                 </div>
               </div>
 
-              {/* Selected Layers Content */}
+              {/* ─── DATA SOURCE AGENCIES GRID ──────────────────── */}
+              <div className="mb-6 relative group">
+                <HUDBracket />
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Building2 size={fs === '10px' ? 9 : fs === '12px' ? 10 : 11} style={{ color: '#06b6d4' }} />
+                  <span className="font-mono font-bold tracking-wider" style={{ color: '#06b6d4', fontSize: fs === '10px' ? '9px' : fs === '12px' ? '10px' : '11px' }}>
+                    {lang === 'ms' ? 'AGENSI SUMBER DATA' : 'DATA SOURCE AGENCIES'}
+                  </span>
+                </div>
+                <div className={`gap-1.5 ${isPortrait ? 'grid grid-cols-2' : 'grid grid-cols-4'}`}>
+                  {dataGovMinistries.slice(0, isPortrait ? 12 : 8).map(ministry => {
+                    const catLabel = MINISTRY_CATEGORY_LABELS[ministry.category];
+                    return (
+                      <div
+                        key={ministry.id}
+                        className="flex items-center gap-1.5 p-1.5 rounded border"
+                        style={{
+                          background: `${ministry.color}08`,
+                          borderColor: `${ministry.color}18`,
+                        }}
+                      >
+                        <span style={{ fontSize: fs === '10px' ? '10px' : fs === '12px' ? '12px' : '14px' }}>{ministry.emoji}</span>
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-mono font-bold truncate" style={{ color: ministry.color, fontSize: fs === '10px' ? '7px' : fs === '12px' ? '8px' : '9px' }}>
+                            {lang === 'ms' ? ministry.abbr_ms : ministry.abbr_en}
+                          </span>
+                          <span className="font-mono truncate" style={{ color: '#94a3b8', fontSize: fs === '10px' ? '5px' : fs === '12px' ? '6px' : '7px' }}>
+                            {lang === 'ms' ? ministry.name_ms : ministry.name_en}
+                          </span>
+                        </div>
+                        <div
+                          className="ml-auto w-1.5 h-1.5 rounded-full flex-shrink-0"
+                          style={{ background: catLabel.color }}
+                          title={lang === 'ms' ? catLabel.ms : catLabel.en}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* ─── SELECTED LAYERS CONTENT ────────────────────── */}
+
+              {/* Population Layer */}
               {selectedLayers.includes('population') && (
-                <div className="mb-4">
-                  <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: '#06b6d4' }}>
+                <div className="mb-4 relative group">
+                  <HUDBracket />
+                  <div className="flex items-center gap-1.5 text-[10px] font-mono tracking-wider mb-2" style={{ color: '#06b6d4' }}>
+                    <span>{LAYER_ICONS.population}</span>
                     ▸ {lang === 'ms' ? 'PENDUDUK MENGIKUT NEGERI' : 'POPULATION BY STATE'}
                   </div>
-                  <div className="grid grid-cols-4 gap-1.5">
+                  <div className={`gap-1.5 ${isPortrait ? 'grid grid-cols-2' : 'grid grid-cols-4'}`}>
                     {STATES.slice().sort((a,b) => b.population - a.population).slice(0, 8).map(s => (
                       <div key={s.id} className="p-1.5 rounded border" style={{ background: 'rgba(6,182,212,0.03)', borderColor: 'rgba(6,182,212,0.08)' }}>
                         <div className="text-[8px] font-mono" style={{ color: '#94a3b8' }}>{s.abbr}</div>
@@ -347,12 +587,15 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
                 </div>
               )}
 
+              {/* GDP Layer */}
               {selectedLayers.includes('gdp') && (
-                <div className="mb-4">
-                  <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: '#f59e0b' }}>
+                <div className="mb-4 relative group">
+                  <HUDBracket />
+                  <div className="flex items-center gap-1.5 text-[10px] font-mono tracking-wider mb-2" style={{ color: '#f59e0b' }}>
+                    <span>{LAYER_ICONS.gdp}</span>
                     ▸ {lang === 'ms' ? 'KDNK MENGIKUT NEGERI' : 'GDP BY STATE'}
                   </div>
-                  <div className="grid grid-cols-4 gap-1.5">
+                  <div className={`gap-1.5 ${isPortrait ? 'grid grid-cols-2' : 'grid grid-cols-4'}`}>
                     {STATES.slice().sort((a,b) => b.gdp - a.gdp).slice(0, 8).map(s => (
                       <div key={s.id} className="p-1.5 rounded border" style={{ background: 'rgba(245,158,11,0.03)', borderColor: 'rgba(245,158,11,0.08)' }}>
                         <div className="text-[8px] font-mono" style={{ color: '#94a3b8' }}>{s.abbr}</div>
@@ -363,12 +606,15 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
                 </div>
               )}
 
+              {/* Demography Layer */}
               {selectedLayers.includes('demography') && (
-                <div className="mb-4">
-                  <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: '#10b981' }}>
+                <div className="mb-4 relative group">
+                  <HUDBracket />
+                  <div className="flex items-center gap-1.5 text-[10px] font-mono tracking-wider mb-2" style={{ color: '#10b981' }}>
+                    <span>{LAYER_ICONS.demography}</span>
                     ▸ {lang === 'ms' ? 'STATISTIK VITAL' : 'VITAL STATISTICS'}
                   </div>
-                  <div className="flex gap-4">
+                  <div className={`gap-4 ${isPortrait ? 'grid grid-cols-1' : 'flex'}`}>
                     <div className="flex-1 p-2 rounded border text-center" style={{ background: 'rgba(16,185,129,0.03)', borderColor: 'rgba(16,185,129,0.08)' }}>
                       <div className="text-sm font-bold font-mono" style={{ color: '#10b981' }}>602.9k</div>
                       <div className="text-[8px] font-mono" style={{ color: '#94a3b8' }}>{lang === 'ms' ? 'Kelahiran' : 'Births'}</div>
@@ -385,9 +631,12 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
                 </div>
               )}
 
+              {/* Healthcare Layer */}
               {selectedLayers.includes('healthcare') && (
-                <div className="mb-4">
-                  <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: '#ec4899' }}>
+                <div className="mb-4 relative group">
+                  <HUDBracket />
+                  <div className="flex items-center gap-1.5 text-[10px] font-mono tracking-wider mb-2" style={{ color: '#ec4899' }}>
+                    <span>{LAYER_ICONS.healthcare}</span>
                     ▸ {lang === 'ms' ? 'KESIHATAN' : 'HEALTHCARE'}
                   </div>
                   <div className="p-2 rounded border" style={{ background: 'rgba(236,72,153,0.03)', borderColor: 'rgba(236,72,153,0.08)' }}>
@@ -401,25 +650,31 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
                 </div>
               )}
 
+              {/* Environment Layer */}
               {selectedLayers.includes('environment') && (
-                <div className="mb-4">
-                  <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: '#22c55e' }}>
+                <div className="mb-4 relative group">
+                  <HUDBracket />
+                  <div className="flex items-center gap-1.5 text-[10px] font-mono tracking-wider mb-2" style={{ color: '#22c55e' }}>
+                    <span>{LAYER_ICONS.environment}</span>
                     ▸ {lang === 'ms' ? 'ALAM SEKITAR' : 'ENVIRONMENT'}
                   </div>
                   <div className="p-2 rounded border" style={{ background: 'rgba(34,197,94,0.03)', borderColor: 'rgba(34,197,94,0.08)' }}>
                     <div className="text-[9px] font-mono" style={{ color: '#94a3b8' }}>
                       {lang === 'ms'
-                        ? 'Data alam sekitar merangkumi pencemaran udara, akses air, penggunaan elektrik, dan rizab hutan dari DOSM dan KASA.'
-                        : 'Environmental data covers air pollution, water access, electricity consumption, and forest reserves from DOSM and KASA.'
+                        ? 'Data alam sekitar merangkumi pencemaran udara, akses air, penggunaan elektrik, dan rizab hutan dari DOSM dan NRES.'
+                        : 'Environmental data covers air pollution, water access, electricity consumption, and forest reserves from DOSM and NRES.'
                       }
                     </div>
                   </div>
                 </div>
               )}
 
+              {/* Education Layer */}
               {selectedLayers.includes('education') && (
-                <div className="mb-4">
-                  <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: '#3b82f6' }}>
+                <div className="mb-4 relative group">
+                  <HUDBracket />
+                  <div className="flex items-center gap-1.5 text-[10px] font-mono tracking-wider mb-2" style={{ color: '#3b82f6' }}>
+                    <span>{LAYER_ICONS.education}</span>
                     ▸ {lang === 'ms' ? 'PENDIDIKAN' : 'EDUCATION'}
                   </div>
                   <div className="p-2 rounded border" style={{ background: 'rgba(59,130,246,0.03)', borderColor: 'rgba(59,130,246,0.08)' }}>
@@ -495,36 +750,61 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
                 </div>
               )}
 
-              {/* ─── FULL SOURCE REFERENCE TABLE ───────────────────────── */}
+              {/* ─── ENHANCED SOURCE REFERENCE TABLE ────────────────────── */}
               {selectedLayers.length > 0 && (
                 <div className="mt-3 pt-3" style={{ borderTop: '1px solid rgba(6,182,212,0.08)' }}>
                   <div className="text-[8px] font-mono tracking-wider mb-2" style={{ color: 'rgba(6,182,212,0.6)' }}>
                     {lang === 'ms' ? 'RUJUKAN SUMBER' : 'SOURCE REFERENCES'}
                   </div>
-                  <div className="grid grid-cols-2 gap-1">
-                    {INFOGRAPHIC_SOURCES.filter(s => globalDateInfo.sources.includes(s.abbr)).map(src => (
-                      <div key={src.abbr} className="flex items-start gap-1.5 p-1" style={{ fontSize: fs === '10px' ? '7px' : fs === '12px' ? '8px' : '9px' }}>
-                        <span className="font-mono font-bold flex-shrink-0" style={{ color: '#06b6d4', minWidth: '36px' }}>{src.abbr}</span>
-                        <span className="font-mono" style={{ color: '#94a3b8' }}>{lang === 'ms' ? src.full_ms : src.full_en}</span>
-                      </div>
-                    ))}
+                  <div className={`gap-1 ${isPortrait ? 'grid grid-cols-1' : 'grid grid-cols-2'}`}>
+                    {activeSources.map(src => {
+                      // Find matching ministry for category color
+                      const matchingMinistry = MINISTRIES.find(m => m.abbr_en === src.abbr || m.abbr_ms === src.abbr);
+                      const catColor = matchingMinistry ? MINISTRY_CATEGORY_LABELS[matchingMinistry.category].color : '#06b6d4';
+                      return (
+                        <div key={src.abbr} className="flex items-center gap-1.5 p-1.5 rounded border" style={{
+                          fontSize: fs === '10px' ? '7px' : fs === '12px' ? '8px' : '9px',
+                          background: `${catColor}05`,
+                          borderColor: `${catColor}12`,
+                        }}>
+                          <span style={{ fontSize: fs === '10px' ? '9px' : fs === '12px' ? '10px' : '11px' }}>{src.emoji}</span>
+                          <span className="font-mono font-bold flex-shrink-0" style={{ color: catColor, minWidth: '30px' }}>{src.abbr}</span>
+                          <span className="font-mono" style={{ color: '#94a3b8' }}>{lang === 'ms' ? src.full_ms : src.full_en}</span>
+                          {matchingMinistry && (
+                            <div
+                              className="ml-auto w-1.5 h-1.5 rounded-full flex-shrink-0"
+                              style={{ background: catColor }}
+                              title={lang === 'ms' ? MINISTRY_CATEGORY_LABELS[matchingMinistry.category].ms : MINISTRY_CATEGORY_LABELS[matchingMinistry.category].en}
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
 
-              {/* Footer attribution */}
-              <div className="mt-4 pt-3 text-center" style={{ borderTop: '1px solid rgba(6,182,212,0.1)' }}>
-                <div className="text-[8px] font-mono mb-1" style={{ color: 'rgba(6,182,212,0.5)' }}>
-                  {lang === 'ms'
-                    ? `Dijana pada ${new Date().toLocaleDateString('ms-MY', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kuala_Lumpur' })} ${new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kuala_Lumpur' })} MYT`
-                    : `Generated on ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kuala_Lumpur' })} ${new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kuala_Lumpur' })} MYT`
-                  }
+              {/* ─── FOOTER ATTRIBUTION ─────────────────────────── */}
+              <div className="mt-4 pt-3 text-center relative" style={{ borderTop: '1px solid rgba(6,182,212,0.1)' }}>
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <CoatOfArmsDecoration size={14} />
+                  <div className="text-[8px] font-mono" style={{ color: 'rgba(6,182,212,0.5)' }}>
+                    {lang === 'ms'
+                      ? `Dijana pada ${new Date().toLocaleDateString('ms-MY', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kuala_Lumpur' })} ${new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kuala_Lumpur' })} MYT`
+                      : `Generated on ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kuala_Lumpur' })} ${new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kuala_Lumpur' })} MYT`
+                    }
+                  </div>
+                  <CoatOfArmsDecoration size={14} />
                 </div>
                 <div className="text-[8px] font-mono" style={{ color: 'rgba(6,182,212,0.4)' }}>
                   {lang === 'ms'
                     ? 'Data diperoleh daripada data.gov.my • Lesen CC BY 4.0 • Pusat Perintah Data Terbuka Malaysia v3.0'
                     : 'Data sourced from data.gov.my • CC BY 4.0 License • Malaysia Open Data Command Center v3.0'
                   }
+                </div>
+                {/* Aspect ratio label in footer */}
+                <div className="text-[7px] font-mono mt-1" style={{ color: 'rgba(6,182,212,0.25)' }}>
+                  {aspectRatio} • {exportDimLabel}
                 </div>
               </div>
             </div>
