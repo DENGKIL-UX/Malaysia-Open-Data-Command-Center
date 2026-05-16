@@ -151,7 +151,7 @@ export function OverviewSection({ lang, onNavigateDatasets }: { lang: Lang; onNa
             color: '#e0f7fa',
             textShadow: '0 0 20px rgba(6,182,212,0.3)',
           }}>
-            {lang === 'ms' ? 'Pusat Perintah Data Malaysia' : 'Malaysia Data Command Center'}
+            {lang === 'ms' ? 'Pusat Perintah Data Terbuka Malaysia' : 'Malaysia Open Data Command Center'}
           </h2>
           <p className="text-sm opacity-80 max-w-2xl" style={{ color: '#b8c5d4' }}>
             {lang === 'ms'

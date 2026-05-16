@@ -1,4 +1,4 @@
-// Malaysia Data Command Center - Comprehensive Data Layer
+// Malaysia Open Data Command Center - Comprehensive Data Layer
 // Data sourced from data.gov.my open data (datagovmy-meta GitHub repository)
 
 export interface StateData {
@@ -130,10 +130,10 @@ export const TIMELINE_EVENTS = [
 // FAQ data
 export const FAQ_DATA = [
   {
-    q_en: 'What is the Malaysia Data Command Center?',
-    q_ms: 'Apakah Pusat Perintah Data Malaysia?',
-    a_en: 'The Malaysia Data Command Center is a premium SaaS-grade intelligence dashboard powered entirely by data.gov.my open data. It provides comprehensive visualizations and analytics across 287+ datasets covering demography, economy, healthcare, environment, and more.',
-    a_ms: 'Pusat Perintah Data Malaysia adalah papan pemuka kecerdasan gred SaaS premium yang dikuasakan sepenuhnya oleh data terbuka data.gov.my. Ia menyediakan visualisasi dan analitik komprehensif merentasi 287+ set data yang merangkumi demografi, ekonomi, kesihatan, alam sekitar, dan banyak lagi.',
+    q_en: 'What is the Malaysia Open Data Command Center?',
+    q_ms: 'Apakah Pusat Perintah Data Terbuka Malaysia?',
+    a_en: 'The Malaysia Open Data Command Center is a premium SaaS-grade intelligence dashboard powered entirely by data.gov.my open data. It provides comprehensive visualizations and analytics across 287+ datasets covering demography, economy, healthcare, environment, and more.',
+    a_ms: 'Pusat Perintah Data Terbuka Malaysia adalah papan pemuka kecerdasan gred SaaS premium yang dikuasakan sepenuhnya oleh data terbuka data.gov.my. Ia menyediakan visualisasi dan analitik komprehensif merentasi 287+ set data yang merangkumi demografi, ekonomi, kesihatan, alam sekitar, dan banyak lagi.',
   },
   {
     q_en: 'Where does the data come from?',

@@ -1,4 +1,4 @@
-# 🇲🇾 Malaysia Data Command Center
+# 🇲🇾 Malaysia Open Data Command Center
 
 A premium SaaS-grade intelligence dashboard powered by **data.gov.my** open data. Built with Next.js 16, React, and Tailwind CSS.
 

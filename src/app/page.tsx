@@ -615,7 +615,7 @@ export default function Home() {
           <div className="px-4 py-1.5" style={{ background: 'rgba(10,14,26,0.9)' }}>
             <div className="max-w-[1400px] mx-auto flex items-center gap-1" style={{ fontSize: '9px', fontFamily: 'monospace', letterSpacing: '0.08em' }}>
               <span style={{ color: 'rgba(6,182,212,0.35)' }}>
-                {lang === 'ms' ? 'PUSAT DATA COMMAND MALAYSIA' : 'MALAYSIA DATA COMMAND CENTER'}
+                {lang === 'ms' ? 'PUSAT PERINTAH DATA TERBUKA MALAYSIA' : 'MALAYSIA OPEN DATA COMMAND CENTER'}
               </span>
               <ChevronRight size={8} style={{ color: 'rgba(6,182,212,0.2)' }} />
               <span style={{ color: '#06b6d4', textShadow: '0 0 4px rgba(6,182,212,0.3)' }}>
@@ -687,7 +687,7 @@ export default function Home() {
                       color: '#06b6d4',
                       textShadow: '0 0 10px rgba(6,182,212,0.4)',
                     }}>
-                      MALAYSIA DATA COMMAND CENTER
+                      MALAYSIA OPEN DATA COMMAND CENTER
                       <Heart
                         size={10}
                         style={{ color: '#10b981', animation: 'heartbeat 1.5s ease-in-out infinite', filter: 'drop-shadow(0 0 4px rgba(16,185,129,0.5))' }}
@@ -783,7 +783,7 @@ export default function Home() {
                 {/* Bottom row */}
                 <div className="border-t pt-3 flex flex-col sm:flex-row items-center justify-between gap-2" style={{ borderColor: 'rgba(6,182,212,0.08)' }}>
                   <div className="text-[9px] font-mono" style={{ color: 'rgba(6,182,212,0.5)' }}>
-                    © {new Date().getFullYear()} Malaysia Data Command Center. All rights reserved.
+                    © {new Date().getFullYear()} Malaysia Open Data Command Center. All rights reserved.
                   </div>
                   <div className="flex items-center gap-4">
                     <FooterLiveClock />

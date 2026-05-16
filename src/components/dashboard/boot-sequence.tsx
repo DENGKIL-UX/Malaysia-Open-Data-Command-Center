@@ -8,7 +8,7 @@ interface BootSequenceProps {
 }
 
 const BOOT_LINES = [
-  { text: 'INITIALIZING DATA COMMAND CENTER...', color: 'cyan' as const },
+  { text: 'INITIALIZING OPEN DATA COMMAND CENTER...', color: 'cyan' as const },
   { text: 'CONNECTING TO data.gov.my API...', color: 'cyan' as const },
   { text: 'LOADING 287 DATASETS...', color: 'cyan' as const },
   { text: 'SYNCING GEOSPATIAL BOUNDARIES...', color: 'cyan' as const },
@@ -282,7 +282,7 @@ export default function BootSequence({ onComplete }: BootSequenceProps) {
                 textShadow: '0 0 20px rgba(6, 182, 212, 0.5), 0 0 40px rgba(6, 182, 212, 0.2)',
               }}
             >
-              MALAYSIA DATA
+              MALAYSIA OPEN DATA
             </div>
             <div
               className="text-2xl md:text-3xl font-bold tracking-wider"

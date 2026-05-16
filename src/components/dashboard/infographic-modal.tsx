@@ -165,7 +165,7 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
               <div className="text-center mb-6 pb-4" style={{ borderBottom: '1px solid rgba(6,182,212,0.15)' }}>
                 <div className="text-[9px] font-mono tracking-[0.3em] mb-1" style={{ color: 'rgba(6,182,212,0.5)' }}>DATA.GOV.MY</div>
                 <div className="text-xl font-bold" style={{ color: '#06b6d4', textShadow: '0 0 20px rgba(6,182,212,0.3)' }}>
-                  {lang === 'ms' ? 'PUSAT PERINTAH DATA MALAYSIA' : 'MALAYSIA DATA COMMAND CENTER'}
+                  {lang === 'ms' ? 'PUSAT PERINTAH DATA TERBUKA MALAYSIA' : 'MALAYSIA OPEN DATA COMMAND CENTER'}
                 </div>
                 <div className="text-[10px] font-mono mt-1" style={{ color: '#94a3b8' }}>
                   {lang === 'ms' ? 'Infografik Data Nasional' : 'National Data Infographic'} — {new Date().getFullYear()}
@@ -295,8 +295,8 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
               <div className="mt-6 pt-4 text-center" style={{ borderTop: '1px solid rgba(6,182,212,0.1)' }}>
                 <div className="text-[8px] font-mono" style={{ color: 'rgba(6,182,212,0.4)' }}>
                   {lang === 'ms'
-                    ? 'Data diperoleh daripada data.gov.my • Lesen CC BY 4.0 • Pusat Perintah Data Malaysia v3.0'
-                    : 'Data sourced from data.gov.my • CC BY 4.0 License • Malaysia Data Command Center v3.0'
+                    ? 'Data diperoleh daripada data.gov.my • Lesen CC BY 4.0 • Pusat Perintah Data Terbuka Malaysia v3.0'
+                    : 'Data sourced from data.gov.my • CC BY 4.0 License • Malaysia Open Data Command Center v3.0'
                   }
                 </div>
               </div>

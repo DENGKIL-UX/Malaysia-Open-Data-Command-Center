@@ -255,10 +255,10 @@ export default function Header() {
               textShadow: '0 0 20px rgba(6, 182, 212, 0.4), 0 0 40px rgba(6, 182, 212, 0.15)',
             }}
           >
-            MALAYSIA DATA COMMAND CENTER
+            MALAYSIA OPEN DATA COMMAND CENTER
           </h1>
           {/* Gradient underline animation */}
-          <div className="w-full h-0.5 mt-1 rounded-full overflow-hidden" style={{ maxWidth: '320px' }}>
+          <div className="w-full h-0.5 mt-1 rounded-full overflow-hidden" style={{ maxWidth: '420px' }}>
             <div
               className="h-full w-full rounded-full"
               style={{
