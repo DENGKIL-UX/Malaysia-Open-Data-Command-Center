@@ -224,12 +224,13 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
    * html2canvas cannot parse oklab(), oklch(), lab(), lch(), or color-mix(in oklab, ...).
    * Tailwind CSS 4 generates these in base styles for opacity variants.
    *
-   * Strategy: Temporarily disable stylesheet rules containing 'oklab' by
-   * removing them before export, then restoring after. Also inject CSS
-   * overrides for outline-color and caret-color defaults.
+   * Strategy: Temporarily disable stylesheet rules containing any of these
+   * modern CSS color functions by removing them before export, then restoring
+   * after. Also inject CSS overrides for outline-color and caret-color defaults.
    */
   const patchStylesheetsForExport = (): Array<{ sheet: CSSStyleSheet; rule: string; index: number }> => {
     const removed: Array<{ sheet: CSSStyleSheet; rule: string; index: number }> = [];
+    const BAD_PATTERNS = ['oklab', 'oklch', 'lab(', 'lch(', 'color-mix('];
 
     for (let si = 0; si < document.styleSheets.length; si++) {
       try {
@@ -238,7 +239,7 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
         // Iterate backwards to preserve indices when removing
         for (let ri = rules.length - 1; ri >= 0; ri--) {
           const ruleText = rules[ri].cssText;
-          if (ruleText && ruleText.includes('oklab')) {
+          if (ruleText && BAD_PATTERNS.some(p => ruleText.includes(p))) {
             removed.push({ sheet, rule: ruleText, index: ri });
             try {
               sheet.deleteRule(ri);
@@ -252,14 +253,15 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
       }
     }
 
-    // Inject global overrides for default oklab-based properties
+    // Inject global overrides for properties that used oklab/oklch defaults
+    // Only fix outline-color and caret-color — NOT border-color, which would
+    // override all visual borders and make the infographic look wrong.
     const fixStyle = document.createElement('style');
     fixStyle.id = 'html2canvas-oklab-fix';
     fixStyle.textContent = `
       *, *::before, *::after, ::backdrop {
         outline-color: transparent !important;
-        caret-color: auto !important;
-        border-color: rgba(6,182,212,0.12) !important;
+        caret-color: currentColor !important;
       }
     `;
     document.head.appendChild(fixStyle);
@@ -286,7 +288,19 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
     setExporting(true);
     const patches = patchStylesheetsForExport();
     try {
-      const html2canvas = (await import('html2canvas')).default;
+      // Dynamic import with error handling — some builds export default differently
+      let html2canvasFn: typeof import('html2canvas').default;
+      try {
+        const h2cModule = await import('html2canvas');
+        html2canvasFn = h2cModule.default || h2cModule;
+      } catch (importErr) {
+        console.error('Failed to load html2canvas:', importErr);
+        alert('Failed to load export library. Please refresh and try again.');
+        restoreStylesheets(patches);
+        setExporting(false);
+        return;
+      }
+
       const target = previewRef.current;
       if (!target) {
         restoreStylesheets(patches);
@@ -294,21 +308,14 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
         return;
       }
 
-      // Determine export dimensions based on aspect ratio
-      let exportWidth: number;
-      let exportHeight: number;
-      if (aspectRatio === '16:9') {
-        exportWidth = 1920;
-        exportHeight = 1080;
-      } else if (aspectRatio === '9:16') {
-        exportWidth = 1080;
-        exportHeight = 1920;
-      } else {
-        exportWidth = 1920;
-        exportHeight = 1080;
-      }
+      // Use actual rendered dimensions of the preview element rather than
+      // forcing fixed pixel dimensions that may not match what's on screen.
+      // The scale: 2 factor will produce a crisp 2× image.
+      const rect = target.getBoundingClientRect();
+      const exportWidth = Math.round(rect.width);
+      const exportHeight = Math.round(rect.height);
 
-      const canvas = await html2canvas(target, {
+      const canvas = await html2canvasFn(target, {
         scale: 2,
         backgroundColor: '#0a0e1a',
         useCORS: true,
@@ -316,12 +323,29 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
         height: exportHeight,
         logging: false,
         onclone: (clonedDoc, clonedEl) => {
-          // Also patch the cloned document's stylesheets
+          // Patch cloned document's stylesheets for modern CSS color functions
+          try {
+            const BAD_PATTERNS = ['oklab', 'oklch', 'lab(', 'lch(', 'color-mix('];
+            for (let si = 0; si < clonedDoc.styleSheets.length; si++) {
+              try {
+                const sheet = clonedDoc.styleSheets[si];
+                const rules = sheet.cssRules;
+                for (let ri = rules.length - 1; ri >= 0; ri--) {
+                  const ruleText = rules[ri].cssText;
+                  if (ruleText && BAD_PATTERNS.some(p => ruleText.includes(p))) {
+                    try { sheet.deleteRule(ri); } catch { /* ignore */ }
+                  }
+                }
+              } catch { /* CORS */ }
+            }
+          } catch { /* ignore */ }
+
+          // Fix only outline and caret colors (NOT border-color)
           const cloneStyle = clonedDoc.createElement('style');
           cloneStyle.textContent = `
             *, *::before, *::after {
               outline-color: transparent !important;
-              caret-color: auto !important;
+              caret-color: currentColor !important;
             }
           `;
           clonedDoc.head.appendChild(cloneStyle);
@@ -339,7 +363,9 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
       const ratioStr = aspectRatio === '16:9' ? '16x9' : aspectRatio === '9:16' ? '9x16' : 'auto';
       link.download = `malaysia-open-data-infographic-${ratioStr}-${Date.now()}.png`;
       link.href = canvas.toDataURL('image/png');
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
     } catch (e) {
       console.error('Export failed:', e);
       alert('Export failed. Please try again or use a different browser.');
@@ -350,11 +376,11 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
 
   const fs = fontSize === 'S' ? '10px' : fontSize === 'M' ? '12px' : '14px';
 
-  // Export dimension label
+  // Export dimension label (2× scale of actual rendered size)
   const exportDimLabel = useMemo(() => {
-    if (aspectRatio === '16:9') return '3840×2160';
-    if (aspectRatio === '9:16') return '2160×3840';
-    return '3840×auto';
+    if (aspectRatio === '16:9') return '2× rendered (≈3840×2160)';
+    if (aspectRatio === '9:16') return '2× rendered (≈2160×3840)';
+    return '2× rendered (auto)';
   }, [aspectRatio]);
 
   // Filter INFOGRAPHIC_SOURCES that match actual sources in data

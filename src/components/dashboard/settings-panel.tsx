@@ -8,7 +8,7 @@ import {
   Rss, Sparkles, ScanLine, Play,
   Palette, MessageSquare, Languages, Hash,
   Thermometer, Calendar, RotateCcw, ChevronDown,
-  Settings,
+  Settings, Type,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
@@ -361,6 +361,37 @@ export function SettingsPanel({
                     onChange={(v) => updateSetting('animationSpeed', v)}
                     lang={lang}
                   />
+                </div>
+
+                {/* Font Size */}
+                <div className="py-2">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[10px] font-mono flex items-center gap-1.5" style={{ color: 'rgba(148,163,184,0.7)' }}>
+                      <Type size={10} style={{ color: '#10b981' }} />
+                      {lang === 'ms' ? 'Saiz Fon' : 'Font Size'}
+                    </span>
+                  </div>
+                  <ToggleGroup
+                    options={[
+                      { value: 'small' as const, label_en: 'S', label_ms: 'S' },
+                      { value: 'medium' as const, label_en: 'M', label_ms: 'M' },
+                      { value: 'large' as const, label_en: 'L', label_ms: 'L' },
+                    ]}
+                    value={settings.fontSize}
+                    onChange={(v) => updateSetting('fontSize', v)}
+                    lang={lang}
+                  />
+                  <div className="flex justify-between mt-1">
+                    <span className="text-[7px] font-mono" style={{ color: 'rgba(148,163,184,0.3)' }}>
+                      {lang === 'ms' ? 'Kecil' : 'Small'}
+                    </span>
+                    <span className="text-[7px] font-mono" style={{ color: 'rgba(148,163,184,0.3)' }}>
+                      {lang === 'ms' ? 'Sederhana' : 'Medium'}
+                    </span>
+                    <span className="text-[7px] font-mono" style={{ color: 'rgba(148,163,184,0.3)' }}>
+                      {lang === 'ms' ? 'Besar' : 'Large'}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Display Density */}

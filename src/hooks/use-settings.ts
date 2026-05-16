@@ -17,6 +17,7 @@ export interface DashboardSettings {
   defaultLanguage: 'en' | 'ms';
   numberFormat: 'comma' | 'dot' | 'space';
   dateFormat: 'yyyy-mm-dd' | 'dd/mm/yyyy' | 'mm/dd/yyyy';
+  fontSize: 'small' | 'medium' | 'large';
 }
 
 // ─── Default Values ──────────────────────────────────────────────
@@ -34,6 +35,7 @@ export const DEFAULT_SETTINGS: DashboardSettings = {
   defaultLanguage: 'en',
   numberFormat: 'comma',
   dateFormat: 'yyyy-mm-dd',
+  fontSize: 'medium',
 };
 
 const STORAGE_KEY = 'malaysia-data-command-center-settings';
