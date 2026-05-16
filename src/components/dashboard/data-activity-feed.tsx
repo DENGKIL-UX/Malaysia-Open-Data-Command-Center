@@ -234,14 +234,14 @@ export function DataActivityFeed({ lang }: DataActivityFeedProps) {
                 {/* Reference */}
                 <span className="text-[8px] font-mono px-1.5 py-0.5 rounded flex-shrink-0" style={{
                   background: 'rgba(6,182,212,0.06)',
-                  color: 'rgba(6,182,212,0.5)',
+                  color: 'rgba(6,182,212,0.6)',
                   border: '1px solid rgba(6,182,212,0.08)',
                 }}>
                   {entry.ref}
                 </span>
 
                 {/* Time */}
-                <span className="text-[8px] font-mono whitespace-nowrap flex-shrink-0" style={{ color: 'rgba(148,163,184,0.4)' }}>
+                <span className="text-[8px] font-mono whitespace-nowrap flex-shrink-0" style={{ color: 'rgba(148,163,184,0.6)' }}>
                   {entry.time}
                 </span>
               </motion.div>

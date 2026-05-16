@@ -94,7 +94,7 @@ function StatusIndicators() {
             transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut', delay: 0.3 }}
           />
         </div>
-        <span className="text-[10px] font-mono tracking-wider" style={{ color: 'rgba(6, 182, 212, 0.6)' }}>
+        <span className="text-[10px] font-mono tracking-wider" style={{ color: 'rgba(6, 182, 212, 0.7)' }}>
           API CONNECTED
         </span>
       </div>
@@ -115,7 +115,7 @@ function StatusIndicators() {
             transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut', delay: 0.6 }}
           />
         </div>
-        <span className="text-[10px] font-mono tracking-wider" style={{ color: 'rgba(6, 182, 212, 0.6)' }}>
+        <span className="text-[10px] font-mono tracking-wider" style={{ color: 'rgba(6, 182, 212, 0.7)' }}>
           SYNC 287 DATASETS
         </span>
       </div>

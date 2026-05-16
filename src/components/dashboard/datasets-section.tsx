@@ -306,7 +306,7 @@ export function DatasetsSection({ lang }: { lang: Lang }) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" role="region" aria-label="Data catalogue">
       {/* Section Header: Data Catalogue */}
       <div className="flex items-center gap-3">
         <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
@@ -325,6 +325,7 @@ export function DatasetsSection({ lang }: { lang: Lang }) {
           <input
             type="text"
             placeholder={lang === 'ms' ? 'Cari set data...' : 'Search datasets...'}
+            aria-label="Search datasets"
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }}
             onFocus={() => setSearchFocused(true)}
@@ -341,6 +342,7 @@ export function DatasetsSection({ lang }: { lang: Lang }) {
         <div className="relative">
           <select
             value={categoryFilter}
+            aria-label="Filter by category"
             onChange={e => { setCategoryFilter(e.target.value); setPage(1); }}
             className="px-3 py-2 rounded-md border text-xs font-mono transition-all duration-200 appearance-none pr-8"
             style={{
@@ -357,6 +359,7 @@ export function DatasetsSection({ lang }: { lang: Lang }) {
         <div className="relative">
           <select
             value={freqFilter}
+            aria-label="Filter by frequency"
             onChange={e => { setFreqFilter(e.target.value); setPage(1); }}
             className="px-3 py-2 rounded-md border text-xs font-mono transition-all duration-200 appearance-none pr-8"
             style={{
@@ -445,7 +448,7 @@ export function DatasetsSection({ lang }: { lang: Lang }) {
                       (e.currentTarget as HTMLElement).style.borderLeft = '2px solid transparent';
                     }}
                   >
-                    <td className="px-3 py-2 font-mono" style={{ color: 'rgba(6,182,212,0.3)' }}>
+                    <td className="px-3 py-2 font-mono" style={{ color: 'rgba(6,182,212,0.5)' }}>
                       {(page - 1) * perPage + i + 1}
                     </td>
                     <td className="px-3 py-2">

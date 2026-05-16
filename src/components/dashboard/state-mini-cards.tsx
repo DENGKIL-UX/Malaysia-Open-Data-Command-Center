@@ -53,7 +53,7 @@ export function StateMiniCards({ lang, onStateClick }: { lang: Lang; onStateClic
               <span className="text-[8px] font-mono" style={{ color: '#10b981' }}>
                 GDP {(s.gdp / 1000).toFixed(1)}B
               </span>
-              <span className="text-[8px]" style={{ color: '#8899aa' }}>•</span>
+              <span className="text-[8px]" style={{ color: '#64748b' }}>•</span>
               <span className="text-[8px] font-mono" style={{ color: s.gdpGrowth >= 4 ? '#10b981' : '#f59e0b' }}>
                 {s.gdpGrowth}%
               </span>

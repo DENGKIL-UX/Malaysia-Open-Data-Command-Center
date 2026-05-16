@@ -232,10 +232,45 @@ body {
   color: #e0f7fa;
 }
 
-/* ── Focus ring ── */
+/* ── Custom focus-visible ring for command center theme ── */
 *:focus-visible {
-  outline: 1px solid rgba(6, 182, 212, 0.5);
+  outline: 2px solid #06b6d4;
   outline-offset: 2px;
+  border-radius: 4px;
+}
+
+button:focus-visible,
+a:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  outline: 2px solid #06b6d4;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(6,182,212,0.15);
+}
+
+/* Remove default focus outline, keep focus-visible only */
+*:focus {
+  outline: none;
+}
+
+/* Skip to content link for keyboard users */
+.skip-to-content {
+  position: absolute;
+  top: -100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #06b6d4;
+  color: #0a0e1a;
+  padding: 8px 16px;
+  border-radius: 0 0 8px 8px;
+  font-family: monospace;
+  font-size: 12px;
+  font-weight: bold;
+  z-index: 9999;
+  transition: top 0.2s;
+}
+.skip-to-content:focus {
+  top: 0;
 }
 
 /* ── Smooth transitions ── */

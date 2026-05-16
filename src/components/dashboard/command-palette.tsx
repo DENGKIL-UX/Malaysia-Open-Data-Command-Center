@@ -132,7 +132,7 @@ export function CommandPalette({ lang, onClose, onAction }: {
           {filtered.length === 0 ? (
             <div className="px-4 py-8 text-center">
               <Search size={20} style={{ color: 'rgba(6,182,212,0.2)' }} className="mx-auto mb-2" />
-              <p className="text-xs font-mono" style={{ color: 'rgba(6,182,212,0.3)' }}>
+              <p className="text-xs font-mono" style={{ color: 'rgba(6,182,212,0.5)' }}>
                 {lang === 'ms' ? 'Tiada hasil dijumpai' : 'No results found'}
               </p>
             </div>

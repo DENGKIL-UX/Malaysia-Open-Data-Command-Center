@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, Monitor, BarChart3, Globe, Info,
@@ -619,18 +620,17 @@ export function SettingsPanel({
 }
 
 // ─── Settings Gear Button (exported for nav bar use) ──────────────
-export function SettingsGearButton({
-  lang,
-  onClick,
-  isActive,
-}: {
+export const SettingsGearButton = React.forwardRef<HTMLButtonElement, {
   lang: Lang;
   onClick: () => void;
   isActive: boolean;
-}) {
+  'aria-label'?: string;
+}>(function SettingsGearButton({ lang, onClick, isActive, 'aria-label': ariaLabel }, ref) {
   return (
     <button
+      ref={ref}
       onClick={onClick}
+      aria-label={ariaLabel}
       className="relative flex items-center gap-1 px-2 py-1.5 rounded border text-[10px] font-mono tracking-wider cursor-pointer transition-all"
       style={{
         background: isActive ? 'rgba(6,182,212,0.1)' : 'rgba(10,14,26,0.8)',
@@ -643,6 +643,6 @@ export function SettingsGearButton({
       <span className="hidden sm:inline">{lang === 'ms' ? 'Tetapan' : 'Settings'}</span>
     </button>
   );
-}
+});
 
 export default SettingsPanel;

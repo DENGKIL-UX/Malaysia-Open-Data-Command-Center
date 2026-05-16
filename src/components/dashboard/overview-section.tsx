@@ -22,6 +22,8 @@ import { StateMiniCards } from '@/components/dashboard/state-mini-cards';
 import { HealthIndexWidget } from '@/components/dashboard/health-index';
 import { DataSourceStats } from '@/components/dashboard/data-source-stats';
 import { DataActivityFeed } from '@/components/dashboard/data-activity-feed';
+import { DataDiscoveryEngine } from '@/components/dashboard/data-discovery-engine';
+import { ProgressTracker } from '@/components/dashboard/progress-tracker';
 import { DataInsightsEngine } from '@/components/dashboard/data-insights-engine';
 import { DataSnapshotWidget } from '@/components/dashboard/data-snapshot-widget';
 import { AnimatedBorderCard } from '@/components/dashboard/animated-border-card';
@@ -61,7 +63,7 @@ const CHART_AXIS_LINE = { stroke: 'rgba(6,182,212,0.15)' };
 const CHART_TICK_LINE = { stroke: 'rgba(6,182,212,0.15)' };
 
 // ─── Overview Section ─────────────────────────────────────────────
-export function OverviewSection({ lang }: { lang: Lang }) {
+export function OverviewSection({ lang, onNavigateDatasets }: { lang: Lang; onNavigateDatasets?: (category?: string) => void }) {
   const [explorerMetric, setExplorerMetric] = useState<'population' | 'gdp' | 'gdpGrowth' | 'births' | 'unemployment' | 'datasets' | null>(null);
 
   const kpis = [
@@ -101,7 +103,7 @@ export function OverviewSection({ lang }: { lang: Lang }) {
   const PIE_COLORS = ['#06b6d4', '#f59e0b', '#8b5cf6', '#10b981', '#ef4444', '#64748b', '#ec4899'];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" role="region" aria-label="Dashboard overview">
       {/* Data Flow Lines Overlay */}
       <DataFlowLines enabled={true} />
       {/* Hero Banner */}
@@ -181,12 +183,21 @@ export function OverviewSection({ lang }: { lang: Lang }) {
       <AnimatedDivider />
 
       {/* Data Snapshot Widget */}
-      <DataSnapshotWidget lang={lang} />
+      <DataSnapshotWidget lang={lang} onMetricClick={(metric) => {
+        const metricMap: Record<string, 'population' | 'gdp' | 'gdpGrowth' | 'births' | 'unemployment' | 'datasets'> = {
+          population: 'population',
+          gdp: 'gdp',
+          births: 'births',
+          density: 'population',
+        };
+        const mapped = metricMap[metric];
+        if (mapped) setExplorerMetric(mapped);
+      }} />
 
       <AnimatedDivider />
 
       {/* KPI Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3" role="group" aria-label="Key performance indicators">
         {kpis.map((kpi, i) => (
           <div key={i} data-flow={i === 0 ? 'kpi-population' : i === 1 ? 'kpi-gdp' : undefined}>
             <KPICard {...kpi} lang={lang} onClick={() => {
@@ -199,8 +210,8 @@ export function OverviewSection({ lang }: { lang: Lang }) {
 
       <AnimatedDivider />
 
-      {/* Row: Data Engine + State Cards + Health Index */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Row: Data Engine + State Cards + Health Index + Progress Tracker */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <AnimatedBorderCard>
           <div data-flow="data-engine">
             <DataEnginePulse lang={lang} />
@@ -214,6 +225,7 @@ export function OverviewSection({ lang }: { lang: Lang }) {
             <HealthIndexWidget lang={lang} />
           </div>
         </AnimatedBorderCard>
+        <ProgressTracker lang={lang} />
       </div>
 
       <AnimatedDivider />
@@ -253,7 +265,7 @@ export function OverviewSection({ lang }: { lang: Lang }) {
               </div>
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={260}>
+          <ResponsiveContainer width="100%" height={260} role="img" aria-label="Bar chart showing population and GDP by state">
             <BarChart data={topStatesData} barCategoryGap="20%">
               <defs>
                 <linearGradient id="popGrad" x1="0" y1="0" x2="0" y2="1">
@@ -326,7 +338,7 @@ export function OverviewSection({ lang }: { lang: Lang }) {
             </span>
           </div>
           <div className="relative">
-            <ResponsiveContainer width="100%" height={200}>
+            <ResponsiveContainer width="100%" height={200} role="img" aria-label="Pie chart showing data frequency distribution">
               <PieChart>
                 <Pie data={freqDist} cx="50%" cy="50%" innerRadius={45} outerRadius={75} dataKey="value" paddingAngle={2} stroke="none">
                   {freqDist.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
@@ -405,7 +417,7 @@ export function OverviewSection({ lang }: { lang: Lang }) {
             {catStats.slice(0, 18).map((cat) => (
               <div
                 key={cat.name}
-                className="rounded p-1.5 text-center cursor-default transition-all duration-200 hover:scale-110"
+                className="rounded p-1.5 text-center cursor-default transition-all duration-200 hover:scale-110 relative overflow-hidden"
                 style={{
                   background: `${cat.color}12`,
                   border: `1px solid ${cat.color}20`,
@@ -413,7 +425,23 @@ export function OverviewSection({ lang }: { lang: Lang }) {
                 onMouseEnter={e => { e.currentTarget.style.boxShadow = `0 0 12px ${cat.color}30`; e.currentTarget.style.borderColor = `${cat.color}50`; }}
                 onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = `${cat.color}20`; }}
               >
-                <div className="text-[10px] font-mono font-bold" style={{ color: cat.color }}>{cat.value}</div>
+                {/* Scan line effect on hover */}
+                <div className="absolute inset-0 opacity-0 hover:opacity-100 pointer-events-none" style={{ transition: 'opacity 0.2s' }}>
+                  <motion.div
+                    className="absolute left-0 right-0 h-px"
+                    style={{ background: `linear-gradient(90deg, transparent, ${cat.color}40, transparent)` }}
+                    animate={{ top: ['0%', '100%'] }}
+                    transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+                  />
+                </div>
+                <motion.div
+                  className="text-[10px] font-mono font-bold"
+                  style={{ color: cat.color }}
+                  whileHover={{ scale: 1.05 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  {cat.value}
+                </motion.div>
                 <div className="text-[7px] font-mono truncate" style={{ color: '#b0bec5' }}>{cat.name}</div>
               </div>
             ))}
@@ -449,13 +477,23 @@ export function OverviewSection({ lang }: { lang: Lang }) {
               };
               const dotColor = typeColors[event.type] || '#06b6d4';
               return (
-                <div key={i} className="flex items-start gap-2.5 py-1.5 px-2 rounded transition-all duration-200 hover:bg-cyan-950/20" style={{
+                <div key={i} className="flex items-start gap-2.5 py-1.5 px-2 rounded transition-all duration-200 hover:bg-cyan-950/20 relative" style={{
                   borderLeft: i === 0 ? '2px solid #06b6d4' : '2px solid rgba(6,182,212,0.08)',
                 }} onMouseEnter={e => { e.currentTarget.style.borderLeftColor = '#06b6d460'; e.currentTarget.style.background = 'rgba(6,182,212,0.06)'; }} onMouseLeave={e => { e.currentTarget.style.borderLeftColor = i === 0 ? '#06b6d4' : 'rgba(6,182,212,0.08)'; e.currentTarget.style.background = ''; }}>
-                  <div className="w-1.5 h-1.5 rounded-full mt-1 flex-shrink-0" style={{
-                    background: dotColor,
-                    boxShadow: i === 0 ? `0 0 6px ${dotColor}60` : 'none',
-                  }} />
+                  <div className="relative mt-1 flex-shrink-0">
+                    <div className="w-1.5 h-1.5 rounded-full" style={{
+                      background: dotColor,
+                      boxShadow: i === 0 ? `0 0 6px ${dotColor}60` : 'none',
+                    }} />
+                    {/* Data pulse ring on hover — expanding ring animation */}
+                    <motion.div
+                      className="absolute inset-0 w-1.5 h-1.5 rounded-full pointer-events-none"
+                      style={{ border: `1px solid ${dotColor}` }}
+                      initial={{ scale: 1, opacity: 0 }}
+                      whileHover={{ scale: 3, opacity: [0, 0.6, 0] }}
+                      transition={{ duration: 0.8, repeat: Infinity, ease: 'easeOut' }}
+                    />
+                  </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] font-mono whitespace-nowrap" style={{ color: dotColor }}>{event.date}</span>
@@ -482,6 +520,11 @@ export function OverviewSection({ lang }: { lang: Lang }) {
       <div data-flow="activity-feed">
         <DataActivityFeed lang={lang} />
       </div>
+
+      <AnimatedDivider />
+
+      {/* Data Discovery Engine */}
+      <DataDiscoveryEngine lang={lang} onNavigateDatasets={onNavigateDatasets} />
 
       {/* Data Explorer Modal */}
       <DataExplorerModal

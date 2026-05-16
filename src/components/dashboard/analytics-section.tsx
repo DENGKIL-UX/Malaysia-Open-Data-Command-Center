@@ -90,6 +90,23 @@ function correlationColor(value: number): string {
   }
 }
 
+// ─── Scan Beam Overlay (for chart hover effect) ─────────────────
+function ScanBeamOverlay({ color = '#06b6d4' }: { color?: string }) {
+  return (
+    <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+      <motion.div
+        className="absolute top-0 bottom-0 w-px"
+        style={{
+          background: `linear-gradient(180deg, transparent, ${color}30, ${color}60, ${color}30, transparent)`,
+          boxShadow: `0 0 8px ${color}40`,
+        }}
+        animate={{ left: ['0%', '100%'] }}
+        transition={{ duration: 2.5, repeat: Infinity, ease: 'linear' }}
+      />
+    </div>
+  );
+}
+
 // ─── Analytics Section ───────────────────────────────────────────
 export function AnalyticsSection({ lang }: { lang: Lang }) {
   // State comparison radar chart
@@ -273,7 +290,7 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
   const SECTOR_COLORS = ['#06b6d4', '#f59e0b', '#8b5cf6', '#10b981', '#ec4899'];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" role="region" aria-label="Data analytics">
       {/* Section Header: Trends & Comparison */}
       <div className="flex items-center gap-3">
         <div>
@@ -287,6 +304,7 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* GDP Trend Area Chart */}
         <div className="relative group rounded-xl border p-5" style={premiumCardStyle()}>
+          <ScanBeamOverlay color="#f59e0b" />
           <HUDBracket />
           <div className="flex items-center gap-2 mb-4">
             <TrendingUp size={14} style={{ color: '#f59e0b' }} />
@@ -294,7 +312,7 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
               {lang === 'ms' ? 'TREND KDNK (RM B)' : 'GDP TREND (RM B)'}
             </span>
           </div>
-          <ResponsiveContainer width="100%" height={220}>
+          <ResponsiveContainer width="100%" height={220} role="img" aria-label="GDP trend area chart from 2019 to 2024">
             <AreaChart data={gdpTrend}>
               <defs>
                 <linearGradient id="gdpGrad" x1="0" y1="0" x2="0" y2="1">
@@ -322,6 +340,7 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
 
         {/* Radar Chart */}
         <div className="relative group rounded-xl border p-5" style={premiumCardStyle()}>
+          <ScanBeamOverlay color="#06b6d4" />
           <HUDBracket />
           <div className="flex items-center gap-2 mb-4">
             <Activity size={14} style={{ color: '#06b6d4' }} />
@@ -329,7 +348,7 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
               {lang === 'ms' ? 'PERBANDINGAN NEGERI TERATAS' : 'TOP STATES COMPARISON'}
             </span>
           </div>
-          <ResponsiveContainer width="100%" height={220}>
+          <ResponsiveContainer width="100%" height={220} role="img" aria-label="Radar chart comparing top 5 states across metrics">
             <RadarChart data={radarData}>
               <PolarGrid stroke="rgba(6,182,212,0.1)" />
               <PolarAngleAxis dataKey="metric" tick={{ fill: '#8899aa', fontSize: 9 }} />
@@ -354,6 +373,7 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* GDP Growth Rate Bar Chart */}
         <div className="relative group rounded-xl border p-5" style={premiumCardStyle()}>
+          <ScanBeamOverlay color="#10b981" />
           <HUDBracket />
           <div className="flex items-center gap-2 mb-4">
             <TrendingUp size={14} style={{ color: '#10b981' }} />
@@ -361,7 +381,7 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
               {lang === 'ms' ? 'KADAR PERTUMBUHAN KDNK' : 'GDP GROWTH RATE'}
             </span>
           </div>
-          <ResponsiveContainer width="100%" height={200}>
+          <ResponsiveContainer width="100%" height={200} role="img" aria-label="Bar chart showing GDP growth rate from 2019 to 2024">
             <BarChart data={gdpGrowthRateData} barCategoryGap="20%">
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(6,182,212,0.06)" />
               <XAxis dataKey="year" tick={CHART_AXIS_TICK} axisLine={CHART_AXIS_LINE} tickLine={CHART_TICK_LINE} />
@@ -388,6 +408,7 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
 
         {/* Sector Contribution Horizontal Bar Chart */}
         <div className="relative group rounded-xl border p-5" style={premiumCardStyle()}>
+          <ScanBeamOverlay color="#8b5cf6" />
           <HUDBracket />
           <div className="flex items-center gap-2 mb-4">
             <Layers size={14} style={{ color: '#8b5cf6' }} />
@@ -395,7 +416,7 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
               {lang === 'ms' ? 'SUMBANGAN SEKTOR KDNK' : 'GDP SECTOR CONTRIBUTION'}
             </span>
           </div>
-          <ResponsiveContainer width="100%" height={200}>
+          <ResponsiveContainer width="100%" height={200} role="img" aria-label="Horizontal bar chart showing GDP sector contribution percentages">
             <BarChart data={sectorContributionData} layout="vertical" barCategoryGap="15%">
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(6,182,212,0.06)" />
               <XAxis type="number" tick={CHART_AXIS_TICK} axisLine={CHART_AXIS_LINE} tickLine={CHART_TICK_LINE} />
@@ -435,6 +456,7 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
 
       {/* ─── Existing: Category Distribution Bar Chart ──────────── */}
       <div className="relative group rounded-xl border p-5" style={premiumCardStyle()}>
+        <ScanBeamOverlay color="#06b6d4" />
         <HUDBracket />
         <div className="flex items-center gap-2 mb-4">
           <Database size={14} style={{ color: '#06b6d4' }} />
@@ -442,7 +464,7 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
             {lang === 'ms' ? 'TABURAN KATEGORI SET DATA' : 'DATASET CATEGORY DISTRIBUTION'}
           </span>
         </div>
-        <ResponsiveContainer width="100%" height={280}>
+        <ResponsiveContainer width="100%" height={280} role="img" aria-label="Bar chart showing dataset category distribution">
           <BarChart data={catDist} layout="vertical" barCategoryGap="8%">
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(6,182,212,0.06)" />
             <XAxis type="number" tick={CHART_AXIS_TICK} axisLine={CHART_AXIS_LINE} tickLine={CHART_TICK_LINE} />
@@ -467,6 +489,7 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
 
       {/* ─── Existing: State Matrix ─────────────────────────────── */}
       <div className="relative group rounded-xl border p-5" style={premiumCardStyle()}>
+        <ScanBeamOverlay color="#06b6d4" />
         <HUDBracket />
         <div className="flex items-center gap-2 mb-4">
           <Layers size={14} style={{ color: '#06b6d4' }} />
@@ -527,6 +550,7 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
 
         {/* Correlation Matrix (col-span-2) */}
         <div className="lg:col-span-2 relative group rounded-xl border p-5" style={premiumCardStyle()}>
+          <ScanBeamOverlay color="#f59e0b" />
           <HUDBracket />
           <div className="flex items-center gap-2 mb-4">
             <Activity size={14} style={{ color: '#f59e0b' }} />
@@ -603,6 +627,7 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
 
         {/* Key Insights Panel (col-span-1) */}
         <div className="relative group rounded-xl border p-5" style={premiumCardStyle()}>
+          <ScanBeamOverlay color="#f59e0b" />
           <HUDBracket />
           <div className="flex items-center gap-2 mb-4">
             <Lightbulb size={14} style={{ color: '#f59e0b' }} />
@@ -647,6 +672,7 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
 
         {/* Population Pyramid (col-span-1) */}
         <div className="relative group rounded-xl border p-5" style={premiumCardStyle()}>
+          <ScanBeamOverlay color="#ec4899" />
           <HUDBracket />
           <div className="flex items-center gap-2 mb-3">
             <Layers size={14} style={{ color: '#ec4899' }} />
@@ -722,6 +748,7 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
 
         {/* Economic Sector Treemap (col-span-1) */}
         <div className="relative group rounded-xl border p-5" style={premiumCardStyle()}>
+          <ScanBeamOverlay color="#10b981" />
           <HUDBracket />
           <div className="flex items-center gap-2 mb-3">
             <Layers size={14} style={{ color: '#10b981' }} />
@@ -839,6 +866,7 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
 
         {/* Data Quality Score (col-span-1) */}
         <div className="relative group rounded-xl border p-5" style={premiumCardStyle()}>
+          <ScanBeamOverlay color="#06b6d4" />
           <HUDBracket />
           <div className="flex items-center gap-2 mb-3">
             <Shield size={14} style={{ color: '#06b6d4' }} />

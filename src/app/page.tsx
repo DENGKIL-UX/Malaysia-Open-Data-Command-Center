@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, TrendingUp, Database, Briefcase, Activity,
   BarChart3, Map, LayoutDashboard, Printer, Info,
   HelpCircle, Languages, ArrowUp, Bell, Copyright,
-  ExternalLink, Heart, Download,
+  ExternalLink, Heart, Download, ChevronRight,
 } from 'lucide-react';
 
 import BootSequence from '@/components/dashboard/boot-sequence';
@@ -26,7 +26,94 @@ import { QuickStatsBar } from '@/components/dashboard/quick-stats-bar';
 import { SettingsPanel, SettingsGearButton } from '@/components/dashboard/settings-panel';
 import { useSettings } from '@/hooks/use-settings';
 import { SkeletonCard, SkeletonChart, SkeletonMap } from '@/components/dashboard/skeleton-loader';
+import { ScrollProgress } from '@/components/dashboard/scroll-progress';
 import type { TabId, Lang } from '@/lib/dashboard-types';
+
+// ─── Focus Trap Hook ──────────────────────────────────────────────
+function useFocusTrap(isOpen: boolean, containerRef: React.RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    if (!isOpen || !containerRef.current) return;
+
+    const container = containerRef.current;
+    const focusableSelector = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
+    // Focus the first focusable element when modal opens
+    const focusFirst = () => {
+      const focusable = container.querySelectorAll<HTMLElement>(focusableSelector);
+      if (focusable.length > 0) {
+        requestAnimationFrame(() => focusable[0].focus());
+      }
+    };
+
+    // Small delay to let animation render the content
+    const timer = setTimeout(focusFirst, 100);
+
+    // Trap tab key within the container
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const focusable = container.querySelectorAll<HTMLElement>(focusableSelector);
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+
+    container.addEventListener('keydown', handleKeyDown);
+    return () => {
+      clearTimeout(timer);
+      container.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, containerRef]);
+}
+
+// ─── Footer Live Clock (MYT) ────────────────────────────────────
+function FooterLiveClock() {
+  const [time, setTime] = useState('');
+
+  useEffect(() => {
+    const updateClock = () => {
+      const now = new Date();
+      const mytTime = new Date(now.getTime() + 8 * 60 * 60 * 1000 - now.getTimezoneOffset() * 60 * 1000);
+      const hours = mytTime.getHours().toString().padStart(2, '0');
+      const minutes = mytTime.getMinutes().toString().padStart(2, '0');
+      const seconds = mytTime.getSeconds().toString().padStart(2, '0');
+      setTime(`MYT ${hours}:${minutes}:${seconds}`);
+    };
+
+    updateClock();
+    const interval = setInterval(updateClock, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <div className="relative">
+        <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#10b981', boxShadow: '0 0 4px rgba(16,185,129,0.6)' }} />
+        <motion.div
+          className="absolute inset-0 w-1.5 h-1.5 rounded-full"
+          style={{ border: '1px solid rgba(16,185,129,0.4)' }}
+          animate={{ scale: [1, 2, 1], opacity: [0.6, 0, 0.6] }}
+          transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+        />
+      </div>
+      <span className="text-[10px] font-mono font-bold tracking-wider" style={{ color: '#06b6d4', textShadow: '0 0 6px rgba(6,182,212,0.3)' }}>
+        {time}
+      </span>
+    </div>
+  );
+}
 
 // ─── Footer Animated Counter ────────────────────────────────────
 function FooterCounter({ target, color }: { target: number; color: string }) {
@@ -72,6 +159,76 @@ export default function Home() {
   const [showQuickStats, setShowQuickStats] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const { settings, updateSetting, resetToDefaults } = useSettings();
+
+  // Focus trap refs for modals
+  const infographicRef = useRef<HTMLDivElement>(null);
+  const commandPaletteRef = useRef<HTMLDivElement>(null);
+  const shortcutsModalRef = useRef<HTMLDivElement>(null);
+  const notificationRef = useRef<HTMLDivElement>(null);
+  const settingsRef = useRef<HTMLDivElement>(null);
+  const exportHubRef = useRef<HTMLDivElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
+
+  // Trigger button refs for focus restoration
+  const infographicTriggerRef = useRef<HTMLButtonElement>(null);
+  const commandPaletteTriggerRef = useRef<HTMLButtonElement>(null);
+  const shortcutsTriggerRef = useRef<HTMLButtonElement>(null);
+  const notificationTriggerRef = useRef<HTMLButtonElement>(null);
+  const settingsTriggerRef = useRef<HTMLButtonElement>(null);
+  const exportHubTriggerRef = useRef<HTMLButtonElement>(null);
+
+  // Apply focus traps
+  useFocusTrap(showInfographic, infographicRef);
+  useFocusTrap(showCommandPalette, commandPaletteRef);
+  useFocusTrap(showShortcutsModal, shortcutsModalRef);
+  useFocusTrap(showNotifications, notificationRef);
+  useFocusTrap(showSettings, settingsRef);
+  useFocusTrap(showExportHub, exportHubRef);
+  useFocusTrap(!!profileStateId, profileRef);
+
+  // Restore focus when modals close
+  useEffect(() => {
+    if (!showInfographic && infographicTriggerRef.current) {
+      // Only restore if no other modal is open
+      const anyModalOpen = showCommandPalette || showShortcutsModal || showNotifications || showSettings || showExportHub || !!profileStateId;
+      if (!anyModalOpen) infographicTriggerRef.current.focus();
+    }
+  }, [showInfographic, showCommandPalette, showShortcutsModal, showNotifications, showSettings, showExportHub, profileStateId]);
+
+  useEffect(() => {
+    if (!showCommandPalette && commandPaletteTriggerRef.current) {
+      const anyModalOpen = showInfographic || showShortcutsModal || showNotifications || showSettings || showExportHub || !!profileStateId;
+      if (!anyModalOpen) commandPaletteTriggerRef.current.focus();
+    }
+  }, [showInfographic, showCommandPalette, showShortcutsModal, showNotifications, showSettings, showExportHub, profileStateId]);
+
+  useEffect(() => {
+    if (!showShortcutsModal && shortcutsTriggerRef.current) {
+      const anyModalOpen = showInfographic || showCommandPalette || showNotifications || showSettings || showExportHub || !!profileStateId;
+      if (!anyModalOpen) shortcutsTriggerRef.current.focus();
+    }
+  }, [showInfographic, showCommandPalette, showShortcutsModal, showNotifications, showSettings, showExportHub, profileStateId]);
+
+  useEffect(() => {
+    if (!showNotifications && notificationTriggerRef.current) {
+      const anyModalOpen = showInfographic || showCommandPalette || showShortcutsModal || showSettings || showExportHub || !!profileStateId;
+      if (!anyModalOpen) notificationTriggerRef.current.focus();
+    }
+  }, [showInfographic, showCommandPalette, showShortcutsModal, showNotifications, showSettings, showExportHub, profileStateId]);
+
+  useEffect(() => {
+    if (!showSettings && settingsTriggerRef.current) {
+      const anyModalOpen = showInfographic || showCommandPalette || showShortcutsModal || showNotifications || showExportHub || !!profileStateId;
+      if (!anyModalOpen) settingsTriggerRef.current.focus();
+    }
+  }, [showInfographic, showCommandPalette, showShortcutsModal, showNotifications, showSettings, showExportHub, profileStateId]);
+
+  useEffect(() => {
+    if (!showExportHub && exportHubTriggerRef.current) {
+      const anyModalOpen = showInfographic || showCommandPalette || showShortcutsModal || showNotifications || showSettings || !!profileStateId;
+      if (!anyModalOpen) exportHubTriggerRef.current.focus();
+    }
+  }, [showInfographic, showCommandPalette, showShortcutsModal, showNotifications, showSettings, showExportHub, profileStateId]);
 
   // Scroll listener for scroll-to-top button and quick stats bar
   useEffect(() => {
@@ -169,6 +326,9 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col relative" data-scan-lines={settings.showScanLines ? 'true' : 'false'} style={{ background: '#0a0e1a' }}>
+      <a href="#main-content" className="skip-to-content">
+        Skip to main content
+      </a>
       {settings.showParticles && <ParticleBackground />}
       {/* Boot Sequence */}
       <AnimatePresence>
@@ -215,31 +375,43 @@ export default function Home() {
           transition={{ duration: 0.5 }}
           className="relative z-10 flex flex-col min-h-screen"
         >
+          {/* Scroll Progress Indicator */}
+          <ScrollProgress enabled={booted} />
+
           {/* Header */}
           <Header />
 
           {/* Navigation Bar */}
-          <nav className="flex-shrink-0 px-4" style={{
-            background: 'rgba(10,14,26,0.95)',
-          }}>
+          <nav
+            role="navigation"
+            aria-label="Main navigation"
+            className="flex-shrink-0 px-4 transition-opacity duration-300"
+            style={{
+              background: 'rgba(10,14,26,0.95)',
+              opacity: (showInfographic || showCommandPalette || showShortcutsModal || showExportHub || showNotifications || showSettings) ? 0.6 : 1,
+            }}
+          >
             {/* Subtle cyan glow line at the bottom of nav */}
             <div className="h-px w-full" style={{
               background: 'linear-gradient(90deg, transparent 5%, rgba(6,182,212,0.3) 30%, rgba(6,182,212,0.5) 50%, rgba(6,182,212,0.3) 70%, transparent 95%)',
               boxShadow: '0 0 8px rgba(6,182,212,0.2), 0 1px 4px rgba(6,182,212,0.15)',
             }} />
             <div className="flex items-center justify-between max-w-[1400px] mx-auto">
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1" role="tablist" aria-label="Dashboard sections">
                 {tabs.map(tab => {
                   const isActive = activeTab === tab.id;
                   return (
                     <button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id)}
-                      className="relative flex items-center gap-1.5 px-3 py-3 text-xs font-mono tracking-wider transition-all duration-200"
+                      role="tab"
+                      aria-selected={activeTab === tab.id}
+                      className="relative flex items-center gap-1.5 px-3 py-3 text-xs font-mono tracking-wider transition-all duration-300"
                       style={{
                         color: isActive ? '#06b6d4' : 'rgba(6,182,212,0.4)',
                         textShadow: isActive ? '0 0 8px rgba(6,182,212,0.5)' : 'none',
                         boxShadow: isActive ? '0 2px 12px rgba(6,182,212,0.15)' : 'none',
+                        background: isActive ? 'rgba(6,182,212,0.08)' : 'transparent',
                       }}
                       onMouseEnter={e => {
                         if (!isActive) {
@@ -261,10 +433,10 @@ export default function Home() {
                       {isActive && (
                         <motion.div
                           layoutId="activeTab"
-                          className="absolute bottom-0 left-0 right-0 h-0.5"
+                          className="absolute bottom-0 left-0 right-0 h-[3px]"
                           style={{
                             background: 'linear-gradient(90deg, transparent, #06b6d4, transparent)',
-                            boxShadow: '0 0 10px rgba(6,182,212,0.5)',
+                            boxShadow: '0 0 12px rgba(6,182,212,0.6), 0 0 24px rgba(6,182,212,0.3)',
                           }}
                         />
                       )}
@@ -273,11 +445,15 @@ export default function Home() {
                 })}
               </div>
 
+              {/* Separator line between tabs and toolbar */}
+              <div className="hidden sm:block h-6 w-px mx-2" style={{ background: 'rgba(6,182,212,0.12)' }} />
+
               <div className="flex items-center gap-2">
                 {/* Language Toggle */}
                 <button
                   onClick={() => setLang(l => l === 'en' ? 'ms' : 'en')}
-                  className="flex items-center gap-1 px-2 py-1.5 rounded border text-[11px] font-mono tracking-wider transition-all duration-200"
+                  aria-label="Toggle language between English and Bahasa Malaysia"
+                  className="flex items-center justify-center gap-1 min-w-[32px] px-2 py-1.5 rounded border text-[11px] font-mono tracking-wider transition-all duration-300"
                   style={{
                     background: 'rgba(10,14,26,0.8)',
                     borderColor: 'rgba(6,182,212,0.15)',
@@ -298,10 +474,12 @@ export default function Home() {
                   {lang === 'en' ? 'BM' : 'EN'}
                 </button>
 
-                {/* Data Export Hub */}
+                {/* Data Export Hub — with animated dot indicator */}
                 <button
+                  ref={exportHubTriggerRef}
                   onClick={() => setShowExportHub(true)}
-                  className="flex items-center gap-1 px-2 py-1.5 rounded border text-[11px] font-mono tracking-wider transition-all duration-200"
+                  aria-label="Open data export hub"
+                  className="relative flex items-center justify-center gap-1 min-w-[32px] px-2 py-1.5 rounded border text-[11px] font-mono tracking-wider transition-all duration-300"
                   style={{
                     background: 'rgba(10,14,26,0.8)',
                     borderColor: 'rgba(6,182,212,0.15)',
@@ -320,12 +498,21 @@ export default function Home() {
                 >
                   <Download size={10} />
                   <span className="hidden sm:inline">{lang === 'ms' ? 'Eksport' : 'Export'}</span>
+                  {/* Animated dot indicator */}
+                  <motion.div
+                    className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full"
+                    style={{ background: '#06b6d4', boxShadow: '0 0 4px rgba(6,182,212,0.6)' }}
+                    animate={{ scale: [1, 1.4, 1], opacity: [0.7, 1, 0.7] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                  />
                 </button>
 
                 {/* Infographic Export */}
                 <button
+                  ref={infographicTriggerRef}
                   onClick={() => setShowInfographic(true)}
-                  className="flex items-center gap-1 px-2 py-1.5 rounded border text-[11px] font-mono tracking-wider transition-all duration-200"
+                  aria-label="Open infographic export"
+                  className="flex items-center justify-center gap-1 min-w-[32px] px-2 py-1.5 rounded border text-[11px] font-mono tracking-wider transition-all duration-300"
                   style={{
                     background: 'rgba(10,14,26,0.8)',
                     borderColor: 'rgba(6,182,212,0.15)',
@@ -349,7 +536,9 @@ export default function Home() {
                 {/* Info */}
                 <button
                   onClick={() => setShowInfo(!showInfo)}
-                  className="flex items-center gap-1 px-2 py-1.5 rounded border text-[11px] font-mono tracking-wider transition-all duration-200"
+                  aria-label="Toggle information panel"
+                  aria-pressed={showInfo}
+                  className="flex items-center justify-center gap-1 min-w-[32px] px-2 py-1.5 rounded border text-[11px] font-mono tracking-wider transition-all duration-300"
                   style={{
                     background: showInfo ? 'rgba(6,182,212,0.1)' : 'rgba(10,14,26,0.8)',
                     borderColor: showInfo ? 'rgba(6,182,212,0.3)' : 'rgba(6,182,212,0.15)',
@@ -379,6 +568,8 @@ export default function Home() {
                   lang={lang}
                   unreadCount={unreadCount}
                   onClick={() => setShowNotifications(true)}
+                  aria-label={`Notifications, ${unreadCount} unread`}
+                  ref={notificationTriggerRef}
                 />
 
                 {/* Settings Gear */}
@@ -386,12 +577,16 @@ export default function Home() {
                   lang={lang}
                   onClick={() => setShowSettings(v => !v)}
                   isActive={showSettings}
+                  aria-label="Open settings panel"
+                  ref={settingsTriggerRef}
                 />
 
                 {/* Keyboard Shortcuts Help */}
                 <button
+                  ref={shortcutsTriggerRef}
                   onClick={() => setShowShortcutsModal(true)}
-                  className="flex items-center gap-1 px-2 py-1.5 rounded border text-[11px] font-mono tracking-wider transition-all duration-200"
+                  aria-label="Keyboard shortcuts help"
+                  className="flex items-center justify-center gap-1 min-w-[32px] px-2 py-1.5 rounded border text-[11px] font-mono tracking-wider transition-all duration-300"
                   style={{
                     background: 'rgba(10,14,26,0.8)',
                     borderColor: 'rgba(6,182,212,0.15)',
@@ -416,8 +611,23 @@ export default function Home() {
             </div>
           </nav>
 
+          {/* Context-Aware Breadcrumb */}
+          <div className="px-4 py-1.5" style={{ background: 'rgba(10,14,26,0.9)' }}>
+            <div className="max-w-[1400px] mx-auto flex items-center gap-1" style={{ fontSize: '9px', fontFamily: 'monospace', letterSpacing: '0.08em' }}>
+              <span style={{ color: 'rgba(6,182,212,0.35)' }}>
+                {lang === 'ms' ? 'PUSAT DATA COMMAND MALAYSIA' : 'MALAYSIA DATA COMMAND CENTER'}
+              </span>
+              <ChevronRight size={8} style={{ color: 'rgba(6,182,212,0.2)' }} />
+              <span style={{ color: '#06b6d4', textShadow: '0 0 4px rgba(6,182,212,0.3)' }}>
+                {lang === 'ms'
+                  ? tabs.find(t => t.id === activeTab)?.label_ms.toUpperCase()
+                  : tabs.find(t => t.id === activeTab)?.label_en.toUpperCase()}
+              </span>
+            </div>
+          </div>
+
           {/* Main Content */}
-          <main className="flex-1 overflow-y-auto px-4 py-4 max-w-[1400px] mx-auto w-full">
+          <main id="main-content" className="flex-1 overflow-y-auto px-4 py-4 max-w-[1400px] mx-auto w-full">
             <AnimatePresence mode="wait">
               <motion.div
                 key={activeTab}
@@ -425,8 +635,10 @@ export default function Home() {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
+                role="tabpanel"
+                aria-label={`${tabs.find(t => t.id === activeTab)?.label_en ?? activeTab} panel`}
               >
-                {activeTab === 'overview' && <OverviewSection lang={lang} />}
+                {activeTab === 'overview' && <OverviewSection lang={lang} onNavigateDatasets={(category) => { setActiveTab('datasets'); }} />}
                 {activeTab === 'geomap' && <GeoMapSection lang={lang} onViewProfile={(id) => setProfileStateId(id)} />}
                 {activeTab === 'datasets' && <DatasetsSection lang={lang} />}
                 {activeTab === 'analytics' && <AnalyticsSection lang={lang} />}
@@ -449,7 +661,7 @@ export default function Home() {
           </main>
 
           {/* Enhanced Footer */}
-          <footer className="mt-auto flex-shrink-0" style={{ background: 'rgba(10,14,26,0.98)' }}>
+          <footer role="contentinfo" className="mt-auto flex-shrink-0" style={{ background: 'rgba(10,14,26,0.98)' }}>
             {/* Top border gradient (cyan → transparent → cyan) */}
             <div className="h-px w-full" style={{
               background: 'linear-gradient(90deg, #06b6d4, transparent 30%, transparent 70%, #06b6d4)',
@@ -570,11 +782,14 @@ export default function Home() {
 
                 {/* Bottom row */}
                 <div className="border-t pt-3 flex flex-col sm:flex-row items-center justify-between gap-2" style={{ borderColor: 'rgba(6,182,212,0.08)' }}>
-                  <div className="text-[9px] font-mono" style={{ color: 'rgba(6,182,212,0.3)' }}>
+                  <div className="text-[9px] font-mono" style={{ color: 'rgba(6,182,212,0.5)' }}>
                     © {new Date().getFullYear()} Malaysia Data Command Center. All rights reserved.
                   </div>
-                  <div className="text-[9px] font-mono" style={{ color: 'rgba(6,182,212,0.3)' }}>
-                    Built with Next.js
+                  <div className="flex items-center gap-4">
+                    <FooterLiveClock />
+                    <div className="text-[9px] font-mono" style={{ color: 'rgba(6,182,212,0.5)' }}>
+                      Built with Next.js
+                    </div>
                   </div>
                 </div>
                 {/* Made with love text */}
@@ -602,28 +817,34 @@ export default function Home() {
       {/* Infographic Export Modal */}
       <AnimatePresence>
         {showInfographic && (
+          <div ref={infographicRef}>
           <InfographicModal lang={lang} onClose={() => setShowInfographic(false)} />
+          </div>
         )}
       </AnimatePresence>
 
       {/* Command Palette */}
       <AnimatePresence>
         {showCommandPalette && (
+          <div ref={commandPaletteRef}>
           <CommandPalette
             lang={lang}
             onClose={() => setShowCommandPalette(false)}
             onAction={handleCommandAction}
           />
+          </div>
         )}
       </AnimatePresence>
 
       {/* Keyboard Shortcuts Modal */}
       <AnimatePresence>
         {showShortcutsModal && (
+          <div ref={shortcutsModalRef}>
           <KeyboardShortcutsModal
             lang={lang}
             onClose={() => setShowShortcutsModal(false)}
           />
+          </div>
         )}
       </AnimatePresence>
 
@@ -651,14 +872,17 @@ export default function Home() {
       </AnimatePresence>
 
       {/* Notification Center */}
+      <div ref={notificationRef}>
       <NotificationCenter
         lang={lang}
         isOpen={showNotifications}
         onClose={() => setShowNotifications(false)}
         onUnreadChange={setUnreadCount}
       />
+      </div>
 
       {/* Settings Panel */}
+      <div ref={settingsRef}>
       <SettingsPanel
         lang={lang}
         isOpen={showSettings}
@@ -667,26 +891,31 @@ export default function Home() {
         updateSetting={updateSetting}
         resetToDefaults={resetToDefaults}
       />
+      </div>
 
       {/* State Profile Modal */}
       <AnimatePresence>
         {profileStateId && (
+          <div ref={profileRef}>
           <StateProfileModal
             stateId={profileStateId}
             lang={lang}
             onClose={() => setProfileStateId(null)}
           />
+          </div>
         )}
       </AnimatePresence>
 
       {/* Data Export Hub */}
       <AnimatePresence>
         {showExportHub && (
+          <div ref={exportHubRef}>
           <DataExportHub
             lang={lang}
             isOpen={showExportHub}
             onClose={() => setShowExportHub(false)}
           />
+          </div>
         )}
       </AnimatePresence>
 
@@ -736,7 +965,7 @@ export default function Home() {
                       <div className="text-[11px] font-mono font-medium truncate" style={{ color: alert.color }}>
                         {alert.title}
                       </div>
-                      <div className="text-[9px] font-mono mt-0.5" style={{ color: 'rgba(6,182,212,0.35)' }}>
+                      <div className="text-[9px] font-mono mt-0.5" style={{ color: 'rgba(6,182,212,0.55)' }}>
                         {timeStr}
                       </div>
                     </div>

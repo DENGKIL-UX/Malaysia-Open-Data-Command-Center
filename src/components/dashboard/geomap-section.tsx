@@ -322,7 +322,7 @@ export function GeoMapSection({ lang, onViewProfile }: { lang: Lang; onViewProfi
   const hoveredData = useMemo(() => STATES.find(s => s.id === hoveredState), [hoveredState]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" role="region" aria-label="Geographic map of Malaysia">
       {/* Section Header: Geographic Explorer */}
       <div className="flex items-center gap-3">
         <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
@@ -400,7 +400,7 @@ export function GeoMapSection({ lang, onViewProfile }: { lang: Lang; onViewProfi
           background: '#0a0e1a',
           borderColor: 'rgba(6,182,212,0.12)',
           minHeight: '450px',
-        }}>
+        }} role="img" aria-label="Interactive map showing Malaysia states colored by selected data layer">
           <MalaysiaMap
             activeLayer={activeLayer}
             selectedState={selectedState}
@@ -441,7 +441,7 @@ export function GeoMapSection({ lang, onViewProfile }: { lang: Lang; onViewProfi
             <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: '#06b6d4' }}>
               {lang === 'ms' ? 'KEDUDUKAN NEGERI' : 'STATE RANKING'} — {MAP_LAYERS.find(l => l.id === activeLayer)?.label_en?.toUpperCase()}
             </div>
-            <div className="max-h-64 overflow-y-auto custom-scrollbar">
+            <div className="max-h-64 overflow-y-auto custom-scrollbar" role="list" aria-label="State ranking">
               {STATES.slice()
                 .sort((a, b) => (b[activeLayer as keyof typeof b] as number) - (a[activeLayer as keyof typeof a] as number))
                 .map((s, i) => {
@@ -456,6 +456,7 @@ export function GeoMapSection({ lang, onViewProfile }: { lang: Lang; onViewProfi
                       transition={{ type: 'spring', damping: 25, stiffness: 300 }}
                       onClick={() => setSelectedState(s.id)}
                       className="w-full flex items-center gap-2 py-1.5 px-2 rounded text-left cursor-pointer group relative mb-0.5"
+                      role="listitem"
                       style={{
                         background: isSelected ? 'rgba(6,182,212,0.12)' : 'transparent',
                         borderLeft: isSelected ? '2px solid #06b6d4' : '2px solid transparent',

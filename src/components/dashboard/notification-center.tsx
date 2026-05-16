@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Bell, X, Database, AlertTriangle, Trophy,
@@ -121,18 +121,17 @@ const INITIAL_NOTIFICATIONS: Notification[] = [
 ];
 
 // ─── Notification Bell Button (exported for header use) ───────────
-export function NotificationBell({
-  lang,
-  unreadCount,
-  onClick,
-}: {
+export const NotificationBell = React.forwardRef<HTMLButtonElement, {
   lang: Lang;
   unreadCount: number;
   onClick: () => void;
-}) {
+  'aria-label'?: string;
+}>(function NotificationBell({ lang, unreadCount, onClick, 'aria-label': ariaLabel }, ref) {
   return (
     <button
+      ref={ref}
       onClick={onClick}
+      aria-label={ariaLabel}
       className="relative flex items-center gap-1 px-2 py-1.5 rounded border text-[10px] font-mono tracking-wider cursor-pointer"
       style={{
         background: 'rgba(10,14,26,0.8)',
@@ -161,7 +160,7 @@ export function NotificationBell({
       )}
     </button>
   );
-}
+});
 
 // ─── Notification Center Panel ────────────────────────────────────
 export function NotificationCenter({ lang, isOpen, onClose, onUnreadChange }: NotificationCenterProps) {
@@ -346,12 +345,12 @@ export function NotificationCenter({ lang, isOpen, onClose, onUnreadChange }: No
                             )}
                           </div>
                           <p className="text-[9px] font-mono mt-0.5 leading-relaxed" style={{
-                            color: notification.read ? 'rgba(148,163,184,0.35)' : 'rgba(148,163,184,0.6)',
+                            color: notification.read ? 'rgba(148,163,184,0.5)' : 'rgba(148,163,184,0.7)',
                           }}>
                             {lang === 'ms' ? notification.desc_ms : notification.desc_en}
                           </p>
                           <div className="flex items-center gap-2 mt-1.5">
-                            <span className="text-[8px] font-mono" style={{ color: 'rgba(148,163,184,0.3)' }}>
+                            <span className="text-[8px] font-mono" style={{ color: 'rgba(148,163,184,0.5)' }}>
                               {notification.time}
                             </span>
                             <span className="text-[7px] font-mono px-1 py-0.5 rounded" style={{
@@ -384,7 +383,7 @@ export function NotificationCenter({ lang, isOpen, onClose, onUnreadChange }: No
               <div className="flex-shrink-0 p-3 border-t flex items-center justify-between" style={{
                 borderColor: 'rgba(6,182,212,0.08)',
               }}>
-                <span className="text-[8px] font-mono" style={{ color: 'rgba(148,163,184,0.3)' }}>
+                <span className="text-[8px] font-mono" style={{ color: 'rgba(148,163,184,0.5)' }}>
                   {notifications.length} {lang === 'ms' ? 'pemberitahuan' : 'notifications'}
                 </span>
                 <button
