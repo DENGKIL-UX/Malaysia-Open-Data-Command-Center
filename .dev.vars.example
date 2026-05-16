@@ -1,0 +1,6 @@
+# Cloudflare Pages Local Development Variables
+# Copy this file to .dev.vars and fill in the values
+# NEVER commit .dev.vars to version control
+
+# (Add any secrets needed for local development below)
+# API_KEY=your-api-key-here

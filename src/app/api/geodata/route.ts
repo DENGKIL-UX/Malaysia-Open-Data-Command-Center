@@ -1,15 +1,16 @@
 import { NextResponse } from 'next/server';
-import { readFile } from 'fs/promises';
-import path from 'path';
+
+// Edge runtime — compatible with Cloudflare Pages Workers
+export const runtime = 'edge';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const layer = searchParams.get('layer') || 'states';
 
   const fileMap: Record<string, string> = {
-    states: path.join(process.cwd(), 'public', 'geodata', 'states.geojson'),
-    districts: path.join(process.cwd(), 'public', 'geodata', 'districts.geojson'),
-    parlimen: path.join(process.cwd(), 'public', 'geodata', 'parlimen.geojson'),
+    states: '/geodata/states.geojson',
+    districts: '/geodata/districts.geojson',
+    parlimen: '/geodata/parlimen.geojson',
   };
 
   const filePath = fileMap[layer];
@@ -18,11 +19,20 @@ export async function GET(request: Request) {
   }
 
   try {
-    const data = await readFile(filePath, 'utf-8');
+    // Fetch static asset from origin — works on Node.js, Cloudflare Pages, and Vercel
+    const assetUrl = new URL(filePath, request.url);
+    const response = await fetch(assetUrl);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch ${filePath}: ${response.status}`);
+    }
+
+    const data = await response.text();
     return new NextResponse(data, {
       headers: {
         'Content-Type': 'application/json',
         'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+        'CDN-Cache-Control': 'public, max-age=3600',
       },
     });
   } catch {
