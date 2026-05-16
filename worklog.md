@@ -2067,3 +2067,25 @@ Stage Summary:
 - Full zoom/pan interactivity with district detail on zoom
 - Hydration fixes improve page stability
 - All existing map features preserved
+
+---
+Task ID: 7
+Agent: Main Orchestrator
+Task: Fix "Attempting to parse an unsupported color function lab" console error and restart dev server
+
+Work Log:
+- Diagnosed the error: Tailwind CSS v4 internally generates `color-mix(in oklab, ...)` and `@supports (color: color-mix(in lab, ...))` for opacity modifiers on `oklch()` color values. Lightning CSS (used by Next.js Turbopack) doesn't support parsing the `lab()` function, causing the console error.
+- Converted all `oklch()` color values in `/src/app/globals.css` to `hsl()` equivalents:
+  - `:root` block: 28 CSS variables converted from oklch to hsl
+  - `.dark` block: 28 CSS variables converted from oklch to hsl
+- Verified no remaining `oklch` references in source files
+- Restarted dev server with `start-stop-daemon` for process persistence
+- Confirmed HTTP 200 response, clean page rendering, and zero lint errors
+- No `lab()` or `oklch()` references found in compiled output
+
+Stage Summary:
+- Console error "Attempting to parse an unsupported color function lab" fixed by converting oklch→hsl in CSS variables
+- All 56 CSS color variables (28 light + 28 dark) converted to hsl() format
+- Dev server running stably on port 3000 via start-stop-daemon
+- Zero lint errors, clean compilation, no runtime errors
+- Color appearance preserved — hsl values are perceptual equivalents of original oklch values
