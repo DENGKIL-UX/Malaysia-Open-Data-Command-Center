@@ -10,6 +10,9 @@ import {
   ExternalLink, Clock, MapPin, Layers, Settings,
   ArrowUpRight, ArrowDownRight, Activity, Zap,
   HelpCircle, BookOpen, Shield, Languages,
+  Scale, ArrowRight, Calendar, Tag, FileDown,
+  Command, ArrowUp, ArrowDown, CornerDownLeft,
+  Bell, Wifi, RefreshCw, Copyright,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
@@ -32,6 +35,63 @@ const MalaysiaMap = dynamic(() => import('@/components/map/malaysia-map'), { ssr
 type TabId = 'overview' | 'geomap' | 'datasets' | 'analytics';
 type LayerId = 'population' | 'gdp' | 'births' | 'deaths' | 'unemployment' | 'datasets';
 type Lang = 'en' | 'ms';
+
+// ─── Particle Background ─────────────────────────────────────────
+function ParticleBackground() {
+  const particles = useMemo(() =>
+    Array.from({ length: 60 }, (_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      size: 1 + Math.random() * 1,
+      opacity: 0.1 + Math.random() * 0.3,
+      duration: 30 + Math.random() * 30,
+      delay: Math.random() * -60,
+      driftX: (Math.random() - 0.5) * 20,
+      driftY: (Math.random() - 0.5) * 20,
+    })), []);
+
+  return (
+    <div className="fixed inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
+      <style>{`
+        @keyframes particle-drift {
+          0% { transform: translate(0, 0); }
+          50% { transform: translate(var(--drift-x), var(--drift-y)); }
+          100% { transform: translate(0, 0); }
+        }
+      `}</style>
+      {particles.map(p => (
+        <div
+          key={p.id}
+          className="absolute rounded-full"
+          style={{
+            left: `${p.x}%`,
+            top: `${p.y}%`,
+            width: `${p.size}px`,
+            height: `${p.size}px`,
+            background: '#06b6d4',
+            opacity: p.opacity,
+            '--drift-x': `${p.driftX}px`,
+            '--drift-y': `${p.driftY}px`,
+            animation: `particle-drift ${p.duration}s ease-in-out ${p.delay}s infinite`,
+          } as React.CSSProperties}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ─── HUD Bracket Decoration ──────────────────────────────────────
+function HUDBracket() {
+  return (
+    <>
+      <div className="absolute top-1 left-1 w-2 h-2 border-t border-l border-cyan-500/20 group-hover:border-cyan-500/40 transition-colors duration-300 pointer-events-none" />
+      <div className="absolute top-1 right-1 w-2 h-2 border-t border-r border-cyan-500/20 group-hover:border-cyan-500/40 transition-colors duration-300 pointer-events-none" />
+      <div className="absolute bottom-1 left-1 w-2 h-2 border-b border-l border-cyan-500/20 group-hover:border-cyan-500/40 transition-colors duration-300 pointer-events-none" />
+      <div className="absolute bottom-1 right-1 w-2 h-2 border-b border-r border-cyan-500/20 group-hover:border-cyan-500/40 transition-colors duration-300 pointer-events-none" />
+    </>
+  );
+}
 
 // ─── KPI Card Component ─────────────────────────────────────────────
 function KPICard({ icon: Icon, label, value, unit, change, color, lang }: {
@@ -110,10 +170,11 @@ function DataEnginePulse({ lang }: { lang: Lang }) {
   }, []);
 
   return (
-    <div className="rounded-lg border p-4" style={{
+    <div className="relative group rounded-lg border p-4" style={{
       background: 'linear-gradient(135deg, rgba(6,182,212,0.06), rgba(10,14,26,0.95))',
       borderColor: 'rgba(6,182,212,0.15)',
     }}>
+      <HUDBracket />
       <div className="flex items-center gap-2 mb-3">
         <div className="relative">
           <Activity size={14} style={{ color: '#06b6d4' }} />
@@ -184,10 +245,11 @@ function HealthIndexWidget({ lang }: { lang: Lang }) {
   ];
 
   return (
-    <div className="rounded-lg border p-4" style={{
+    <div className="relative group rounded-lg border p-4" style={{
       background: 'rgba(10,14,26,0.95)',
       borderColor: 'rgba(6,182,212,0.12)',
     }}>
+      <HUDBracket />
       <div className="flex items-center gap-2 mb-3">
         <Heart size={14} style={{ color: '#ec4899' }} />
         <span className="text-[10px] font-mono tracking-wider" style={{ color: '#ec4899' }}>
@@ -227,10 +289,11 @@ function HealthIndexWidget({ lang }: { lang: Lang }) {
 function StateMiniCards({ lang }: { lang: Lang }) {
   const topStates = STATES.slice().sort((a, b) => b.population - a.population).slice(0, 6);
   return (
-    <div className="rounded-lg border p-4" style={{
+    <div className="relative group rounded-lg border p-4" style={{
       background: 'rgba(10,14,26,0.95)',
       borderColor: 'rgba(6,182,212,0.12)',
     }}>
+      <HUDBracket />
       <div className="flex items-center gap-2 mb-3">
         <MapPin size={14} style={{ color: '#06b6d4' }} />
         <span className="text-[10px] font-mono tracking-wider" style={{ color: '#06b6d4' }}>
@@ -300,10 +363,11 @@ function DataSourceStats({ lang }: { lang: Lang }) {
   };
 
   return (
-    <div className="rounded-lg border p-4" style={{
+    <div className="relative group rounded-lg border p-4" style={{
       background: 'rgba(10,14,26,0.95)',
       borderColor: 'rgba(6,182,212,0.12)',
     }}>
+      <HUDBracket />
       <div className="flex items-center gap-2 mb-3">
         <Database size={14} style={{ color: '#06b6d4' }} />
         <span className="text-[10px] font-mono tracking-wider" style={{ color: '#06b6d4' }}>
@@ -464,10 +528,11 @@ function OverviewSection({ lang }: { lang: Lang }) {
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Bar Chart - Top States */}
-        <div className="lg:col-span-2 rounded-lg border p-4" style={{
+        <div className="lg:col-span-2 relative group rounded-lg border p-4" style={{
           background: 'rgba(10,14,26,0.95)',
           borderColor: 'rgba(6,182,212,0.12)',
         }}>
+          <HUDBracket />
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <BarChart3 size={14} style={{ color: '#06b6d4' }} />
@@ -512,10 +577,11 @@ function OverviewSection({ lang }: { lang: Lang }) {
         </div>
 
         {/* Pie Chart - Frequency */}
-        <div className="rounded-lg border p-4" style={{
+        <div className="relative group rounded-lg border p-4" style={{
           background: 'rgba(10,14,26,0.95)',
           borderColor: 'rgba(6,182,212,0.12)',
         }}>
+          <HUDBracket />
           <div className="flex items-center gap-2 mb-4">
             <Activity size={14} style={{ color: '#06b6d4' }} />
             <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
@@ -544,10 +610,11 @@ function OverviewSection({ lang }: { lang: Lang }) {
       {/* Row: Category Heat Blocks + Data Sources + Timeline */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Category Heat Blocks */}
-        <div className="rounded-lg border p-4" style={{
+        <div className="relative group rounded-lg border p-4" style={{
           background: 'rgba(10,14,26,0.95)',
           borderColor: 'rgba(6,182,212,0.12)',
         }}>
+          <HUDBracket />
           <div className="flex items-center gap-2 mb-3">
             <Layers size={14} style={{ color: '#06b6d4' }} />
             <span className="text-[10px] font-mono tracking-wider" style={{ color: '#06b6d4' }}>
@@ -575,10 +642,11 @@ function OverviewSection({ lang }: { lang: Lang }) {
         <DataSourceStats lang={lang} />
 
         {/* Timeline */}
-        <div className="rounded-lg border p-4" style={{
+        <div className="relative group rounded-lg border p-4" style={{
           background: 'rgba(10,14,26,0.95)',
           borderColor: 'rgba(6,182,212,0.12)',
         }}>
+          <HUDBracket />
           <div className="flex items-center gap-2 mb-4">
             <Clock size={14} style={{ color: '#06b6d4' }} />
             <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
@@ -637,6 +705,9 @@ function GeoMapSection({ lang }: { lang: Lang }) {
   const [activeLayer, setActiveLayer] = useState<LayerId>('population');
   const [selectedState, setSelectedState] = useState<string | null>(null);
   const [hoveredState, setHoveredState] = useState<string | null>(null);
+  const [showComparison, setShowComparison] = useState(false);
+  const [compareStateA, setCompareStateA] = useState('');
+  const [compareStateB, setCompareStateB] = useState('');
 
   const selectedData = useMemo(() => STATES.find(s => s.id === selectedState), [selectedState]);
   const hoveredData = useMemo(() => STATES.find(s => s.id === hoveredState), [hoveredState]);
@@ -663,6 +734,19 @@ function GeoMapSection({ lang }: { lang: Lang }) {
             )}
           </button>
         ))}
+        {/* Compare Button */}
+        <button
+          onClick={() => setShowComparison(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-mono tracking-wider transition-all border ml-auto"
+          style={{
+            background: 'rgba(16,185,129,0.1)',
+            borderColor: 'rgba(16,185,129,0.3)',
+            color: '#10b981',
+          }}
+        >
+          <Scale size={12} />
+          {lang === 'ms' ? 'Bandingkan' : 'Compare'}
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
@@ -738,6 +822,20 @@ function GeoMapSection({ lang }: { lang: Lang }) {
           </div>
         </div>
       </div>
+
+      {/* State Comparison Modal */}
+      <AnimatePresence>
+        {showComparison && (
+          <StateComparisonModal
+            lang={lang}
+            stateA={compareStateA}
+            stateB={compareStateB}
+            setStateA={setCompareStateA}
+            setStateB={setCompareStateB}
+            onClose={() => setShowComparison(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -802,12 +900,464 @@ function StateDetailPanel({ state, lang, onClose }: { state: typeof STATES[0]; l
   );
 }
 
+// ─── State Comparison Modal ──────────────────────────────────────
+function StateComparisonModal({ lang, stateA, stateB, setStateA, setStateB, onClose }: {
+  lang: Lang; stateA: string; stateB: string;
+  setStateA: (v: string) => void; setStateB: (v: string) => void;
+  onClose: () => void;
+}) {
+  const dataA = useMemo(() => STATES.find(s => s.id === stateA), [stateA]);
+  const dataB = useMemo(() => STATES.find(s => s.id === stateB), [stateB]);
+
+  const comparisonMetrics = [
+    { key: 'population', label_en: 'Population', label_ms: 'Penduduk', unit: "'000", color: '#06b6d4', lower: false },
+    { key: 'gdp', label_en: 'GDP', label_ms: 'KDNK', unit: 'RM M', color: '#f59e0b', lower: false, format: (v: number) => `${(v/1000).toFixed(1)}B` },
+    { key: 'gdpGrowth', label_en: 'GDP Growth', label_ms: 'Pertumbuhan KDNK', unit: '%', color: '#10b981', lower: false },
+    { key: 'births', label_en: 'Births', label_ms: 'Kelahiran', unit: "'000", color: '#ec4899', lower: false },
+    { key: 'deaths', label_en: 'Deaths', label_ms: 'Kematian', unit: "'000", color: '#ef4444', lower: true },
+    { key: 'unemployment', label_en: 'Unemployment', label_ms: 'Pengangguran', unit: '%', color: '#8b5cf6', lower: true },
+    { key: 'area', label_en: 'Area', label_ms: 'Keluasan', unit: 'km²', color: '#64748b', lower: false },
+    { key: 'density', label_en: 'Density', label_ms: 'Kepadatan', unit: '/km²', color: '#f97316', lower: false },
+  ];
+
+  const getWinner = (key: string, valA: number, valB: number, lower: boolean) => {
+    if (!dataA || !dataB) return 'none';
+    if (valA === valB) return 'tie';
+    return lower ? (valA < valB ? 'A' : 'B') : (valA > valB ? 'A' : 'B');
+  };
+
+  const getDiff = (valA: number, valB: number) => {
+    if (valA === 0 && valB === 0) return 0;
+    const base = Math.max(valA, valB);
+    if (base === 0) return 0;
+    return Math.abs(((valA - valB) / base) * 100);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.85)' }}
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.9, y: 30 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.9, y: 30 }}
+        className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-lg border custom-scrollbar"
+        style={{
+          background: '#0a0e1a',
+          borderColor: 'rgba(6,182,212,0.25)',
+          boxShadow: '0 0 60px rgba(6,182,212,0.15)',
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* HUD brackets header */}
+        <div className="relative p-4 border-b" style={{ borderColor: 'rgba(6,182,212,0.12)' }}>
+          {/* Corner brackets */}
+          <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2" style={{ borderColor: '#06b6d4' }} />
+          <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2" style={{ borderColor: '#06b6d4' }} />
+          <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2" style={{ borderColor: '#06b6d4' }} />
+          <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2" style={{ borderColor: '#06b6d4' }} />
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Scale size={16} style={{ color: '#06b6d4' }} />
+              <span className="text-sm font-mono font-bold" style={{ color: '#06b6d4' }}>
+                {lang === 'ms' ? 'PERBANDINGAN NEGERI' : 'STATE COMPARISON'}
+              </span>
+            </div>
+            <button onClick={onClose} className="p-1 rounded hover:bg-cyan-950/30">
+              <X size={16} style={{ color: 'rgba(6,182,212,0.5)' }} />
+            </button>
+          </div>
+        </div>
+
+        {/* Selectors */}
+        <div className="grid grid-cols-2 gap-4 p-4">
+          <div>
+            <label className="text-[10px] font-mono tracking-wider mb-1.5 block" style={{ color: '#06b6d4' }}>
+              {lang === 'ms' ? 'NEGERI A' : 'STATE A'}
+            </label>
+            <select
+              value={stateA}
+              onChange={e => setStateA(e.target.value)}
+              className="w-full px-3 py-2 rounded-md border text-xs font-mono"
+              style={{ background: 'rgba(10,14,26,0.9)', borderColor: 'rgba(6,182,212,0.2)', color: '#e0f7fa' }}
+            >
+              <option value="">{lang === 'ms' ? 'Pilih negeri...' : 'Select state...'}</option>
+              {STATES.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[10px] font-mono tracking-wider mb-1.5 block" style={{ color: '#06b6d4' }}>
+              {lang === 'ms' ? 'NEGERI B' : 'STATE B'}
+            </label>
+            <select
+              value={stateB}
+              onChange={e => setStateB(e.target.value)}
+              className="w-full px-3 py-2 rounded-md border text-xs font-mono"
+              style={{ background: 'rgba(10,14,26,0.9)', borderColor: 'rgba(6,182,212,0.2)', color: '#e0f7fa' }}
+            >
+              <option value="">{lang === 'ms' ? 'Pilih negeri...' : 'Select state...'}</option>
+              {STATES.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* Comparison Panel */}
+        {dataA && dataB && (
+          <div className="px-4 pb-4 space-y-2">
+            {/* State Headers */}
+            <div className="grid grid-cols-[1fr_60px_1fr] gap-2 mb-3">
+              <div className="text-center p-2 rounded-md border" style={{ background: 'rgba(6,182,212,0.08)', borderColor: 'rgba(6,182,212,0.2)' }}>
+                <div className="text-xs font-mono tracking-wider" style={{ color: 'rgba(6,182,212,0.5)' }}>
+                  {dataA.region === 'east_malaysia' ? 'EAST MY' : 'PENINSULAR'}
+                </div>
+                <div className="text-sm font-bold" style={{ color: '#06b6d4' }}>{dataA.name}</div>
+              </div>
+              <div className="flex items-center justify-center">
+                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: 'rgba(6,182,212,0.1)', color: 'rgba(6,182,212,0.5)' }}>VS</span>
+              </div>
+              <div className="text-center p-2 rounded-md border" style={{ background: 'rgba(245,158,11,0.08)', borderColor: 'rgba(245,158,11,0.2)' }}>
+                <div className="text-xs font-mono tracking-wider" style={{ color: 'rgba(245,158,11,0.5)' }}>
+                  {dataB.region === 'east_malaysia' ? 'EAST MY' : 'PENINSULAR'}
+                </div>
+                <div className="text-sm font-bold" style={{ color: '#f59e0b' }}>{dataB.name}</div>
+              </div>
+            </div>
+
+            {/* Metrics */}
+            {comparisonMetrics.map(m => {
+              const valA = dataA[m.key as keyof typeof dataA] as number;
+              const valB = dataB[m.key as keyof typeof dataB] as number;
+              const winner = getWinner(m.key, valA, valB, m.lower);
+              const diff = getDiff(valA, valB);
+              const formatVal = (v: number) => m.format ? m.format(v) : v.toLocaleString();
+              const maxVal = Math.max(valA, valB, 1);
+
+              return (
+                <motion.div
+                  key={m.key}
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="rounded-md border p-2.5"
+                  style={{
+                    background: 'rgba(10,14,26,0.8)',
+                    borderColor: `${m.color}15`,
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-mono tracking-wider" style={{ color: m.color }}>
+                      {lang === 'ms' ? m.label_ms : m.label_en}
+                    </span>
+                    <span className="text-[9px] font-mono" style={{ color: diff > 0 ? '#10b981' : 'rgba(6,182,212,0.3)' }}>
+                      {diff > 0 ? `${diff.toFixed(1)}% ${lang === 'ms' ? 'perbezaan' : 'diff'}` : (lang === 'ms' ? 'Sama' : 'Equal')}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-[1fr_60px_1fr] gap-2 items-center">
+                    {/* State A value */}
+                    <div className="text-right">
+                      <span className={`text-sm font-mono font-bold ${winner === 'A' ? '' : ''}`} style={{
+                        color: winner === 'A' ? '#10b981' : winner === 'B' ? '#94a3b8' : '#e0f7fa',
+                        textShadow: winner === 'A' ? '0 0 10px rgba(16,185,129,0.4)' : 'none',
+                      }}>
+                        {formatVal(valA)}
+                        <span className="text-[8px] font-normal ml-0.5 opacity-50">{m.unit}</span>
+                      </span>
+                    </div>
+                    {/* Center bar comparison */}
+                    <div className="flex flex-col items-center gap-0.5">
+                      <ArrowRight size={10} style={{ color: 'rgba(6,182,212,0.3)', transform: 'rotate(0deg)' }} />
+                      <div className="w-full h-1.5 flex gap-px">
+                        <div className="flex-1 flex justify-end">
+                          <div className="h-full rounded-l-sm" style={{
+                            width: `${(valA / maxVal) * 100}%`,
+                            background: winner === 'A' ? '#10b981' : '#06b6d4',
+                            opacity: winner === 'A' ? 1 : 0.4,
+                          }} />
+                        </div>
+                        <div className="w-px" style={{ background: 'rgba(6,182,212,0.2)' }} />
+                        <div className="flex-1">
+                          <div className="h-full rounded-r-sm" style={{
+                            width: `${(valB / maxVal) * 100}%`,
+                            background: winner === 'B' ? '#10b981' : '#f59e0b',
+                            opacity: winner === 'B' ? 1 : 0.4,
+                          }} />
+                        </div>
+                      </div>
+                    </div>
+                    {/* State B value */}
+                    <div className="text-left">
+                      <span className="text-sm font-mono font-bold" style={{
+                        color: winner === 'B' ? '#10b981' : winner === 'A' ? '#94a3b8' : '#e0f7fa',
+                        textShadow: winner === 'B' ? '0 0 10px rgba(16,185,129,0.4)' : 'none',
+                      }}>
+                        {formatVal(valB)}
+                        <span className="text-[8px] font-normal ml-0.5 opacity-50">{m.unit}</span>
+                      </span>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Empty state */}
+        {(!dataA || !dataB) && (
+          <div className="p-8 text-center">
+            <Scale size={32} className="mx-auto mb-3" style={{ color: 'rgba(6,182,212,0.2)' }} />
+            <p className="text-xs font-mono" style={{ color: 'rgba(6,182,212,0.4)' }}>
+              {lang === 'ms' ? 'Pilih dua negeri untuk memulakan perbandingan' : 'Select two states to start comparison'}
+            </p>
+          </div>
+        )}
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ─── Dataset Detail Drawer ───────────────────────────────────────
+function DatasetDetailDrawer({ dataset, lang, onClose }: {
+  dataset: typeof DATASETS[0]; lang: Lang; onClose: () => void;
+}) {
+  const getCategoryColor = (cat: string) => {
+    const found = DATASET_CATEGORIES.find(c => c.en === cat);
+    return found?.color || '#64748b';
+  };
+  const catColor = getCategoryColor(dataset.category_en);
+  const freqColor = FREQUENCY_COLORS[dataset.frequency] || '#64748b';
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-40"
+      style={{ background: 'rgba(0,0,0,0.7)' }}
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ x: '100%' }}
+        animate={{ x: 0 }}
+        exit={{ x: '100%' }}
+        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+        className="absolute right-0 top-0 bottom-0 w-full max-w-md overflow-y-auto custom-scrollbar border-l"
+        style={{
+          background: '#0a0e1a',
+          borderColor: 'rgba(6,182,212,0.15)',
+          boxShadow: '-20px 0 60px rgba(6,182,212,0.1)',
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="sticky top-0 z-10 p-4 border-b" style={{ background: 'rgba(10,14,26,0.98)', borderColor: 'rgba(6,182,212,0.12)' }}>
+          <div className="flex items-start justify-between">
+            <div className="flex-1 min-w-0 mr-3">
+              <div className="text-xs font-mono tracking-wider mb-1" style={{ color: catColor }}>
+                {lang === 'ms' ? dataset.category_ms : dataset.category_en} / {lang === 'ms' ? dataset.subcategory_ms : dataset.subcategory_en}
+              </div>
+              <h3 className="text-sm font-bold" style={{ color: '#e0f7fa' }}>
+                {lang === 'ms' ? dataset.title_ms : dataset.title_en}
+              </h3>
+            </div>
+            <button onClick={onClose} className="p-1.5 rounded hover:bg-cyan-950/30 flex-shrink-0">
+              <X size={16} style={{ color: 'rgba(6,182,212,0.5)' }} />
+            </button>
+          </div>
+        </div>
+
+        <div className="p-4 space-y-4">
+          {/* Description */}
+          <div className="rounded-md border p-3" style={{ background: 'rgba(6,182,212,0.03)', borderColor: 'rgba(6,182,212,0.08)' }}>
+            <div className="flex items-center gap-1.5 mb-2">
+              <FileText size={12} style={{ color: '#06b6d4' }} />
+              <span className="text-[10px] font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+                {lang === 'ms' ? 'PENERANGAN' : 'DESCRIPTION'}
+              </span>
+            </div>
+            <p className="text-xs leading-relaxed" style={{ color: '#94a3b8' }}>
+              {lang === 'ms' ? dataset.description_ms : dataset.description_en}
+            </p>
+          </div>
+
+          {/* Badges Row */}
+          <div className="flex flex-wrap gap-2">
+            <span className="flex items-center gap-1 text-[9px] px-2 py-1 rounded font-mono" style={{
+              background: `${catColor}15`,
+              color: catColor,
+              border: `1px solid ${catColor}30`,
+            }}>
+              <Tag size={9} />
+              {lang === 'ms' ? dataset.category_ms : dataset.category_en}
+            </span>
+            <span className="flex items-center gap-1 text-[9px] px-2 py-1 rounded font-mono" style={{
+              background: `${freqColor}15`,
+              color: freqColor,
+              border: `1px solid ${freqColor}30`,
+            }}>
+              <Clock size={9} />
+              {dataset.frequency}
+            </span>
+          </div>
+
+          {/* Geography */}
+          <div className="rounded-md border p-3" style={{ background: 'rgba(10,14,26,0.8)', borderColor: 'rgba(6,182,212,0.08)' }}>
+            <div className="flex items-center gap-1.5 mb-2">
+              <Globe size={12} style={{ color: '#06b6d4' }} />
+              <span className="text-[10px] font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+                {lang === 'ms' ? 'LIPUTAN GEOGRAFI' : 'GEOGRAPHY COVERAGE'}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {dataset.geography.length > 0 ? dataset.geography.map(g => (
+                <span key={g} className="text-[9px] px-1.5 py-0.5 rounded font-mono" style={{
+                  background: 'rgba(6,182,212,0.08)',
+                  color: '#06b6d4',
+                  border: '1px solid rgba(6,182,212,0.15)',
+                }}>
+                  {g}
+                </span>
+              )) : (
+                <span className="text-[9px] font-mono" style={{ color: 'rgba(6,182,212,0.3)' }}>—</span>
+              )}
+            </div>
+          </div>
+
+          {/* Demography */}
+          <div className="rounded-md border p-3" style={{ background: 'rgba(10,14,26,0.8)', borderColor: 'rgba(6,182,212,0.08)' }}>
+            <div className="flex items-center gap-1.5 mb-2">
+              <Users size={12} style={{ color: '#ec4899' }} />
+              <span className="text-[10px] font-mono tracking-wider" style={{ color: '#ec4899' }}>
+                {lang === 'ms' ? 'PECAHAN DEMOGRAFI' : 'DEMOGRAPHY BREAKDOWN'}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {dataset.demography.length > 0 ? dataset.demography.map(d => (
+                <span key={d} className="text-[9px] px-1.5 py-0.5 rounded font-mono" style={{
+                  background: 'rgba(236,72,153,0.08)',
+                  color: '#ec4899',
+                  border: '1px solid rgba(236,72,153,0.15)',
+                }}>
+                  {d}
+                </span>
+              )) : (
+                <span className="text-[9px] font-mono" style={{ color: 'rgba(236,72,153,0.3)' }}>
+                  {lang === 'ms' ? 'Tiada pecahan' : 'No breakdown'}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Data Sources */}
+          <div className="rounded-md border p-3" style={{ background: 'rgba(10,14,26,0.8)', borderColor: 'rgba(6,182,212,0.08)' }}>
+            <div className="flex items-center gap-1.5 mb-2">
+              <Database size={12} style={{ color: '#f59e0b' }} />
+              <span className="text-[10px] font-mono tracking-wider" style={{ color: '#f59e0b' }}>
+                {lang === 'ms' ? 'SUMBER DATA' : 'DATA SOURCE'}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {dataset.data_source.map(src => (
+                <span key={src} className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold" style={{
+                  background: 'rgba(245,158,11,0.08)',
+                  color: '#f59e0b',
+                  border: '1px solid rgba(245,158,11,0.15)',
+                }}>
+                  {src}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Time Range */}
+          <div className="rounded-md border p-3" style={{ background: 'rgba(10,14,26,0.8)', borderColor: 'rgba(6,182,212,0.08)' }}>
+            <div className="flex items-center gap-1.5 mb-2">
+              <Calendar size={12} style={{ color: '#10b981' }} />
+              <span className="text-[10px] font-mono tracking-wider" style={{ color: '#10b981' }}>
+                {lang === 'ms' ? 'JULAT DATA' : 'DATA TIME RANGE'}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-mono font-bold" style={{ color: '#e0f7fa' }}>{dataset.dataset_begin}</span>
+              <div className="flex-1 h-px" style={{ background: 'rgba(16,185,129,0.2)' }}>
+                <ArrowRight size={10} className="mx-auto -mt-[5px]" style={{ color: '#10b981' }} />
+              </div>
+              <span className="text-sm font-mono font-bold" style={{ color: '#e0f7fa' }}>{dataset.dataset_end}</span>
+            </div>
+          </div>
+
+          {/* Last Updated */}
+          <div className="rounded-md border p-3" style={{ background: 'rgba(10,14,26,0.8)', borderColor: 'rgba(6,182,212,0.08)' }}>
+            <div className="flex items-center gap-1.5 mb-1">
+              <Clock size={12} style={{ color: '#8b5cf6' }} />
+              <span className="text-[10px] font-mono tracking-wider" style={{ color: '#8b5cf6' }}>
+                {lang === 'ms' ? 'KEMAS KINI TERAKHIR' : 'LAST UPDATED'}
+              </span>
+            </div>
+            <span className="text-xs font-mono" style={{ color: '#e0f7fa' }}>{dataset.last_updated}</span>
+          </div>
+
+          {/* Download Links */}
+          <div className="rounded-md border p-3" style={{ background: 'rgba(10,14,26,0.8)', borderColor: 'rgba(6,182,212,0.08)' }}>
+            <div className="flex items-center gap-1.5 mb-3">
+              <FileDown size={12} style={{ color: '#06b6d4' }} />
+              <span className="text-[10px] font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+                {lang === 'ms' ? 'MUAT TURUN' : 'DOWNLOAD'}
+              </span>
+            </div>
+            <div className="space-y-2">
+              <a
+                href={dataset.link_parquet}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-3 py-2 rounded-md border text-xs font-mono transition-all hover:border-cyan-500/30"
+                style={{ background: 'rgba(6,182,212,0.05)', borderColor: 'rgba(6,182,212,0.1)', color: '#06b6d4' }}
+              >
+                <Download size={12} />
+                <span>Parquet</span>
+                <span className="ml-auto text-[8px] opacity-50">{dataset.id}.parquet</span>
+              </a>
+              <a
+                href={dataset.link_csv}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-3 py-2 rounded-md border text-xs font-mono transition-all hover:border-cyan-500/30"
+                style={{ background: 'rgba(6,182,212,0.05)', borderColor: 'rgba(6,182,212,0.1)', color: '#06b6d4' }}
+              >
+                <Download size={12} />
+                <span>CSV</span>
+                <span className="ml-auto text-[8px] opacity-50">{dataset.id}.csv</span>
+              </a>
+              <a
+                href={`https://data.gov.my/data-catalogue/${dataset.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-3 py-2 rounded-md border text-xs font-mono transition-all hover:border-cyan-500/30"
+                style={{ background: 'rgba(245,158,11,0.05)', borderColor: 'rgba(245,158,11,0.1)', color: '#f59e0b' }}
+              >
+                <ExternalLink size={12} />
+                <span>data.gov.my</span>
+                <span className="ml-auto text-[8px] opacity-50">{dataset.id}</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 // ─── Datasets Section ────────────────────────────────────────────
 function DatasetsSection({ lang }: { lang: Lang }) {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [freqFilter, setFreqFilter] = useState('ALL');
   const [page, setPage] = useState(1);
+  const [selectedDataset, setSelectedDataset] = useState<typeof DATASETS[0] | null>(null);
   const perPage = 20;
 
   const filtered = useMemo(() => {
@@ -911,9 +1461,9 @@ function DatasetsSection({ lang }: { lang: Lang }) {
             </thead>
             <tbody>
               {paginated.map((d, i) => (
-                <tr key={d.id} className="hover:bg-cyan-950/20 transition-colors" style={{
+                <tr key={d.id} className="hover:bg-cyan-950/20 transition-colors cursor-pointer" style={{
                   borderBottom: '1px solid rgba(6,182,212,0.05)',
-                }}>
+                }} onClick={() => setSelectedDataset(d)}>
                   <td className="px-3 py-2 font-mono" style={{ color: 'rgba(6,182,212,0.3)' }}>
                     {(page - 1) * perPage + i + 1}
                   </td>
@@ -990,6 +1540,17 @@ function DatasetsSection({ lang }: { lang: Lang }) {
           {lang === 'ms' ? 'Seterusnya' : 'Next'} <ChevronRight size={12} />
         </button>
       </div>
+
+      {/* Dataset Detail Drawer */}
+      <AnimatePresence>
+        {selectedDataset && (
+          <DatasetDetailDrawer
+            dataset={selectedDataset}
+            lang={lang}
+            onClose={() => setSelectedDataset(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -1030,10 +1591,11 @@ function AnalyticsSection({ lang }: { lang: Lang }) {
     <div className="space-y-4">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* GDP Trend Area Chart */}
-        <div className="rounded-lg border p-4" style={{
+        <div className="relative group rounded-lg border p-4" style={{
           background: 'rgba(10,14,26,0.95)',
           borderColor: 'rgba(6,182,212,0.12)',
         }}>
+          <HUDBracket />
           <div className="flex items-center gap-2 mb-4">
             <TrendingUp size={14} style={{ color: '#f59e0b' }} />
             <span className="text-xs font-mono tracking-wider" style={{ color: '#f59e0b' }}>
@@ -1057,10 +1619,11 @@ function AnalyticsSection({ lang }: { lang: Lang }) {
         </div>
 
         {/* Radar Chart */}
-        <div className="rounded-lg border p-4" style={{
+        <div className="relative group rounded-lg border p-4" style={{
           background: 'rgba(10,14,26,0.95)',
           borderColor: 'rgba(6,182,212,0.12)',
         }}>
+          <HUDBracket />
           <div className="flex items-center gap-2 mb-4">
             <Activity size={14} style={{ color: '#06b6d4' }} />
             <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
@@ -1089,10 +1652,11 @@ function AnalyticsSection({ lang }: { lang: Lang }) {
       </div>
 
       {/* Category Distribution Bar Chart */}
-      <div className="rounded-lg border p-4" style={{
+      <div className="relative group rounded-lg border p-4" style={{
         background: 'rgba(10,14,26,0.95)',
         borderColor: 'rgba(6,182,212,0.12)',
       }}>
+        <HUDBracket />
         <div className="flex items-center gap-2 mb-4">
           <Database size={14} style={{ color: '#06b6d4' }} />
           <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
@@ -1112,10 +1676,11 @@ function AnalyticsSection({ lang }: { lang: Lang }) {
       </div>
 
       {/* State Matrix */}
-      <div className="rounded-lg border p-4" style={{
+      <div className="relative group rounded-lg border p-4" style={{
         background: 'rgba(10,14,26,0.95)',
         borderColor: 'rgba(6,182,212,0.12)',
       }}>
+        <HUDBracket />
         <div className="flex items-center gap-2 mb-4">
           <Layers size={14} style={{ color: '#06b6d4' }} />
           <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
@@ -1559,6 +2124,285 @@ function InfoSection({ lang }: { lang: Lang }) {
   );
 }
 
+// ─── Command Palette ──────────────────────────────────────────────
+function CommandPalette({ lang, onClose, onAction }: {
+  lang: Lang; onClose: () => void;
+  onAction: (action: string) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const baseCommands = [
+    { id: 'tab-overview', label_en: 'Go to Overview', label_ms: 'Pergi ke Gambaran', icon: LayoutDashboard, shortcut: '1' },
+    { id: 'tab-geomap', label_en: 'Go to GeoMap', label_ms: 'Pergi ke PetaGeo', icon: Map, shortcut: '2' },
+    { id: 'tab-datasets', label_en: 'Go to Datasets', label_ms: 'Pergi ke Set Data', icon: Database, shortcut: '3' },
+    { id: 'tab-analytics', label_en: 'Go to Analytics', label_ms: 'Pergi ke Analitik', icon: BarChart3, shortcut: '4' },
+    { id: 'toggle-lang', label_en: 'Toggle Language', label_ms: 'Tukar Bahasa', icon: Languages, shortcut: 'L' },
+    { id: 'open-infographic', label_en: 'Open Infographic Export', label_ms: 'Buka Eksport Infografik', icon: Printer, shortcut: 'E' },
+    { id: 'toggle-info', label_en: 'Toggle Info Panel', label_ms: 'Togol Panel Maklumat', icon: Info, shortcut: 'I' },
+  ];
+
+  const datasetCommands = useMemo(() => {
+    if (!query) return [];
+    const q = query.toLowerCase();
+    return DATASETS
+      .filter(d => d.title_en.toLowerCase().includes(q) || d.title_ms.toLowerCase().includes(q))
+      .slice(0, 20)
+      .map(d => ({
+        id: `dataset-${d.id}`,
+        label_en: d.title_en,
+        label_ms: d.title_ms,
+        icon: FileText,
+        shortcut: '',
+        category: d.category_en,
+      }));
+  }, [query]);
+
+  const allItems = useMemo(() => {
+    const items: typeof baseCommands & { category?: string }[] = [...baseCommands];
+    if (datasetCommands.length > 0) {
+      items.push(...(datasetCommands as (typeof baseCommands & { category?: string })[]));
+    }
+    return items;
+  }, [baseCommands, datasetCommands]);
+
+  const filtered = useMemo(() => {
+    if (!query) return allItems;
+    const q = query.toLowerCase();
+    return allItems.filter(item =>
+      item.label_en.toLowerCase().includes(q) ||
+      item.label_ms.toLowerCase().includes(q) ||
+      ('category' in item && item.category?.toLowerCase().includes(q))
+    );
+  }, [query, allItems]);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedIndex(i => Math.min(i + 1, filtered.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedIndex(i => Math.max(i - 1, 0));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (filtered[selectedIndex]) {
+        onAction(filtered[selectedIndex].id);
+        onClose();
+      }
+    } else if (e.key === 'Escape') {
+      onClose();
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.15 }}
+      className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: -10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: -10 }}
+        transition={{ duration: 0.2, ease: 'easeOut' }}
+        className="w-full max-w-lg rounded-lg border overflow-hidden"
+        style={{
+          background: 'rgba(8,12,24,0.98)',
+          borderColor: 'rgba(6,182,212,0.3)',
+          boxShadow: '0 0 40px rgba(6,182,212,0.15), 0 25px 50px rgba(0,0,0,0.5)',
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Search Header */}
+        <div className="flex items-center gap-3 px-4 py-3 border-b" style={{ borderColor: 'rgba(6,182,212,0.15)' }}>
+          <Command size={16} style={{ color: '#06b6d4' }} />
+          <input
+            ref={inputRef}
+            type="text"
+            value={query}
+            onChange={e => { setQuery(e.target.value); setSelectedIndex(0); }}
+            onKeyDown={handleKeyDown}
+            placeholder={lang === 'ms' ? 'Taip arahan atau cari set data...' : 'Type a command or search datasets...'}
+            className="flex-1 bg-transparent outline-none text-sm font-mono"
+            style={{ color: '#e0f7fa', caretColor: '#06b6d4' }}
+          />
+          <kbd className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{
+            background: 'rgba(6,182,212,0.08)',
+            border: '1px solid rgba(6,182,212,0.15)',
+            color: 'rgba(6,182,212,0.5)',
+          }}>ESC</kbd>
+        </div>
+
+        {/* Results */}
+        <div className="max-h-80 overflow-y-auto custom-scrollbar py-2">
+          {filtered.length === 0 ? (
+            <div className="px-4 py-8 text-center">
+              <Search size={20} style={{ color: 'rgba(6,182,212,0.2)' }} className="mx-auto mb-2" />
+              <p className="text-xs font-mono" style={{ color: 'rgba(6,182,212,0.3)' }}>
+                {lang === 'ms' ? 'Tiada hasil dijumpai' : 'No results found'}
+              </p>
+            </div>
+          ) : (
+            filtered.map((item, i) => (
+              <button
+                key={item.id}
+                onClick={() => { onAction(item.id); onClose(); }}
+                onMouseEnter={() => setSelectedIndex(i)}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
+                style={{
+                  background: i === selectedIndex ? 'rgba(6,182,212,0.1)' : 'transparent',
+                }}
+              >
+                <item.icon size={14} style={{ color: i === selectedIndex ? '#06b6d4' : 'rgba(6,182,212,0.4)' }} />
+                <div className="flex-1 min-w-0">
+                  <span className="text-xs font-mono block truncate" style={{
+                    color: i === selectedIndex ? '#06b6d4' : '#e0f7fa',
+                  }}>
+                    {'category' in item && item.category ? (
+                      <>
+                        <span style={{ color: 'rgba(6,182,212,0.4)' }}>{item.category} › </span>
+                        {lang === 'ms' ? item.label_ms : item.label_en}
+                      </>
+                    ) : (
+                      lang === 'ms' ? item.label_ms : item.label_en
+                    )}
+                  </span>
+                </div>
+                {item.shortcut && (
+                  <kbd className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{
+                    background: i === selectedIndex ? 'rgba(6,182,212,0.12)' : 'rgba(6,182,212,0.05)',
+                    border: '1px solid rgba(6,182,212,0.15)',
+                    color: i === selectedIndex ? '#06b6d4' : 'rgba(6,182,212,0.4)',
+                  }}>{item.shortcut}</kbd>
+                )}
+                {i === selectedIndex && (
+                  <CornerDownLeft size={12} style={{ color: 'rgba(6,182,212,0.3)' }} />
+                )}
+              </button>
+            ))
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center gap-4 px-4 py-2 border-t" style={{ borderColor: 'rgba(6,182,212,0.1)' }}>
+          <div className="flex items-center gap-1.5">
+            <ArrowUp size={10} style={{ color: 'rgba(6,182,212,0.3)' }} />
+            <ArrowDown size={10} style={{ color: 'rgba(6,182,212,0.3)' }} />
+            <span className="text-[8px] font-mono" style={{ color: 'rgba(6,182,212,0.3)' }}>
+              {lang === 'ms' ? 'Navigasi' : 'Navigate'}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <CornerDownLeft size={10} style={{ color: 'rgba(6,182,212,0.3)' }} />
+            <span className="text-[8px] font-mono" style={{ color: 'rgba(6,182,212,0.3)' }}>
+              {lang === 'ms' ? 'Pilih' : 'Select'}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <kbd className="text-[7px] font-mono px-1 py-0.5 rounded" style={{
+              background: 'rgba(6,182,212,0.05)',
+              border: '1px solid rgba(6,182,212,0.1)',
+              color: 'rgba(6,182,212,0.3)',
+            }}>ESC</kbd>
+            <span className="text-[8px] font-mono" style={{ color: 'rgba(6,182,212,0.3)' }}>
+              {lang === 'ms' ? 'Tutup' : 'Close'}
+            </span>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ─── Keyboard Shortcuts Modal ─────────────────────────────────────
+function KeyboardShortcutsModal({ lang, onClose }: { lang: Lang; onClose: () => void }) {
+  const shortcuts = [
+    { key: '1', action_en: 'Go to Overview', action_ms: 'Pergi ke Gambaran' },
+    { key: '2', action_en: 'Go to GeoMap', action_ms: 'Pergi ke PetaGeo' },
+    { key: '3', action_en: 'Go to Datasets', action_ms: 'Pergi ke Set Data' },
+    { key: '4', action_en: 'Go to Analytics', action_ms: 'Pergi ke Analitik' },
+    { key: 'L', action_en: 'Toggle Language (EN/MS)', action_ms: 'Tukar Bahasa (EN/MS)' },
+    { key: 'I', action_en: 'Toggle Info Panel', action_ms: 'Togol Panel Maklumat' },
+    { key: 'E', action_en: 'Open Infographic Export', action_ms: 'Buka Eksport Infografik' },
+    { key: '⌘K / Ctrl+K', action_en: 'Open Command Palette', action_ms: 'Buka Palet Arahan' },
+    { key: 'ESC', action_en: 'Close Modal / Palette', action_ms: 'Tutup Modal / Palet' },
+  ];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.15 }}
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        transition={{ duration: 0.2 }}
+        className="w-full max-w-md rounded-lg border overflow-hidden"
+        style={{
+          background: 'rgba(8,12,24,0.98)',
+          borderColor: 'rgba(6,182,212,0.3)',
+          boxShadow: '0 0 40px rgba(6,182,212,0.15), 0 25px 50px rgba(0,0,0,0.5)',
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'rgba(6,182,212,0.15)' }}>
+          <div className="flex items-center gap-2">
+            <HelpCircle size={16} style={{ color: '#06b6d4' }} />
+            <span className="text-sm font-mono font-bold" style={{ color: '#06b6d4' }}>
+              {lang === 'ms' ? 'PINTASAN PAPAN KEKUNCI' : 'KEYBOARD SHORTCUTS'}
+            </span>
+          </div>
+          <button onClick={onClose} className="p-1 rounded hover:bg-cyan-950/30 transition-colors">
+            <X size={14} style={{ color: 'rgba(6,182,212,0.5)' }} />
+          </button>
+        </div>
+
+        {/* Shortcuts List */}
+        <div className="px-5 py-3 space-y-0">
+          {shortcuts.map((s, i) => (
+            <div key={i} className="flex items-center justify-between py-2.5" style={{
+              borderBottom: i < shortcuts.length - 1 ? '1px solid rgba(6,182,212,0.06)' : 'none',
+            }}>
+              <span className="text-xs font-mono" style={{ color: '#94a3b8' }}>
+                {lang === 'ms' ? s.action_ms : s.action_en}
+              </span>
+              <kbd className="text-[10px] font-mono px-2 py-1 rounded" style={{
+                background: 'rgba(6,182,212,0.08)',
+                border: '1px solid rgba(6,182,212,0.2)',
+                color: '#06b6d4',
+                boxShadow: '0 0 8px rgba(6,182,212,0.05)',
+              }}>{s.key}</kbd>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer hint */}
+        <div className="px-5 py-3 border-t" style={{ borderColor: 'rgba(6,182,212,0.1)' }}>
+          <p className="text-[9px] font-mono text-center" style={{ color: 'rgba(6,182,212,0.3)' }}>
+            {lang === 'ms'
+              ? 'Pintasan tidak aktif semasa menaip dalam medan input'
+              : 'Shortcuts are disabled while typing in input fields'}
+          </p>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 // ─── Main Dashboard ──────────────────────────────────────────────
 export default function Home() {
   const [booted, setBooted] = useState(false);
@@ -1566,6 +2410,92 @@ export default function Home() {
   const [lang, setLang] = useState<Lang>('en');
   const [showInfographic, setShowInfographic] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [showShortcutsModal, setShowShortcutsModal] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const [currentAlert, setCurrentAlert] = useState<number | null>(null);
+
+  // Scroll listener for scroll-to-top button
+  useEffect(() => {
+    if (!booted) return;
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 400);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [booted]);
+
+  // Live data alert notifications
+  useEffect(() => {
+    if (!booted) return;
+    let alertIndex = 0;
+    const interval = setInterval(() => {
+      setCurrentAlert(alertIndex);
+      alertIndex = (alertIndex + 1) % 5;
+      // Auto-dismiss after 3 seconds
+      setTimeout(() => {
+        setCurrentAlert(null);
+      }, 3000);
+    }, 15000 + Math.random() * 5000);
+    return () => clearInterval(interval);
+  }, [booted]);
+
+  // Command palette action handler
+  const handleCommandAction = useCallback((action: string) => {
+    switch (action) {
+      case 'tab-overview': setActiveTab('overview'); break;
+      case 'tab-geomap': setActiveTab('geomap'); break;
+      case 'tab-datasets': setActiveTab('datasets'); break;
+      case 'tab-analytics': setActiveTab('analytics'); break;
+      case 'toggle-lang': setLang(l => l === 'en' ? 'ms' : 'en'); break;
+      case 'open-infographic': setShowInfographic(true); break;
+      case 'toggle-info': setShowInfo(v => !v); break;
+      default:
+        // Dataset commands — switch to datasets tab
+        if (action.startsWith('dataset-')) {
+          setActiveTab('datasets');
+        }
+    }
+  }, []);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable;
+
+      // Ctrl+K / Cmd+K — always works
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowCommandPalette(v => !v);
+        return;
+      }
+
+      // Escape — close modals
+      if (e.key === 'Escape') {
+        if (showCommandPalette) { setShowCommandPalette(false); return; }
+        if (showShortcutsModal) { setShowShortcutsModal(false); return; }
+        if (showInfographic) { setShowInfographic(false); return; }
+        return;
+      }
+
+      // Don't handle other shortcuts when typing in input fields
+      if (isInput) return;
+
+      switch (e.key) {
+        case '1': setActiveTab('overview'); break;
+        case '2': setActiveTab('geomap'); break;
+        case '3': setActiveTab('datasets'); break;
+        case '4': setActiveTab('analytics'); break;
+        case 'l': case 'L': setLang(l => l === 'en' ? 'ms' : 'en'); break;
+        case 'i': case 'I': setShowInfo(v => !v); break;
+        case 'e': case 'E': setShowInfographic(true); break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showCommandPalette, showShortcutsModal, showInfographic]);
 
   const tabs: { id: TabId; icon: React.ElementType; label_en: string; label_ms: string }[] = [
     { id: 'overview', icon: LayoutDashboard, label_en: 'Overview', label_ms: 'Gambaran' },
@@ -1575,7 +2505,8 @@ export default function Home() {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#0a0e1a' }}>
+    <div className="min-h-screen flex flex-col relative" style={{ background: '#0a0e1a' }}>
+      <ParticleBackground />
       {/* Boot Sequence */}
       <AnimatePresence>
         {!booted && <BootSequence onComplete={() => setBooted(true)} />}
@@ -1586,7 +2517,7 @@ export default function Home() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5 }}
-          className="flex flex-col min-h-screen"
+          className="relative z-10 flex flex-col min-h-screen"
         >
           {/* Header */}
           <Header />
@@ -1665,6 +2596,21 @@ export default function Home() {
                   <Info size={10} />
                   <span className="hidden sm:inline">{lang === 'ms' ? 'Maklumat' : 'Info'}</span>
                 </button>
+
+                {/* Keyboard Shortcuts Help */}
+                <button
+                  onClick={() => setShowShortcutsModal(true)}
+                  className="flex items-center gap-1 px-2 py-1.5 rounded border text-[10px] font-mono tracking-wider"
+                  style={{
+                    background: 'rgba(10,14,26,0.8)',
+                    borderColor: 'rgba(6,182,212,0.15)',
+                    color: '#06b6d4',
+                  }}
+                  title={lang === 'ms' ? 'Pintasan Papan Kekunci (?)' : 'Keyboard Shortcuts (?)'}
+                >
+                  <HelpCircle size={10} />
+                  <span className="hidden sm:inline">?</span>
+                </button>
               </div>
             </div>
           </nav>
@@ -1701,25 +2647,120 @@ export default function Home() {
             </AnimatePresence>
           </main>
 
-          {/* Footer */}
-          <footer className="mt-auto flex-shrink-0 border-t px-4 py-3" style={{
-            background: 'rgba(10,14,26,0.98)',
-            borderColor: 'rgba(6,182,212,0.1)',
-          }}>
-            <div className="max-w-[1400px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-[10px] font-mono" style={{ color: 'rgba(6,182,212,0.35)' }}>
-              <div className="flex items-center gap-3">
-                <span>MALAYSIA DATA COMMAND CENTER v3.0</span>
-                <span>•</span>
-                <span>POWERED BY data.gov.my</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <span>CC BY 4.0</span>
-                <span>•</span>
-                <span>287 DATASETS</span>
-                <span>•</span>
-                <span>18 CATEGORIES</span>
-                <span>•</span>
-                <span>16 STATES + 3 FT</span>
+          {/* Enhanced Footer */}
+          <footer className="mt-auto flex-shrink-0" style={{ background: 'rgba(10,14,26,0.98)' }}>
+            {/* Top decorative gradient line */}
+            <div className="h-px w-full overflow-hidden" style={{ background: 'rgba(6,182,212,0.1)' }}>
+              <motion.div
+                className="h-full w-1/3"
+                style={{ background: 'linear-gradient(90deg, transparent, #06b6d4, transparent)' }}
+                animate={{ x: ['-100%', '400%'] }}
+                transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
+              />
+            </div>
+
+            <div className="px-4 py-5">
+              <div className="max-w-[1400px] mx-auto">
+                {/* Grid layout — 4 columns */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                  {/* Column 1: Branding */}
+                  <div>
+                    <div className="text-xs font-mono font-bold tracking-wider mb-1" style={{
+                      color: '#06b6d4',
+                      textShadow: '0 0 10px rgba(6,182,212,0.4)',
+                    }}>
+                      MALAYSIA DATA COMMAND CENTER
+                    </div>
+                    <div className="text-[10px] font-mono mb-2" style={{ color: 'rgba(6,182,212,0.4)' }}>
+                      Powered by data.gov.my
+                    </div>
+                    <span className="text-[8px] font-mono px-1.5 py-0.5 rounded" style={{
+                      background: 'rgba(6,182,212,0.1)',
+                      color: '#06b6d4',
+                      border: '1px solid rgba(6,182,212,0.2)',
+                    }}>
+                      v3.0
+                    </span>
+                  </div>
+
+                  {/* Column 2: Quick Stats */}
+                  <div>
+                    <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: 'rgba(6,182,212,0.5)' }}>
+                      QUICK STATS
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] font-mono">
+                      <span style={{ color: '#06b6d4' }}>287 <span style={{ color: 'rgba(6,182,212,0.4)' }}>Datasets</span></span>
+                      <span style={{ color: '#f59e0b' }}>18 <span style={{ color: 'rgba(245,158,11,0.4)' }}>Categories</span></span>
+                      <span style={{ color: '#10b981' }}>19 <span style={{ color: 'rgba(16,185,129,0.4)' }}>States/FT</span></span>
+                      <span style={{ color: '#8b5cf6' }}>6 <span style={{ color: 'rgba(139,92,246,0.4)' }}>Data Layers</span></span>
+                    </div>
+                  </div>
+
+                  {/* Column 3: Data Sources */}
+                  <div>
+                    <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: 'rgba(6,182,212,0.5)' }}>
+                      DATA SOURCES
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { name: 'DOSM', color: '#06b6d4' },
+                        { name: 'BNM', color: '#f59e0b' },
+                        { name: 'KKM', color: '#ec4899' },
+                        { name: 'JDN', color: '#8b5cf6' },
+                      ].map(src => (
+                        <span key={src.name} className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{
+                          background: `${src.color}10`,
+                          border: `1px solid ${src.color}20`,
+                          color: src.color,
+                        }}>
+                          <Database size={8} className="inline mr-1" style={{ color: src.color }} />
+                          {src.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Column 4: License */}
+                  <div>
+                    <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: 'rgba(6,182,212,0.5)' }}>
+                      LICENSE
+                    </div>
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Copyright size={10} style={{ color: 'rgba(6,182,212,0.4)' }} />
+                      <span className="text-[10px] font-mono" style={{ color: 'rgba(6,182,212,0.5)' }}>CC BY 4.0</span>
+                    </div>
+                    <a
+                      href="https://data.gov.my"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[10px] font-mono hover:underline"
+                      style={{ color: '#06b6d4' }}
+                    >
+                      <ExternalLink size={8} />
+                      Open Data Portal
+                    </a>
+                  </div>
+                </div>
+
+                {/* Bottom row */}
+                <div className="border-t pt-3 flex flex-col sm:flex-row items-center justify-between gap-2" style={{ borderColor: 'rgba(6,182,212,0.08)' }}>
+                  <div className="text-[9px] font-mono" style={{ color: 'rgba(6,182,212,0.3)' }}>
+                    © {new Date().getFullYear()} Malaysia Data Command Center. All rights reserved.
+                  </div>
+                  <div className="text-[9px] font-mono" style={{ color: 'rgba(6,182,212,0.3)' }}>
+                    Built with Next.js
+                  </div>
+                </div>
+
+                {/* Animated bottom scan line */}
+                <div className="mt-2 h-px w-full overflow-hidden" style={{ background: 'rgba(6,182,212,0.05)' }}>
+                  <motion.div
+                    className="h-full w-1/4"
+                    style={{ background: 'linear-gradient(90deg, transparent, rgba(6,182,212,0.4), transparent)' }}
+                    animate={{ x: ['-100%', '500%'] }}
+                    transition={{ duration: 6, repeat: Infinity, ease: 'linear' }}
+                  />
+                </div>
               </div>
             </div>
           </footer>
@@ -1730,6 +2771,102 @@ export default function Home() {
       <AnimatePresence>
         {showInfographic && (
           <InfographicModal lang={lang} onClose={() => setShowInfographic(false)} />
+        )}
+      </AnimatePresence>
+
+      {/* Command Palette */}
+      <AnimatePresence>
+        {showCommandPalette && (
+          <CommandPalette
+            lang={lang}
+            onClose={() => setShowCommandPalette(false)}
+            onAction={handleCommandAction}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Keyboard Shortcuts Modal */}
+      <AnimatePresence>
+        {showShortcutsModal && (
+          <KeyboardShortcutsModal
+            lang={lang}
+            onClose={() => setShowShortcutsModal(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Scroll-to-Top Button */}
+      <AnimatePresence>
+        {showScrollTop && booted && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            transition={{ duration: 0.2 }}
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            className="fixed bottom-6 right-6 w-10 h-10 rounded-full flex items-center justify-center border cursor-pointer transition-shadow hover:shadow-[0_0_20px_rgba(6,182,212,0.4)]"
+            style={{
+              background: 'rgba(10,14,26,0.95)',
+              borderColor: 'rgba(6,182,212,0.3)',
+              zIndex: 30,
+              boxShadow: '0 0 10px rgba(6,182,212,0.2)',
+            }}
+            aria-label="Scroll to top"
+          >
+            <ArrowUp size={16} style={{ color: '#06b6d4' }} />
+          </motion.button>
+        )}
+      </AnimatePresence>
+
+      {/* Live Data Alert Notifications */}
+      <AnimatePresence>
+        {currentAlert !== null && booted && (
+          <motion.div
+            key={`alert-${currentAlert}`}
+            initial={{ opacity: 0, x: 100 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 100 }}
+            transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+            className="fixed top-20 right-4 w-64 rounded-md border overflow-hidden"
+            style={{
+              background: 'rgba(10,14,26,0.97)',
+              borderColor: 'rgba(6,182,212,0.15)',
+              zIndex: 35,
+              boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+            }}
+          >
+            {(() => {
+              const alerts = [
+                { title: 'Population data synced', icon: Users, color: '#06b6d4' },
+                { title: 'GDP estimates refreshed', icon: TrendingUp, color: '#f59e0b' },
+                { title: 'New dataset available', icon: Database, color: '#10b981' },
+                { title: 'CPI index updated', icon: Activity, color: '#ef4444' },
+                { title: 'Labour force data refreshed', icon: Briefcase, color: '#8b5cf6' },
+              ];
+              const alert = alerts[currentAlert % alerts.length];
+              const Icon = alert.icon;
+              const now = new Date();
+              const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+              return (
+                <>
+                  {/* Colored left border */}
+                  <div className="absolute left-0 top-0 bottom-0 w-1" style={{ background: alert.color }} />
+                  <div className="flex items-start gap-2.5 p-3 pl-4">
+                    <Icon size={14} style={{ color: alert.color, flexShrink: 0, marginTop: 1 }} />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[11px] font-mono font-medium truncate" style={{ color: alert.color }}>
+                        {alert.title}
+                      </div>
+                      <div className="text-[9px] font-mono mt-0.5" style={{ color: 'rgba(6,182,212,0.35)' }}>
+                        {timeStr}
+                      </div>
+                    </div>
+                    <Bell size={10} style={{ color: 'rgba(6,182,212,0.3)', flexShrink: 0, marginTop: 2 }} />
+                  </div>
+                </>
+              );
+            })()}
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
