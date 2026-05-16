@@ -407,10 +407,10 @@ export function GeoMapSection({ lang, onViewProfile }: { lang: Lang; onViewProfi
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         {/* Map */}
-        <div className="lg:col-span-3 rounded-lg border overflow-hidden" style={{
+        <div className="lg:col-span-3 rounded-lg border overflow-hidden relative" style={{
           background: '#0a0e1a',
           borderColor: 'rgba(6,182,212,0.12)',
-          minHeight: '520px',
+          height: '520px',
         }} role="img" aria-label="Interactive map showing Malaysia states colored by selected data layer — powered by DOSM geodata">
           <MalaysiaGeoJSONMap
             activeLayer={activeLayer}
