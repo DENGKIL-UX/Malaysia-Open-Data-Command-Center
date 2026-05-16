@@ -307,6 +307,17 @@ export function DatasetsSection({ lang }: { lang: Lang }) {
 
   return (
     <div className="space-y-4">
+      {/* Section Header: Data Catalogue */}
+      <div className="flex items-center gap-3">
+        <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+          {lang === 'ms' ? 'KATALOG DATA' : 'DATA CATALOGUE'}
+        </span>
+        <motion.div
+          animate={{ scaleX: [0, 1] }}
+          transition={{ duration: 0.8, ease: 'easeOut' }}
+          style={{ height: 2, background: 'linear-gradient(90deg, #06b6d4, transparent)', transformOrigin: 'left', width: 120 }}
+        />
+      </div>
       {/* Search & Filters */}
       <div className="flex flex-col md:flex-row gap-3">
         <div className="relative flex-1">
@@ -413,73 +424,77 @@ export function DatasetsSection({ lang }: { lang: Lang }) {
               </tr>
             </thead>
             <tbody>
-              {paginated.map((d, i) => (
-                <tr
-                  key={d.id}
-                  className="transition-all duration-200 cursor-pointer group"
-                  style={{
-                    borderBottom: '1px solid rgba(6,182,212,0.05)',
-                    background: i % 2 === 0 ? 'transparent' : 'rgba(6,182,212,0.015)',
-                  }}
-                  onClick={() => setSelectedDataset(d)}
-                  onMouseEnter={e => {
-                    (e.currentTarget as HTMLElement).style.background = 'rgba(6,182,212,0.06)';
-                    (e.currentTarget as HTMLElement).style.borderLeft = '2px solid rgba(6,182,212,0.4)';
-                  }}
-                  onMouseLeave={e => {
-                    (e.currentTarget as HTMLElement).style.background = i % 2 === 0 ? 'transparent' : 'rgba(6,182,212,0.015)';
-                    (e.currentTarget as HTMLElement).style.borderLeft = 'none';
-                  }}
-                >
-                  <td className="px-3 py-2 font-mono" style={{ color: 'rgba(6,182,212,0.3)' }}>
-                    {(page - 1) * perPage + i + 1}
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="font-medium group-hover:text-cyan-300 transition-colors" style={{ color: '#e0f7fa' }}>
-                      {lang === 'ms' ? d.title_ms : d.title_en}
-                    </div>
-                    <div className="text-[9px] opacity-50 mt-0.5 truncate max-w-xs" style={{ color: '#94a3b8' }}>
-                      {lang === 'ms' ? d.description_ms : d.description_en}
-                    </div>
-                  </td>
-                  <td className="px-3 py-2 hidden md:table-cell">
-                    <span className="text-[9px] px-1.5 py-0.5 rounded font-mono" style={{
-                      background: `${getCategoryColor(d.category_en)}15`,
-                      color: getCategoryColor(d.category_en),
-                      border: `1px solid ${getCategoryColor(d.category_en)}30`,
-                    }}>
-                      {lang === 'ms' ? d.category_ms : d.category_en}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2">
-                    <span className="text-[9px] px-1.5 py-0.5 rounded font-mono" style={{
-                      background: `${FREQUENCY_COLORS[d.frequency] || '#64748b'}15`,
-                      color: FREQUENCY_COLORS[d.frequency] || '#64748b',
-                    }}>
-                      {d.frequency}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 hidden lg:table-cell">
-                    <span className="text-[9px] font-mono" style={{ color: '#94a3b8' }}>
-                      {d.geography.join(', ') || '—'}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 hidden lg:table-cell font-mono" style={{ color: '#94a3b8' }}>
-                    {d.dataset_begin}–{d.dataset_end}
-                  </td>
-                  <td className="px-3 py-2">
-                    <a
-                      href={`https://data.gov.my/data-catalogue/${d.id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-[9px] font-mono px-1.5 py-0.5 rounded hover:bg-cyan-950/30"
-                      style={{ color: '#06b6d4' }}
-                    >
-                      <ExternalLink size={8} />
-                    </a>
-                  </td>
-                </tr>
-              ))}
+              {paginated.map((d, i) => {
+                const catColor = getCategoryColor(d.category_en);
+                return (
+                  <tr
+                    key={d.id}
+                    className="transition-all duration-200 cursor-pointer group"
+                    style={{
+                      borderBottom: '1px solid rgba(6,182,212,0.05)',
+                      background: i % 2 === 0 ? 'transparent' : 'rgba(6,182,212,0.015)',
+                      borderLeft: '2px solid transparent',
+                    }}
+                    onClick={() => setSelectedDataset(d)}
+                    onMouseEnter={e => {
+                      (e.currentTarget as HTMLElement).style.background = 'rgba(6,182,212,0.06)';
+                      (e.currentTarget as HTMLElement).style.borderLeft = `2px solid ${catColor}80`;
+                    }}
+                    onMouseLeave={e => {
+                      (e.currentTarget as HTMLElement).style.background = i % 2 === 0 ? 'transparent' : 'rgba(6,182,212,0.015)';
+                      (e.currentTarget as HTMLElement).style.borderLeft = '2px solid transparent';
+                    }}
+                  >
+                    <td className="px-3 py-2 font-mono" style={{ color: 'rgba(6,182,212,0.3)' }}>
+                      {(page - 1) * perPage + i + 1}
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="font-medium group-hover:text-cyan-300 transition-colors" style={{ color: '#e0f7fa' }}>
+                        {lang === 'ms' ? d.title_ms : d.title_en}
+                      </div>
+                      <div className="text-[9px] opacity-50 mt-0.5 truncate max-w-xs" style={{ color: '#94a3b8' }}>
+                        {lang === 'ms' ? d.description_ms : d.description_en}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 hidden md:table-cell">
+                      <span className="text-[9px] px-1.5 py-0.5 rounded font-mono" style={{
+                        background: `${getCategoryColor(d.category_en)}15`,
+                        color: getCategoryColor(d.category_en),
+                        border: `1px solid ${getCategoryColor(d.category_en)}30`,
+                      }}>
+                        {lang === 'ms' ? d.category_ms : d.category_en}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2">
+                      <span className="text-[9px] px-1.5 py-0.5 rounded font-mono" style={{
+                        background: `${FREQUENCY_COLORS[d.frequency] || '#64748b'}15`,
+                        color: FREQUENCY_COLORS[d.frequency] || '#64748b',
+                      }}>
+                        {d.frequency}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 hidden lg:table-cell">
+                      <span className="text-[9px] font-mono" style={{ color: '#94a3b8' }}>
+                        {d.geography.join(', ') || '—'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 hidden lg:table-cell font-mono" style={{ color: '#94a3b8' }}>
+                      {d.dataset_begin}–{d.dataset_end}
+                    </td>
+                    <td className="px-3 py-2">
+                      <a
+                        href={`https://data.gov.my/data-catalogue/${d.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[9px] font-mono px-1.5 py-0.5 rounded hover:bg-cyan-950/30"
+                        style={{ color: '#06b6d4' }}
+                      >
+                        <ExternalLink size={8} />
+                      </a>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

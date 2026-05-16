@@ -6,7 +6,7 @@ import {
   Users, TrendingUp, Database, Briefcase, Activity,
   BarChart3, Map, LayoutDashboard, Printer, Info,
   HelpCircle, Languages, ArrowUp, Bell, Copyright,
-  ExternalLink, Heart,
+  ExternalLink, Heart, Download,
 } from 'lucide-react';
 
 import BootSequence from '@/components/dashboard/boot-sequence';
@@ -21,18 +21,18 @@ import { InfoSection } from '@/components/dashboard/info-section';
 import { CommandPalette, KeyboardShortcutsModal } from '@/components/dashboard/command-palette';
 import { StateProfileModal } from '@/components/dashboard/state-profile-modal';
 import { NotificationCenter, NotificationBell } from '@/components/dashboard/notification-center';
+import { DataExportHub } from '@/components/dashboard/data-export-hub';
+import { SettingsPanel, SettingsGearButton } from '@/components/dashboard/settings-panel';
+import { useSettings } from '@/hooks/use-settings';
 import type { TabId, Lang } from '@/lib/dashboard-types';
 
 // ─── Footer Animated Counter ────────────────────────────────────
 function FooterCounter({ target, color }: { target: number; color: string }) {
   const [count, setCount] = useState(0);
-  const [hasAnimated, setHasAnimated] = useState(false);
 
   useEffect(() => {
-    if (hasAnimated) return;
     // Delay to let footer mount visually
     const timer = setTimeout(() => {
-      setHasAnimated(true);
       const duration = 1200;
       const startTime = performance.now();
       const animate = (now: number) => {
@@ -45,10 +45,10 @@ function FooterCounter({ target, color }: { target: number; color: string }) {
       requestAnimationFrame(animate);
     }, 300);
     return () => clearTimeout(timer);
-  }, [target, hasAnimated]);
+  }, [target]);
 
   return (
-    <span style={{ color }} className="font-bold">{count}</span>
+    <span style={{ color, textShadow: `0 0 8px ${color}50, 0 0 16px ${color}20` }} className="font-bold">{count}</span>
   );
 }
 
@@ -66,6 +66,9 @@ export default function Home() {
   const [profileStateId, setProfileStateId] = useState<string | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
   const [unreadCount, setUnreadCount] = useState(5);
+  const [showExportHub, setShowExportHub] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const { settings, updateSetting, resetToDefaults } = useSettings();
 
   // Scroll listener for scroll-to-top button
   useEffect(() => {
@@ -129,6 +132,8 @@ export default function Home() {
         if (showShortcutsModal) { setShowShortcutsModal(false); return; }
         if (showInfographic) { setShowInfographic(false); return; }
         if (showNotifications) { setShowNotifications(false); return; }
+        if (showSettings) { setShowSettings(false); return; }
+        if (showExportHub) { setShowExportHub(false); return; }
         if (profileStateId) { setProfileStateId(null); return; }
         return;
       }
@@ -149,7 +154,7 @@ export default function Home() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showCommandPalette, showShortcutsModal, showInfographic, showNotifications, profileStateId]);
+  }, [showCommandPalette, showShortcutsModal, showInfographic, showNotifications, showSettings, showExportHub, profileStateId]);
 
   const tabs: { id: TabId; icon: React.ElementType; label_en: string; label_ms: string }[] = [
     { id: 'overview', icon: LayoutDashboard, label_en: 'Overview', label_ms: 'Gambaran' },
@@ -159,8 +164,8 @@ export default function Home() {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col relative" style={{ background: '#0a0e1a' }}>
-      <ParticleBackground />
+    <div className="min-h-screen flex flex-col relative" data-scan-lines={settings.showScanLines ? 'true' : 'false'} style={{ background: '#0a0e1a' }}>
+      {settings.showParticles && <ParticleBackground />}
       {/* Boot Sequence */}
       <AnimatePresence>
         {!booted && <BootSequence onComplete={() => setBooted(true)} />}
@@ -223,6 +228,20 @@ export default function Home() {
                   {lang === 'en' ? 'BM' : 'EN'}
                 </button>
 
+                {/* Data Export Hub */}
+                <button
+                  onClick={() => setShowExportHub(true)}
+                  className="flex items-center gap-1 px-2 py-1.5 rounded border text-[10px] font-mono tracking-wider"
+                  style={{
+                    background: 'rgba(10,14,26,0.8)',
+                    borderColor: 'rgba(6,182,212,0.15)',
+                    color: '#06b6d4',
+                  }}
+                >
+                  <Download size={10} />
+                  <span className="hidden sm:inline">{lang === 'ms' ? 'Eksport' : 'Export'}</span>
+                </button>
+
                 {/* Infographic Export */}
                 <button
                   onClick={() => setShowInfographic(true)}
@@ -256,6 +275,13 @@ export default function Home() {
                   lang={lang}
                   unreadCount={unreadCount}
                   onClick={() => setShowNotifications(true)}
+                />
+
+                {/* Settings Gear */}
+                <SettingsGearButton
+                  lang={lang}
+                  onClick={() => setShowSettings(v => !v)}
+                  isActive={showSettings}
                 />
 
                 {/* Keyboard Shortcuts Help */}
@@ -507,6 +533,16 @@ export default function Home() {
         onUnreadChange={setUnreadCount}
       />
 
+      {/* Settings Panel */}
+      <SettingsPanel
+        lang={lang}
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        settings={settings}
+        updateSetting={updateSetting}
+        resetToDefaults={resetToDefaults}
+      />
+
       {/* State Profile Modal */}
       <AnimatePresence>
         {profileStateId && (
@@ -514,6 +550,17 @@ export default function Home() {
             stateId={profileStateId}
             lang={lang}
             onClose={() => setProfileStateId(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Data Export Hub */}
+      <AnimatePresence>
+        {showExportHub && (
+          <DataExportHub
+            lang={lang}
+            isOpen={showExportHub}
+            onClose={() => setShowExportHub(false)}
           />
         )}
       </AnimatePresence>

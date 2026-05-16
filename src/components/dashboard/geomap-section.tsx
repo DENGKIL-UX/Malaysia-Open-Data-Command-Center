@@ -322,6 +322,17 @@ export function GeoMapSection({ lang, onViewProfile }: { lang: Lang; onViewProfi
 
   return (
     <div className="space-y-4">
+      {/* Section Header: Geographic Explorer */}
+      <div className="flex items-center gap-3">
+        <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+          {lang === 'ms' ? 'PENEROKA GEOGRAFI' : 'GEOGRAPHIC EXPLORER'}
+        </span>
+        <motion.div
+          animate={{ scaleX: [0, 1] }}
+          transition={{ duration: 0.8, ease: 'easeOut' }}
+          style={{ height: 2, background: 'linear-gradient(90deg, #06b6d4, transparent)', transformOrigin: 'left', width: 120 }}
+        />
+      </div>
       {/* Layer Controls */}
       <div className="flex flex-wrap items-center gap-2">
         {/* LIVE Badge */}
@@ -437,7 +448,7 @@ export function GeoMapSection({ lang, onViewProfile }: { lang: Lang; onViewProfi
                     <motion.button
                       key={s.id}
                       onClick={() => setSelectedState(s.id)}
-                      className="w-full flex items-center gap-2 py-1.5 px-2 rounded text-left transition-all duration-200 group"
+                      className="w-full flex items-center gap-2 py-1.5 px-2 rounded text-left transition-all duration-200 group relative"
                       style={{
                         background: isSelected ? 'rgba(6,182,212,0.12)' : 'transparent',
                         borderLeft: isSelected ? '2px solid #06b6d4' : '2px solid transparent',
@@ -450,19 +461,20 @@ export function GeoMapSection({ lang, onViewProfile }: { lang: Lang; onViewProfi
                       <span className="text-[9px] font-mono w-4 text-right" style={{ color: i < 3 ? '#06b6d4' : 'rgba(6,182,212,0.3)' }}>
                         {i + 1}
                       </span>
-                      <span className="text-[10px] font-mono flex-1 truncate group-hover:text-cyan-300 transition-colors" style={{ color: isSelected ? '#06b6d4' : '#94a3b8' }}>
+                      <span className="text-[10px] font-mono flex-1 truncate transition-colors duration-200 group-hover:text-white" style={{ color: isSelected ? '#06b6d4' : '#94a3b8' }}>
                         {s.abbr}
                       </span>
                       <div className="flex-1 h-1 rounded-full" style={{ background: 'rgba(6,182,212,0.1)' }}>
-                        <div className="h-full rounded-full transition-all duration-300" style={{
+                        <div className="h-full rounded-full transition-all duration-300 group-hover:shadow-[0_0_6px_rgba(6,182,212,0.4)]" style={{
                           width: `${(val / maxVal) * 100}%`,
                           background: i < 3 ? '#06b6d4' : 'rgba(6,182,212,0.4)',
                           boxShadow: i < 3 ? '0 0 4px rgba(6,182,212,0.3)' : 'none',
                         }} />
                       </div>
-                      <span className="text-[9px] font-mono" style={{ color: '#e0f7fa' }}>
+                      <span className="text-[9px] font-mono transition-colors duration-200 group-hover:text-white" style={{ color: '#e0f7fa' }}>
                         {typeof val === 'number' ? (activeLayer === 'unemployment' ? `${val}%` : activeLayer === 'gdp' ? `${(val/1000).toFixed(1)}B` : val.toLocaleString()) : val}
                       </span>
+                      <ArrowRight size={10} className="opacity-0 group-hover:opacity-60 transition-opacity duration-200 flex-shrink-0" style={{ color: '#06b6d4' }} />
                     </motion.button>
                   );
                 })}

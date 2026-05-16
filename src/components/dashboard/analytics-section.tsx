@@ -221,6 +221,17 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
 
   return (
     <div className="space-y-4">
+      {/* Section Header: Trends & Comparison */}
+      <div className="flex items-center gap-3">
+        <span className="text-xs font-mono tracking-wider" style={{ color: '#f59e0b' }}>
+          {lang === 'ms' ? 'TREND & PERBANDINGAN' : 'TRENDS & COMPARISON'}
+        </span>
+        <motion.div
+          animate={{ scaleX: [0, 1] }}
+          transition={{ duration: 0.8, ease: 'easeOut' }}
+          style={{ height: 2, background: 'linear-gradient(90deg, #f59e0b, transparent)', transformOrigin: 'left', width: 120 }}
+        />
+      </div>
       {/* ─── Existing Row 1: GDP Trend + Radar ─────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* GDP Trend Area Chart */}
@@ -286,6 +297,18 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
             ))}
           </div>
         </div>
+      </div>
+
+      {/* Section Header: Distribution & Matrix */}
+      <div className="flex items-center gap-3">
+        <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+          {lang === 'ms' ? 'TABURAN & MATRIKS' : 'DISTRIBUTION & MATRIX'}
+        </span>
+        <motion.div
+          animate={{ scaleX: [0, 1] }}
+          transition={{ duration: 0.8, ease: 'easeOut' }}
+          style={{ height: 2, background: 'linear-gradient(90deg, #06b6d4, transparent)', transformOrigin: 'left', width: 120 }}
+        />
       </div>
 
       {/* ─── Existing: Category Distribution Bar Chart ──────────── */}
@@ -356,6 +379,18 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Section Header: Deep Analytics */}
+      <div className="flex items-center gap-3">
+        <span className="text-xs font-mono tracking-wider" style={{ color: '#10b981' }}>
+          {lang === 'ms' ? 'ANALISIS MENDALAM' : 'DEEP ANALYTICS'}
+        </span>
+        <motion.div
+          animate={{ scaleX: [0, 1] }}
+          transition={{ duration: 0.8, ease: 'easeOut' }}
+          style={{ height: 2, background: 'linear-gradient(90deg, #10b981, transparent)', transformOrigin: 'left', width: 120 }}
+        />
       </div>
 
       {/* ═════════════════════════════════════════════════════════════

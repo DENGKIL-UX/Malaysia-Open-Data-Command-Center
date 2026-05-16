@@ -26,10 +26,10 @@ import { DataActivityFeed } from '@/components/dashboard/data-activity-feed';
 // ─── Overview Section ─────────────────────────────────────────────
 export function OverviewSection({ lang }: { lang: Lang }) {
   const kpis = [
-    { icon: Users, label: lang === 'ms' ? 'Penduduk' : 'Population', value: '34.3M', unit: "('000)", change: 1.1, color: '#06b6d4' },
+    { icon: Users, label: lang === 'ms' ? 'Penduduk' : 'Population', value: '34.3M', unit: lang === 'ms' ? 'orang' : 'people', change: 1.1, color: '#06b6d4' },
     { icon: TrendingUp, label: lang === 'ms' ? 'KDNK' : 'GDP', value: 'RM 1.68T', unit: '', change: 4.5, color: '#f59e0b' },
-    { icon: Baby, label: lang === 'ms' ? 'Kelahiran' : 'Births', value: '602.9', unit: "('000)", change: -2.3, color: '#10b981' },
-    { icon: Heart, label: lang === 'ms' ? 'Kematian' : 'Deaths', value: '159.7', unit: "('000)", change: 1.8, color: '#ef4444' },
+    { icon: Baby, label: lang === 'ms' ? 'Kelahiran' : 'Births', value: '602.9K', unit: '', change: -2.3, color: '#10b981' },
+    { icon: Heart, label: lang === 'ms' ? 'Kematian' : 'Deaths', value: '159.7K', unit: '', change: 1.8, color: '#ef4444' },
     { icon: Briefcase, label: lang === 'ms' ? 'Pengangguran' : 'Unemployment', value: '3.4', unit: '%', change: -0.3, color: '#8b5cf6' },
     { icon: Database, label: lang === 'ms' ? 'Set Data' : 'Datasets', value: '287', unit: '', change: 12, color: '#ec4899' },
   ];
@@ -71,6 +71,7 @@ export function OverviewSection({ lang }: { lang: Lang }) {
         style={{
           background: 'linear-gradient(135deg, rgba(6,182,212,0.08), rgba(16,185,129,0.04), rgba(10,14,26,0.95))',
           borderColor: 'rgba(6,182,212,0.15)',
+          animation: 'border-glow 3s ease-in-out infinite',
         }}
       >
         <div className="absolute top-0 right-0 w-64 h-64 opacity-10" style={{
@@ -147,6 +148,18 @@ export function OverviewSection({ lang }: { lang: Lang }) {
       </div>
 
       {/* Charts Row */}
+      <div className="space-y-1">
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+            {lang === 'ms' ? 'ANALISIS DATA' : 'DATA ANALYSIS'}
+          </span>
+          <motion.div
+            animate={{ scaleX: [0, 1] }}
+            transition={{ duration: 0.8, ease: 'easeOut' }}
+            style={{ height: 2, background: 'linear-gradient(90deg, #06b6d4, transparent)', transformOrigin: 'left', width: 120 }}
+          />
+        </div>
+      </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Bar Chart - Top States */}
         <div className="lg:col-span-2 relative group rounded-lg border p-4" style={{
@@ -190,14 +203,38 @@ export function OverviewSection({ lang }: { lang: Lang }) {
               <YAxis yAxisId="left" tick={{ fill: '#06b6d466', fontSize: 9 }} axisLine={false} tickLine={false} width={50} label={{ value: lang === 'ms' ? "Penduduk ('000)" : "Population ('000)", angle: -90, position: 'insideLeft', style: { fill: '#06b6d466', fontSize: 9 } }} />
               <YAxis yAxisId="right" orientation="right" tick={{ fill: '#f59e0b66', fontSize: 9 }} axisLine={false} tickLine={false} width={50} label={{ value: lang === 'ms' ? 'KDNK (RM B)' : 'GDP (RM B)', angle: 90, position: 'insideRight', style: { fill: '#f59e0b66', fontSize: 9 } }} />
               <Tooltip
-                contentStyle={{ background: '#0a0e1a', border: '1px solid #06b6d430', borderRadius: 8, fontSize: 11, boxShadow: '0 0 20px rgba(6,182,212,0.1)' }}
-                labelStyle={{ color: '#06b6d4' }}
-                itemStyle={{ color: '#e0f7fa' }}
-                formatter={(val: number, name: string, props: { payload?: { fullName?: string } }) => {
-                  const label = name === 'population' ? (lang === 'ms' ? 'Penduduk' : 'Population') : (lang === 'ms' ? 'KDNK (RM B)' : 'GDP (RM B)');
-                  return [val.toLocaleString(), label];
+                content={({ active, payload, label }) => {
+                  if (!active || !payload?.length) return null;
+                  const data = payload[0]?.payload as { fullName?: string; population?: number; gdp?: number; name?: string };
+                  return (
+                    <div style={{
+                      background: '#0a0e1a',
+                      border: '1px solid #06b6d430',
+                      borderRadius: 8,
+                      padding: '8px 12px',
+                      fontSize: 11,
+                      boxShadow: '0 0 20px rgba(6,182,212,0.1)',
+                    }}>
+                      <div style={{ color: '#06b6d4', fontWeight: 700, marginBottom: 4, fontSize: 12 }}>
+                        {data?.fullName || label}
+                      </div>
+                      {payload.map((item, idx) => {
+                        const isPop = item.dataKey === 'population';
+                        const dotColor = isPop ? '#06b6d4' : '#f59e0b';
+                        const itemLabel = isPop
+                          ? (lang === 'ms' ? 'Penduduk' : 'Population')
+                          : (lang === 'ms' ? 'KDNK (RM B)' : 'GDP (RM B)');
+                        return (
+                          <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                            <div style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
+                            <span style={{ color: '#94a3b8', fontSize: 10 }}>{itemLabel}:</span>
+                            <span style={{ color: '#e0f7fa', fontWeight: 600 }}>{Number(item.value).toLocaleString()}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
                 }}
-                labelFormatter={(_label: string, payload: { payload?: { fullName?: string } }[]) => payload?.[0]?.payload?.fullName || _label}
               />
               <Bar yAxisId="left" dataKey="population" fill="url(#popGrad)" radius={[4,4,0,0]} />
               <Bar yAxisId="right" dataKey="gdp" fill="url(#gdpBarGrad)" radius={[4,4,0,0]} />
@@ -234,18 +271,38 @@ export function OverviewSection({ lang }: { lang: Lang }) {
               <span className="text-[8px] font-mono tracking-widest" style={{ color: '#06b6d4' }}>DATASETS</span>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2 mt-2 justify-center">
-            {freqDist.map((d, i) => (
-              <div key={i} className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
-                <span className="text-[9px] font-mono" style={{ color: '#94a3b8' }}>{d.name} ({d.value})</span>
-              </div>
-            ))}
+          <div className="flex flex-wrap gap-x-4 gap-y-2 mt-3 justify-center">
+            {freqDist.map((d, i) => {
+              const pct = ((d.value / 287) * 100).toFixed(1);
+              return (
+                <div key={i} className="flex items-center gap-1.5 transition-all duration-200 hover:scale-105 cursor-default" style={{
+                  padding: '2px 6px',
+                  borderRadius: 4,
+                }} onMouseEnter={e => { e.currentTarget.style.background = `${PIE_COLORS[i % PIE_COLORS.length]}10`; }} onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
+                  <div className="w-2.5 h-2.5 rounded-full transition-all duration-200" style={{ background: PIE_COLORS[i % PIE_COLORS.length], boxShadow: `0 0 4px ${PIE_COLORS[i % PIE_COLORS.length]}40` }} />
+                  <span className="text-[9px] font-mono" style={{ color: '#b0bec5' }}>{d.name}</span>
+                  <span className="text-[9px] font-mono font-bold" style={{ color: PIE_COLORS[i % PIE_COLORS.length] }}>{d.value}</span>
+                  <span className="text-[8px] font-mono" style={{ color: '#64748b' }}>({pct}%)</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
 
       {/* Row: Category Heat Blocks + Data Sources + Timeline */}
+      <div className="space-y-1">
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+            {lang === 'ms' ? 'KATALOG & KEMAS KINI' : 'CATALOG & UPDATES'}
+          </span>
+          <motion.div
+            animate={{ scaleX: [0, 1] }}
+            transition={{ duration: 0.8, ease: 'easeOut' }}
+            style={{ height: 2, background: 'linear-gradient(90deg, #06b6d4, transparent)', transformOrigin: 'left', width: 120 }}
+          />
+        </div>
+      </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Category Heat Blocks */}
         <div className="relative group rounded-lg border p-4" style={{

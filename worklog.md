@@ -792,3 +792,65 @@ Stage Summary:
 - Datasets: search glow focus, active filter glow, animated count badge, alternating row colors, row hover with left-border highlight
 - Footer: animated counter numbers (0→target), heartbeat icon, hover glow on data source badges
 - Zero breaking changes to existing functionality
+
+---
+Task ID: R4
+Agent: Subagent (export-hub-developer)
+Task: Create Data Export Hub component for multi-format data export
+
+Work Log:
+- Created `/src/components/dashboard/data-export-hub.tsx`:
+  - Modal overlay (z-50) with click-outside-to-close and Framer Motion entrance animation (scale + fade with spring transition)
+  - HUDBracket decoration on the modal container
+  - Two-column layout: Left (2/5 width) = source selection, Right (3/5 width) = format + preview + download
+  - **Export Sources** — 5 exportable data sources with colored checkboxes and count badges:
+    1. State Metrics Data (16 entries, cyan #06b6d4) — from STATES array (population, GDP, births, deaths, unemployment, area, density, datasets count)
+    2. Dataset Catalogue (287 entries, amber #f59e0b) — from DATASETS array (title, category, frequency, geography, source)
+    3. Category Distribution (18 entries, green #10b981) — from DATASET_CATEGORIES array with computed dataset counts per category
+    4. Timeline Events (10 entries, purple #8b5cf6) — from TIMELINE_EVENTS array (dates and event descriptions)
+    5. Data Quality Metrics (4 entries, pink #ec4899) — Coverage 98%, Freshness 87%, Completeness 95%, Consistency 91%
+  - **Export Formats** — 3 format buttons with icons:
+    - CSV (FileText icon) — generates CSV text with headers and proper double-quote escaping
+    - JSON (Braces icon) — generates pretty-printed JSON with 2-space indentation
+    - PNG (ImageIcon) — uses html2canvas to capture the preview card as PNG at 2x scale
+  - **Export Preview** — Shows first 5 rows of selected data in selected format before downloading:
+    - CSV: header row in cyan, data rows in gray
+    - JSON: syntax highlighted (keys in cyan, strings in green, numbers in amber, booleans in purple)
+    - PNG: placeholder message with ImageIcon
+  - **Download Button** — Creates Blob and triggers download with appropriate filenames:
+    - CSV: `malaysia-data-{source}-{date}.csv`
+    - JSON: `malaysia-data-{source}-{date}.json`
+    - PNG: `malaysia-data-summary-{date}.png`
+  - **Export History** — In-component state list of recent exports (max 20) showing:
+    - Source label, format badge, file size estimate, timestamp
+    - Color-coded format badges (CSV=cyan, JSON=amber, PNG=green)
+  - **Select All / Deselect** buttons for quick source toggling
+  - **Bilingual labels** (EN/MS) throughout
+  - Dark command center theme with cyan accents matching dashboard aesthetic
+  - Monospace font throughout
+  - Custom scrollbar styling on scrollable areas
+
+- Integrated DataExportHub into `/src/app/page.tsx`:
+  - Added import for DataExportHub component
+  - Added `Download` icon to lucide-react imports
+  - Added state: `const [showExportHub, setShowExportHub] = useState(false);`
+  - Added "Export" button with Download icon in nav bar (between Language toggle and Infographic button)
+  - Rendered DataExportHub via AnimatePresence wrapper
+  - Added Escape key handler to close Export Hub modal
+  - Updated keyboard shortcut useEffect dependency array
+
+- Fixed pre-existing compilation error in `/src/components/dashboard/datasets-section.tsx`:
+  - Fixed JSX indentation issue in table row mapping that caused "Expected '</', got ')'" parser error
+  - Properly indented `<tr>` element inside the `.map()` callback
+
+- Lint check passes with zero errors (only pre-existing unrelated error in use-settings.ts remains)
+- Dev server compiles and serves all pages cleanly (HTTP 200)
+
+Stage Summary:
+- Complete Data Export Hub component with 5 exportable sources, 3 formats (CSV/JSON/PNG), live preview, download, and export history
+- Integrated into dashboard nav bar with Download button
+- Escape key handler added for modal dismissal
+- Pre-existing datasets-section.tsx compilation error fixed
+- Full bilingual support (English/Bahasa Malaysia)
+- Command center dark theme with cyan accents maintained
+- Zero breaking changes to existing functionality

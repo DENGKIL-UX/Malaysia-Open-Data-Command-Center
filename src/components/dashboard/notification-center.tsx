@@ -147,11 +147,12 @@ export function NotificationBell({
         <motion.span
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
-          className="absolute -top-1.5 -right-1.5 min-w-[14px] h-[14px] flex items-center justify-center rounded-full text-[7px] font-mono font-bold"
+          className="absolute w-4 h-4 flex items-center justify-center rounded-full text-[8px] font-mono font-bold"
           style={{
             background: '#ef4444',
             color: '#fff',
-            padding: '0 3px',
+            top: -4,
+            right: -4,
             boxShadow: '0 0 6px rgba(239,68,68,0.4)',
           }}
         >
