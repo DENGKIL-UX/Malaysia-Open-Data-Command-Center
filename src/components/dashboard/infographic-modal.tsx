@@ -333,127 +333,101 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
         return;
       }
 
-      // Target dimensions MUST match the preview render dimensions for WYSIWYG.
-      // The preview is already rendered at these exact pixel dimensions,
-      // so cloning into an offscreen container at the same dimensions
-      // produces IDENTICAL layout — no reflow, no misalignment.
-      let targetW: number;
-      let targetH: number;
-      if (aspectRatio === '16:9') {
-        targetW = 960;
-        targetH = 540;
-      } else if (aspectRatio === '9:16') {
-        targetW = 540;
-        targetH = 960;
-      } else {
-        // Auto: use the actual rendered dimensions
-        targetW = target.offsetWidth;
-        targetH = target.offsetHeight;
-      }
+      // ─── Direct capture approach ───────────────────────────────
+      // Instead of cloning into an offscreen container (which causes html2canvas
+      // to re-render with its own internal renderer, introducing layout differences),
+      // we capture the ACTUAL preview element directly.
+      //
+      // For 16:9 and 9:16 modes, the preview is rendered at target dimensions
+      // (960×540 or 540×960) but scaled down via CSS zoom for display.
+      // We temporarily reset zoom to 1 and allow overflow so the full-size
+      // element is visible for capture. This guarantees WYSIWYG because
+      // html2canvas captures the exact element the browser rendered.
+      //
+      // For auto mode, no zoom is involved — capture directly.
 
-      // ─── Off-screen rendering at SAME dimensions as preview ───
-      // The preview is already rendered at targetW × targetH.
-      // We clone it into an offscreen container at the SAME dimensions.
-      // Since the content was already laid out at this width, the clone's
-      // layout is IDENTICAL to the preview — guaranteed WYSIWYG.
-      const offscreen = document.createElement('div');
-      offscreen.style.cssText = `
-        position: fixed;
-        left: -99999px;
-        top: 0;
-        width: ${targetW}px;
-        height: ${targetH}px;
-        background: #0a0e1a;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-        font-size: ${fs};
-        color: #e0f7fa;
-        overflow: hidden;
-        box-sizing: border-box;
-      `;
+      const zoomWrapper = target.parentElement; // The div with zoom: displayZoom
+      const viewportEl = viewportRef.current;
 
-      // Clone the infographic content from the preview
-      const contentClone = target.cloneNode(true) as HTMLElement;
-      // The preview was rendered at target dimensions with 24px padding.
-      // Preserve this exact layout — only strip visual chrome (border, radius, shadow).
-      contentClone.style.cssText = `
-        background: #0a0e1a;
-        border: none;
-        border-radius: 0;
-        box-shadow: none;
-        padding: 24px;
-        margin: 0;
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
-        box-sizing: border-box;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-        font-size: ${fs};
-        color: #e0f7fa;
-      `;
-      // Clear any residual constraints
-      contentClone.style.aspectRatio = '';
-      contentClone.style.maxHeight = 'none';
-      contentClone.style.minHeight = 'none';
-      contentClone.style.overflowY = 'hidden';
+      const savedZoom = zoomWrapper?.style.zoom || '';
+      const savedOverflow = viewportEl?.style.overflow || '';
 
-      offscreen.appendChild(contentClone);
-      document.body.appendChild(offscreen);
+      try {
+        // Reset zoom to 1 so the preview renders at its true target dimensions
+        if (zoomWrapper && !isAuto) {
+          zoomWrapper.style.zoom = '1';
+        }
+        // Allow overflow so the full-size element is visible for capture
+        if (viewportEl) {
+          viewportEl.style.overflow = 'visible';
+        }
 
-      // Wait for layout to settle (double rAF ensures paint)
-      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        // Wait for repaint
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
-      const canvas = await html2canvasFn(offscreen, {
-        scale: 2,
-        backgroundColor: '#0a0e1a',
-        useCORS: true,
-        logging: false,
-        width: targetW,
-        height: targetH,
-        onclone: (clonedDoc, clonedEl) => {
-          // Patch cloned document's stylesheets for modern CSS color functions
-          try {
-            const BAD_PATTERNS = ['oklab', 'oklch', 'lab(', 'lch(', 'color-mix('];
-            for (let si = 0; si < clonedDoc.styleSheets.length; si++) {
-              try {
-                const sheet = clonedDoc.styleSheets[si];
-                const rules = sheet.cssRules;
-                for (let ri = rules.length - 1; ri >= 0; ri--) {
-                  const ruleText = rules[ri].cssText;
-                  if (ruleText && BAD_PATTERNS.some(p => ruleText.includes(p))) {
-                    try { sheet.deleteRule(ri); } catch { /* ignore */ }
+        const canvas = await html2canvasFn(target, {
+          scale: 2,
+          backgroundColor: '#0a0e1a',
+          useCORS: true,
+          logging: false,
+          onclone: (clonedDoc, clonedEl) => {
+            // Patch cloned document's stylesheets for modern CSS color functions
+            try {
+              const BAD_PATTERNS = ['oklab', 'oklch', 'lab(', 'lch(', 'color-mix('];
+              for (let si = 0; si < clonedDoc.styleSheets.length; si++) {
+                try {
+                  const sheet = clonedDoc.styleSheets[si];
+                  const rules = sheet.cssRules;
+                  for (let ri = rules.length - 1; ri >= 0; ri--) {
+                    const ruleText = rules[ri].cssText;
+                    if (ruleText && BAD_PATTERNS.some(p => ruleText.includes(p))) {
+                      try { sheet.deleteRule(ri); } catch { /* ignore */ }
+                    }
                   }
-                }
-              } catch { /* CORS */ }
+                } catch { /* CORS */ }
+              }
+            } catch { /* ignore */ }
+
+            // Fix outline and caret colors
+            const cloneStyle = clonedDoc.createElement('style');
+            cloneStyle.textContent = `
+              *, *::before, *::after {
+                outline-color: transparent !important;
+                caret-color: currentColor !important;
+              }
+            `;
+            clonedDoc.head.appendChild(cloneStyle);
+
+            // Make the cloned element fully visible (remove zoom, overflow constraints)
+            const clonedZoomWrapper = clonedEl.parentElement;
+            if (clonedZoomWrapper) {
+              clonedZoomWrapper.style.zoom = '1';
+              clonedZoomWrapper.style.transform = 'none';
             }
-          } catch { /* ignore */ }
-
-          // Fix only outline and caret colors
-          const cloneStyle = clonedDoc.createElement('style');
-          cloneStyle.textContent = `
-            *, *::before, *::after {
-              outline-color: transparent !important;
-              caret-color: currentColor !important;
+            const clonedViewport = clonedZoomWrapper?.parentElement;
+            if (clonedViewport) {
+              clonedViewport.style.overflow = 'visible';
+              clonedViewport.style.height = 'auto';
             }
-          `;
-          clonedDoc.head.appendChild(cloneStyle);
+          },
+        });
 
-          // Ensure the cloned offscreen container matches target dimensions exactly
-          clonedEl.style.width = `${targetW}px`;
-          clonedEl.style.height = `${targetH}px`;
-          clonedEl.style.overflow = 'hidden';
-        },
-      });
-
-      // Clean up off-screen element
-      offscreen.remove();
-
-      const link = document.createElement('a');
-      const ratioStr = aspectRatio === '16:9' ? '16x9' : aspectRatio === '9:16' ? '9x16' : 'auto';
-      link.download = `malaysia-open-data-infographic-${ratioStr}-${Date.now()}.png`;
-      link.href = canvas.toDataURL('image/png');
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+        const link = document.createElement('a');
+        const ratioStr = aspectRatio === '16:9' ? '16x9' : aspectRatio === '9:16' ? '9x16' : 'auto';
+        link.download = `malaysia-open-data-infographic-${ratioStr}-${Date.now()}.png`;
+        link.href = canvas.toDataURL('image/png');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } finally {
+        // Restore zoom and overflow — ALWAYS, even if html2canvas throws
+        if (zoomWrapper && !isAuto) {
+          zoomWrapper.style.zoom = savedZoom;
+        }
+        if (viewportEl) {
+          viewportEl.style.overflow = savedOverflow;
+        }
+      }
     } catch (e) {
       console.error('Export failed:', e);
       alert('Export failed. Please try again or use a different browser.');
