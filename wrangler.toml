@@ -1,14 +1,28 @@
 # =============================================================================
-# Malaysia Open Data Command Center — Cloudflare Pages Configuration
+# Malaysia Open Data Command Center — Cloudflare Workers Configuration
 # =============================================================================
-# Deploy with: bun run pages:deploy
-# Preview with: bun run pages:preview
+# Uses @opennextjs/cloudflare adapter for Next.js → Cloudflare Workers
+# Build:      npx opennextjs-cloudflare build
+# Preview:    npx wrangler dev
+# Deploy:     npx opennextjs-cloudflare build && npx opennextjs-cloudflare deploy
 # =============================================================================
 
 name = "malaysia-open-data-command-center"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
-pages_build_output_dir = ".vercel/output/static"
+
+# OpenNext for Cloudflare output
+main = ".open-next/worker.js"
+
+[assets]
+directory = ".open-next/assets"
+binding = "ASSETS"
+
+# Self-reference service binding for caching
+# see https://opennext.js.org/cloudflare/caching
+[[services]]
+binding = "WORKER_SELF_REFERENCE"
+service = "malaysia-open-data-command-center"
 
 # -----------------------------------------------------------------------------
 # Smart Placement — routes workers to the optimal location for latency
@@ -18,7 +32,7 @@ mode = "smart"
 
 # -----------------------------------------------------------------------------
 # Environment Variables (production)
-# Secrets (API keys, tokens) should be set via: wrangler pages secret put <KEY>
+# Secrets (API keys, tokens) should be set via: wrangler secret put <KEY>
 # Non-secret values can go here.
 # -----------------------------------------------------------------------------
 [vars]
@@ -29,25 +43,3 @@ NODE_VERSION = "22"
 # -----------------------------------------------------------------------------
 [env.preview]
 name = "malaysia-open-data-command-center-preview"
-
-# -----------------------------------------------------------------------------
-# KV Namespace bindings (uncomment when ready to use for caching GeoJSON)
-# -----------------------------------------------------------------------------
-# [[kv_namespaces]]
-# binding = "GEOJSON_CACHE"
-# id = "<your-kv-namespace-id>"
-
-# -----------------------------------------------------------------------------
-# R2 bucket bindings (uncomment for large dataset storage)
-# -----------------------------------------------------------------------------
-# [[r2_buckets]]
-# binding = "DATA_BUCKET"
-# bucket_name = "malaysia-open-data"
-
-# -----------------------------------------------------------------------------
-# D1 Database bindings (uncomment for serverless SQL)
-# -----------------------------------------------------------------------------
-# [[d1_databases]]
-# binding = "DB"
-# database_name = "malaysia-open-data-db"
-# database_id = "<your-d1-database-id>"

@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 
-// Edge runtime — compatible with Cloudflare Pages Workers
-export const runtime = 'edge';
-
+// @opennextjs/cloudflare automatically handles edge runtime
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const layer = searchParams.get('layer') || 'states';

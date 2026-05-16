@@ -7,10 +7,10 @@ const nextConfig: NextConfig = {
   },
   reactStrictMode: false,
 
-  // Cloudflare Pages compatibility:
-  // - Removed "output: standalone" (Node.js-specific, incompatible with CF Pages)
-  // - @cloudflare/next-on-pages handles the build output format automatically
-  // - Edge runtime used for API routes (see individual route.ts files)
+  // Cloudflare Workers compatibility:
+  // - @opennextjs/cloudflare handles the build output format automatically
+  // - No "output: standalone" needed (Node.js-specific, incompatible with CF Workers)
+  // - No explicit edge runtime needed in API routes (handled by adapter)
 
   // Static asset headers for caching GeoJSON and other large files
   async headers() {
