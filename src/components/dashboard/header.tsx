@@ -12,21 +12,24 @@ function LiveClock() {
   useEffect(() => {
     const updateClock = () => {
       const now = new Date();
-      // Malaysia Time (UTC+8)
-      const mytTime = new Date(now.getTime() + 8 * 60 * 60 * 1000 - now.getTimezoneOffset() * 60 * 1000);
-      const hours = mytTime.getHours().toString().padStart(2, '0');
-      const minutes = mytTime.getMinutes().toString().padStart(2, '0');
-      const seconds = mytTime.getSeconds().toString().padStart(2, '0');
-      setTime(`${hours}:${minutes}:${seconds}`);
+      // Malaysia Time synced to Asia/Kuala_Lumpur (GMT+8)
+      const timeOpts: Intl.DateTimeFormatOptions = {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+        timeZone: 'Asia/Kuala_Lumpur',
+      };
+      setTime(now.toLocaleTimeString('en-GB', timeOpts));
 
-      const options: Intl.DateTimeFormatOptions = {
+      const dateOpts: Intl.DateTimeFormatOptions = {
         weekday: 'short',
         year: 'numeric',
         month: 'short',
         day: 'numeric',
         timeZone: 'Asia/Kuala_Lumpur',
       };
-      setDate(mytTime.toLocaleDateString('en-MY', options));
+      setDate(now.toLocaleDateString('en-MY', dateOpts));
     };
 
     updateClock();

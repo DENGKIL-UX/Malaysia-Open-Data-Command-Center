@@ -78,18 +78,21 @@ function useFocusTrap(isOpen: boolean, containerRef: React.RefObject<HTMLElement
   }, [isOpen, containerRef]);
 }
 
-// ─── Footer Live Clock (MYT) ────────────────────────────────────
+// ─── Footer Live Clock (Asia/Kuala_Lumpur GMT+8) ────────────────────────────────────
 function FooterLiveClock() {
   const [time, setTime] = useState('');
 
   useEffect(() => {
     const updateClock = () => {
       const now = new Date();
-      const mytTime = new Date(now.getTime() + 8 * 60 * 60 * 1000 - now.getTimezoneOffset() * 60 * 1000);
-      const hours = mytTime.getHours().toString().padStart(2, '0');
-      const minutes = mytTime.getMinutes().toString().padStart(2, '0');
-      const seconds = mytTime.getSeconds().toString().padStart(2, '0');
-      setTime(`MYT ${hours}:${minutes}:${seconds}`);
+      const timeOpts: Intl.DateTimeFormatOptions = {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+        timeZone: 'Asia/Kuala_Lumpur',
+      };
+      setTime(`MYT ${now.toLocaleTimeString('en-GB', timeOpts)}`);
     };
 
     updateClock();
@@ -954,7 +957,7 @@ export default function Home() {
               const alert = alerts[currentAlert % alerts.length];
               const Icon = alert.icon;
               const now = new Date();
-              const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+              const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: 'Asia/Kuala_Lumpur' });
               return (
                 <>
                   {/* Colored left border */}
