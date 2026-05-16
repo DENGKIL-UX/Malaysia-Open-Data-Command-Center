@@ -107,7 +107,9 @@ export default function MalaysiaGeoJSONMap({
   lang = 'en',
 }: MalaysiaMapProps) {
   const [hoveredState, setHoveredState] = useState<string | null>(null);
-  const [mousePos, setMousePos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  // ── PERF FIX: Use ref for mouse position to avoid re-renders on every mouse move ──
+  const mousePosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const tooltipRef = useRef<HTMLDivElement>(null);
   const [stateFeatures, setStateFeatures] = useState<PreProcessedFeature[]>([]);
   const [districtFeatures, setDistrictFeatures] = useState<PreProcessedDistrict[]>([]);
   const [parlimenFeatures, setParlimenFeatures] = useState<PreProcessedParlimen[]>([]);
@@ -115,10 +117,14 @@ export default function MalaysiaGeoJSONMap({
   const [zoomLevel, setZoomLevel] = useState<ZoomLevel>('states');
   const [focusedState, setFocusedState] = useState<string | null>(null);
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
-  const [isPanning, setIsPanning] = useState(false);
-  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const isPanningRef = useRef(false);
+  const panStartRef = useRef({ x: 0, y: 0 });
+  const transformRef = useRef(transform);
   const svgRef = useRef<SVGSVGElement>(null);
   const [loading, setLoading] = useState(true);
+
+  // Keep transformRef in sync
+  useEffect(() => { transformRef.current = transform; }, [transform]);
 
   // ─── Load pre-processed GeoJSON data ──────────────────────────────
   useEffect(() => {
@@ -126,7 +132,6 @@ export default function MalaysiaGeoJSONMap({
 
     async function loadData() {
       try {
-        // Load state boundaries (essential)
         const stateRes = await fetch('/geodata/states-preprocessed.json');
         if (!stateRes.ok) throw new Error('Failed to load states');
         const stateData: PreProcessedFeature[] = await stateRes.json();
@@ -134,7 +139,6 @@ export default function MalaysiaGeoJSONMap({
         setStateFeatures(stateData);
         setLoading(false);
 
-        // Load district boundaries (secondary - lazy)
         fetch('/geodata/districts-preprocessed.json')
           .then(res => res.json())
           .then((data: PreProcessedDistrict[]) => {
@@ -142,7 +146,6 @@ export default function MalaysiaGeoJSONMap({
           })
           .catch(e => console.warn('Failed to load district data:', e));
 
-        // Load parlimen boundaries (tertiary - lazy)
         fetch('/geodata/parlimen-preprocessed.json')
           .then(res => res.json())
           .then((data: PreProcessedParlimen[]) => {
@@ -150,7 +153,6 @@ export default function MalaysiaGeoJSONMap({
           })
           .catch(e => console.warn('Failed to load parlimen data:', e));
 
-        // Load DUN boundaries (quaternary - lazy)
         fetch('/geodata/dun-preprocessed.json')
           .then(res => res.json())
           .then((data: PreProcessedDun[]) => {
@@ -191,47 +193,60 @@ export default function MalaysiaGeoJSONMap({
     onHoverState(null);
   }, [onHoverState]);
 
+  // ── PERF FIX: Use ref + direct DOM for tooltip positioning (no re-render) ──
   const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    mousePosRef.current = { x, y };
+
+    // Directly update tooltip DOM position (no React re-render)
+    if (tooltipRef.current) {
+      tooltipRef.current.style.left = `${Math.min(x + 16, 380)}px`;
+      tooltipRef.current.style.top = `${Math.min(y - 10, 280)}px`;
+    }
+
+    // Handle panning via ref (no state read needed)
+    if (isPanningRef.current) {
+      const ps = panStartRef.current;
+      setTransform(prev => ({
+        ...prev,
+        x: (e.clientX - ps.x) / 50,
+        y: (e.clientY - ps.y) / 50,
+      }));
+    }
   }, []);
 
   // ─── Zoom/Pan handlers ────────────────────────────────────────────
   const handleWheel = useCallback((e: React.WheelEvent<SVGSVGElement>) => {
     e.preventDefault();
+    const current = transformRef.current;
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    const newScale = Math.max(0.5, Math.min(8, transform.scale * delta));
+    const newScale = Math.max(0.5, Math.min(8, current.scale * delta));
     const rect = e.currentTarget.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
     const svgX = (mouseX / rect.width) * VB_WIDTH;
     const svgY = (mouseY / rect.height) * VB_HEIGHT;
-    const scaleChange = newScale / transform.scale;
+    const scaleChange = newScale / current.scale;
     setTransform({
-      x: svgX - scaleChange * (svgX - transform.x),
-      y: svgY - scaleChange * (svgY - transform.y),
+      x: svgX - scaleChange * (svgX - current.x),
+      y: svgY - scaleChange * (svgY - current.y),
       scale: newScale,
     });
-  }, [transform]);
+  }, []);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button === 0) {
-      setIsPanning(true);
-      setPanStart({ x: e.clientX - transform.x * 50, y: e.clientY - transform.y * 50 });
+      isPanningRef.current = true;
+      const current = transformRef.current;
+      panStartRef.current = { x: e.clientX - current.x * 50, y: e.clientY - current.y * 50 };
     }
-  }, [transform]);
+  }, []);
 
-  const handleMouseDrag = useCallback((e: React.MouseEvent) => {
-    if (isPanning) {
-      setTransform(prev => ({
-        ...prev,
-        x: (e.clientX - panStart.x) / 50,
-        y: (e.clientY - panStart.y) / 50,
-      }));
-    }
-  }, [isPanning, panStart]);
-
-  const handleMouseUp = useCallback(() => { setIsPanning(false); }, []);
+  const handleMouseUp = useCallback(() => {
+    isPanningRef.current = false;
+  }, []);
 
   // ─── Zoom to state ────────────────────────────────────────────────
   const handleStateClick = useCallback((stateId: string) => {
@@ -310,6 +325,9 @@ export default function MalaysiaGeoJSONMap({
     return dunFeatures;
   }, [zoomLevel, focusedState, dunFeatures]);
 
+  // ── Stable cursor style (no re-render needed) ──
+  const [cursorStyle, setCursorStyle] = useState('grab');
+
   return (
     <div className="relative w-full h-full overflow-hidden rounded-lg" style={{ background: '#0a0e1a' }}>
       {/* Scan Line Overlay */}
@@ -346,62 +364,43 @@ export default function MalaysiaGeoJSONMap({
         ref={svgRef}
         viewBox={`0 0 ${VB_WIDTH} ${VB_HEIGHT}`}
         className="relative z-5 w-full h-full"
-        onMouseMove={(e) => { handleMouseMove(e); handleMouseDrag(e); }}
+        onMouseMove={handleMouseMove}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
-        onMouseLeave={() => { handleMouseLeave(); setIsPanning(false); }}
+        onMouseLeave={() => { handleMouseLeave(); isPanningRef.current = false; setCursorStyle('grab'); }}
         onWheel={handleWheel}
         role="img"
         aria-label="Interactive map of Malaysia with real geographic boundaries from DOSM geodata"
-        style={{ cursor: isPanning ? 'grabbing' : 'grab' }}
+        style={{ cursor: cursorStyle, willChange: 'transform' }}
       >
         <defs>
-          <filter id="geo-glow-cyan" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="6" result="blur1" />
-            <feFlood floodColor="#06b6d4" floodOpacity="0.6" result="color1" />
-            <feComposite in="color1" in2="blur1" operator="in" result="shadow1" />
-            <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur2" />
-            <feMerge><feMergeNode in="shadow1" /><feMergeNode in="blur2" /><feMergeNode in="SourceGraphic" /></feMerge>
-          </filter>
-          <filter id="geo-glow-selected" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="8" result="blur1" />
-            <feFlood floodColor="#06b6d4" floodOpacity="0.8" result="color1" />
-            <feComposite in="color1" in2="blur1" operator="in" result="shadow1" />
-            <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur2" />
-            <feMerge><feMergeNode in="shadow1" /><feMergeNode in="blur2" /><feMergeNode in="SourceGraphic" /></feMerge>
-          </filter>
-          <filter id="geo-state-inner-glow" x="-20%" y="-20%" width="140%" height="140%">
+          {/* ── PERF FIX: Single unified glow filter for state fills — no switching on hover ── */}
+          <filter id="geo-glow-state" x="-20%" y="-20%" width="140%" height="140%">
             <feGaussianBlur stdDeviation="1.5" result="blur" />
             <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
           </filter>
-          <filter id="geo-district-glow" x="-30%" y="-30%" width="160%" height="160%">
-            <feGaussianBlur stdDeviation="2" result="blur" />
-            <feFlood floodColor="#f59e0b" floodOpacity="0.3" result="color" />
-            <feComposite in="color" in2="blur" operator="in" result="shadow" />
-            <feMerge><feMergeNode in="shadow" /><feMergeNode in="SourceGraphic" /></feMerge>
-          </filter>
-          {/* Border glow filters for improved boundary visibility */}
+          {/* Border glow filters — used on stroke-only overlays, not interactive fill paths */}
           <filter id="geo-border-glow-gold" x="-40%" y="-40%" width="180%" height="180%">
-            <feGaussianBlur stdDeviation="3" result="blur" />
-            <feFlood floodColor="#fbbf24" floodOpacity="0.25" result="color" />
+            <feGaussianBlur stdDeviation="2" result="blur" />
+            <feFlood floodColor="#fbbf24" floodOpacity="0.15" result="color" />
             <feComposite in="color" in2="blur" operator="in" result="shadow" />
             <feMerge><feMergeNode in="shadow" /><feMergeNode in="SourceGraphic" /></feMerge>
           </filter>
           <filter id="geo-border-glow-amber" x="-30%" y="-30%" width="160%" height="160%">
-            <feGaussianBlur stdDeviation="2" result="blur" />
-            <feFlood floodColor="#f59e0b" floodOpacity="0.2" result="color" />
+            <feGaussianBlur stdDeviation="1.5" result="blur" />
+            <feFlood floodColor="#f59e0b" floodOpacity="0.12" result="color" />
             <feComposite in="color" in2="blur" operator="in" result="shadow" />
             <feMerge><feMergeNode in="shadow" /><feMergeNode in="SourceGraphic" /></feMerge>
           </filter>
           <filter id="geo-border-glow-violet" x="-30%" y="-30%" width="160%" height="160%">
-            <feGaussianBlur stdDeviation="1.5" result="blur" />
-            <feFlood floodColor="#a78bfa" floodOpacity="0.2" result="color" />
+            <feGaussianBlur stdDeviation="1" result="blur" />
+            <feFlood floodColor="#a78bfa" floodOpacity="0.12" result="color" />
             <feComposite in="color" in2="blur" operator="in" result="shadow" />
             <feMerge><feMergeNode in="shadow" /><feMergeNode in="SourceGraphic" /></feMerge>
           </filter>
           <filter id="geo-border-glow-emerald" x="-30%" y="-30%" width="160%" height="160%">
-            <feGaussianBlur stdDeviation="1.5" result="blur" />
-            <feFlood floodColor="#10b981" floodOpacity="0.25" result="color" />
+            <feGaussianBlur stdDeviation="1" result="blur" />
+            <feFlood floodColor="#10b981" floodOpacity="0.12" result="color" />
             <feComposite in="color" in2="blur" operator="in" result="shadow" />
             <feMerge><feMergeNode in="shadow" /><feMergeNode in="SourceGraphic" /></feMerge>
           </filter>
@@ -426,12 +425,19 @@ export default function MalaysiaGeoJSONMap({
           <line x1={440} y1={270} x2={490} y2={310} stroke="rgba(6, 182, 212, 0.1)" strokeWidth="1" strokeDasharray="6 4" />
           <line x1={440} y1={290} x2={490} y2={330} stroke="rgba(6, 182, 212, 0.06)" strokeWidth="0.5" strokeDasharray="3 6" />
 
-          {/* ── State Paths ── */}
-          {/* Cartographic boundary hierarchy:
-              1. Dark outline (under-stroke) for contrast against any fill
-              2. Bright border (over-stroke) for clear state identification
-              3. Gold/warm tones for state borders — distinct from cyan data fill
-          */}
+          {/* ═══════════════════════════════════════════════════════════
+              ARCHITECTURE: Layer separation for stable rendering
+              
+              Layer 1 (bottom): State FILLS — interactive, receives events
+              Layer 2 (middle): Border STROKES — non-interactive overlays
+              Layer 3 (top):    Decorations (labels, indicators) — non-interactive
+              
+              This separation prevents SVG filter/style changes on hover
+              from causing layout thrashing on the fill layer.
+          ═══════════════════════════════════════════════════════════ */}
+
+          {/* ── LAYER 1: State Fill Paths (interactive) ── */}
+          {/* These paths ONLY change fill opacity on hover — no filter changes, no transition-all */}
           {stateFeatures.map(feature => {
             const stateData = stateMap[feature.id];
             if (!stateData) return null;
@@ -440,52 +446,198 @@ export default function MalaysiaGeoJSONMap({
             const isSelected = selectedState === feature.id;
             const fillColor = getChoroplethColor(value, minVal, maxVal, isHovered, isSelected);
 
-            // ── Professional boundary styling ──
-            // State borders use a double-stroke technique:
-            //   Under-stroke: dark outline for contrast against choropleth fill
-            //   Over-stroke: bright gold/white for clear identification
-            const underStroke = isSelected ? 'rgba(0,0,0,0.8)' : isHovered ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.5)';
+            return (
+              <g key={feature.id}>
+                {feature.paths.map((pathD, idx) => (
+                  <path
+                    key={`${feature.id}-fill-${idx}`}
+                    d={pathD}
+                    fill={fillColor}
+                    stroke="none"
+                    filter="url(#geo-glow-state)"
+                    strokeLinejoin="round"
+                    className="cursor-pointer"
+                    onMouseEnter={() => { handleMouseEnter(feature.id); setCursorStyle('pointer'); }}
+                    onMouseLeave={() => { handleMouseLeave(); setCursorStyle('grab'); }}
+                    onClick={() => handleStateClick(feature.id)}
+                    role="button"
+                    aria-label={`${stateData.name} - ${formatValue(value, activeLayer)}`}
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleStateClick(feature.id); } }}
+                    style={{
+                      /* ── PERF: Only transition fill opacity — NOT filter/stroke which cause layout thrash ── */
+                      transition: 'fill 0.15s ease-out',
+                    }}
+                  />
+                ))}
+              </g>
+            );
+          })}
+
+          {/* ── LAYER 2: State Border Strokes (non-interactive overlay) ── */}
+          {/* Double-stroke technique: dark under-stroke + bright over-stroke */}
+          {/* These NEVER receive pointer events, so they never trigger re-renders */}
+          {stateFeatures.map(feature => {
+            const isHovered = hoveredState === feature.id;
+            const isSelected = selectedState === feature.id;
+
+            const underStroke = isSelected ? 'rgba(0,0,0,0.8)' : isHovered ? 'rgba(0,0,0,0.65)' : 'rgba(0,0,0,0.5)';
             const underWidth = (isSelected ? 4 : isHovered ? 3.5 : 2.5) / transform.scale;
             const overStroke = isSelected ? '#fbbf24' : isHovered ? '#fcd34d' : 'rgba(251, 191, 36, 0.8)';
             const overWidth = (isSelected ? 2.5 : isHovered ? 2 : 1.2) / transform.scale;
-            const filterId = isSelected ? 'geo-glow-selected' : isHovered ? 'geo-glow-cyan' : 'geo-state-inner-glow';
-            const showLabel = !isHovered && !isSelected && transform.scale < 3;
 
             return (
-              <g key={feature.id}>
+              <g key={`${feature.id}-borders`} style={{ pointerEvents: 'none' }}>
                 {/* Under-stroke: dark outline for contrast */}
                 {feature.paths.map((pathD, idx) => (
                   <path
                     key={`${feature.id}-u-${idx}`}
                     d={pathD}
-                    fill={fillColor}
+                    fill="none"
                     stroke={underStroke}
                     strokeWidth={underWidth}
                     strokeLinejoin="round"
                     style={{ pointerEvents: 'none' }}
                   />
                 ))}
-                {/* Over-stroke: bright state border */}
+                {/* Over-stroke: bright state border with glow */}
                 {feature.paths.map((pathD, idx) => (
                   <path
-                    key={`${feature.id}-p-${idx}`}
+                    key={`${feature.id}-o-${idx}`}
                     d={pathD}
-                    fill="transparent"
+                    fill="none"
                     stroke={overStroke}
                     strokeWidth={overWidth}
-                    filter={`url(#geo-border-glow-gold)`}
+                    filter="url(#geo-border-glow-gold)"
                     strokeLinejoin="round"
-                    className="cursor-pointer transition-all duration-200"
-                    onMouseEnter={() => handleMouseEnter(feature.id)}
-                    onMouseLeave={handleMouseLeave}
-                    onClick={() => handleStateClick(feature.id)}
-                    role="button"
-                    aria-label={`${stateData.name} - ${formatValue(value, activeLayer)}`}
-                    tabIndex={0}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleStateClick(feature.id); } }}
+                    style={{
+                      pointerEvents: 'none',
+                      transition: 'stroke 0.15s ease-out, stroke-width 0.15s ease-out',
+                    }}
                   />
                 ))}
+              </g>
+            );
+          })}
 
+          {/* ── LAYER 2b: District Border Strokes (when zoomed) ── */}
+          {visibleDistricts.map(feature => {
+            const isHoveredDist = hoveredState === feature.stateId;
+            const isSelectedDist = selectedState === feature.stateId;
+            return (
+              <g key={feature.id} style={{ pointerEvents: 'none' }}>
+                {/* District under-stroke for contrast */}
+                {feature.paths.map((pathD, idx) => (
+                  <path
+                    key={`${feature.id}-du-${idx}`}
+                    d={pathD}
+                    fill="none"
+                    stroke="rgba(0,0,0,0.4)"
+                    strokeWidth={2 / transform.scale}
+                    strokeLinejoin="round"
+                    style={{ pointerEvents: 'none' }}
+                  />
+                ))}
+                {/* District over-stroke */}
+                {feature.paths.map((pathD, idx) => (
+                  <path
+                    key={`${feature.id}-d-${idx}`}
+                    d={pathD}
+                    fill="none"
+                    stroke={isHoveredDist ? 'rgba(245, 158, 11, 0.9)' : 'rgba(245, 158, 11, 0.55)'}
+                    strokeWidth={1 / transform.scale}
+                    strokeLinejoin="round"
+                    filter="url(#geo-border-glow-amber)"
+                    style={{
+                      pointerEvents: 'none',
+                      transition: 'stroke 0.15s ease-out',
+                    }}
+                  />
+                ))}
+              </g>
+            );
+          })}
+
+          {/* ── LAYER 2c: Parlimen Border Strokes (when zoomed) ── */}
+          {visibleParlimen.map(feature => (
+            <g key={feature.id} style={{ pointerEvents: 'none' }}>
+              {/* Parlimen under-stroke for contrast */}
+              {feature.paths.map((pathD, idx) => (
+                <path
+                  key={`${feature.id}-pru-${idx}`}
+                  d={pathD}
+                  fill="none"
+                  stroke="rgba(0,0,0,0.35)"
+                  strokeWidth={1.6 / transform.scale}
+                  strokeLinejoin="round"
+                  style={{ pointerEvents: 'none' }}
+                />
+              ))}
+              {/* Parlimen over-stroke */}
+              {feature.paths.map((pathD, idx) => (
+                <path
+                  key={`${feature.id}-pr-${idx}`}
+                  d={pathD}
+                  fill="none"
+                  stroke="rgba(167, 139, 250, 0.6)"
+                  strokeWidth={0.9 / transform.scale}
+                  strokeDasharray={`${5 / transform.scale} ${3 / transform.scale}`}
+                  strokeLinejoin="round"
+                  filter="url(#geo-border-glow-violet)"
+                  style={{ pointerEvents: 'none' }}
+                />
+              ))}
+            </g>
+          ))}
+
+          {/* ── LAYER 2d: DUN Border Strokes (when zoomed) ── */}
+          {visibleDun.map(feature => (
+            <g key={feature.id} style={{ pointerEvents: 'none' }}>
+              {/* DUN under-stroke for contrast */}
+              {feature.paths.map((pathD, idx) => (
+                <path
+                  key={`${feature.id}-dunu-${idx}`}
+                  d={pathD}
+                  fill="none"
+                  stroke="rgba(0,0,0,0.3)"
+                  strokeWidth={1.4 / transform.scale}
+                  strokeLinejoin="round"
+                  style={{ pointerEvents: 'none' }}
+                />
+              ))}
+              {/* DUN over-stroke: emerald dot-dash pattern */}
+              {feature.paths.map((pathD, idx) => (
+                <path
+                  key={`${feature.id}-dun-${idx}`}
+                  d={pathD}
+                  fill="none"
+                  stroke="rgba(16, 185, 129, 0.55)"
+                  strokeWidth={0.8 / transform.scale}
+                  strokeDasharray={`${2 / transform.scale} ${2 / transform.scale} ${6 / transform.scale} ${2 / transform.scale}`}
+                  strokeLinejoin="round"
+                  filter="url(#geo-border-glow-emerald)"
+                  style={{ pointerEvents: 'none' }}
+                />
+              ))}
+              {/* DUN name labels at high zoom */}
+              {transform.scale >= 3 && (
+                <text x={feature.centroid.x} y={feature.centroid.y} fill="rgba(16, 185, 129, 0.6)" fontSize={Math.max(3.5, 6 / transform.scale)} fontFamily="monospace" textAnchor="middle" dominantBaseline="middle" style={{ pointerEvents: 'none', userSelect: 'none' }}>
+                  {feature.dunName}
+                </text>
+              )}
+            </g>
+          ))}
+
+          {/* ── LAYER 3: Decorations (labels, indicators) ── */}
+          {stateFeatures.map(feature => {
+            const stateData = stateMap[feature.id];
+            if (!stateData) return null;
+            const isHovered = hoveredState === feature.id;
+            const isSelected = selectedState === feature.id;
+            const showLabel = !isHovered && !isSelected && transform.scale < 3;
+
+            return (
+              <g key={`${feature.id}-decor`} style={{ pointerEvents: 'none' }}>
                 {/* Pulse ring on hover */}
                 {isHovered && (
                   <>
@@ -519,125 +671,16 @@ export default function MalaysiaGeoJSONMap({
                     <animate attributeName="opacity" values="0.3;0.6;0.3" dur="3s" begin={`${stateFeatures.indexOf(feature) * 0.15}s`} repeatCount="indefinite" />
                   </circle>
                 )}
-              </g>
-            );
-          })}
 
-          {/* ── District Paths (when zoomed) ── */}
-          {/* District boundaries: amber with dark under-stroke for contrast */}
-          {visibleDistricts.map(feature => {
-            const isHoveredDist = hoveredState === feature.stateId;
-            const isSelectedDist = selectedState === feature.stateId;
-            return (
-              <g key={feature.id}>
-                {/* District under-stroke for contrast */}
-                {feature.paths.map((pathD, idx) => (
-                  <path
-                    key={`${feature.id}-du-${idx}`}
-                    d={pathD}
-                    fill="transparent"
-                    stroke="rgba(0,0,0,0.4)"
-                    strokeWidth={2 / transform.scale}
-                    strokeLinejoin="round"
-                    style={{ pointerEvents: 'none' }}
-                  />
-                ))}
-                {/* District over-stroke */}
-                {feature.paths.map((pathD, idx) => (
-                  <path
-                    key={`${feature.id}-d-${idx}`}
-                    d={pathD}
-                    fill="transparent"
-                    stroke={isHoveredDist ? 'rgba(245, 158, 11, 0.9)' : 'rgba(245, 158, 11, 0.55)'}
-                    strokeWidth={1 / transform.scale}
-                    strokeLinejoin="round"
-                    filter="url(#geo-border-glow-amber)"
-                    className="cursor-pointer transition-all duration-200"
-                    onMouseEnter={() => handleMouseEnter(feature.stateId)}
-                    onMouseLeave={handleMouseLeave}
-                    onClick={() => onSelectState(feature.stateId)}
-                  />
-                ))}
-                {transform.scale >= 2.5 && (
-                  <text x={feature.centroid.x} y={feature.centroid.y} fill="rgba(245, 158, 11, 0.65)" fontSize={Math.max(4, 7 / transform.scale)} fontFamily="monospace" textAnchor="middle" dominantBaseline="middle" style={{ pointerEvents: 'none', userSelect: 'none' }}>
-                    {feature.districtName}
+                {/* District name labels at zoom */}
+                {zoomLevel !== 'states' && transform.scale >= 2.5 && visibleDistricts.filter(d => d.stateId === feature.id).map(d => (
+                  <text key={`dl-${d.id}`} x={d.centroid.x} y={d.centroid.y} fill="rgba(245, 158, 11, 0.65)" fontSize={Math.max(4, 7 / transform.scale)} fontFamily="monospace" textAnchor="middle" dominantBaseline="middle" style={{ pointerEvents: 'none', userSelect: 'none' }}>
+                    {d.districtName}
                   </text>
-                )}
+                ))}
               </g>
             );
           })}
-
-          {/* ── Parlimen Paths (when zoomed) ── */}
-          {/* Parlimen boundaries: violet dashed with dark under-stroke for contrast */}
-          {visibleParlimen.map(feature => (
-            <g key={feature.id}>
-              {/* Parlimen under-stroke for contrast */}
-              {feature.paths.map((pathD, idx) => (
-                <path
-                  key={`${feature.id}-pru-${idx}`}
-                  d={pathD}
-                  fill="transparent"
-                  stroke="rgba(0,0,0,0.35)"
-                  strokeWidth={1.6 / transform.scale}
-                  strokeLinejoin="round"
-                  style={{ pointerEvents: 'none' }}
-                />
-              ))}
-              {/* Parlimen over-stroke */}
-              {feature.paths.map((pathD, idx) => (
-                <path
-                  key={`${feature.id}-pr-${idx}`}
-                  d={pathD}
-                  fill="transparent"
-                  stroke="rgba(167, 139, 250, 0.6)"
-                  strokeWidth={0.9 / transform.scale}
-                  strokeDasharray={`${5 / transform.scale} ${3 / transform.scale}`}
-                  strokeLinejoin="round"
-                  filter="url(#geo-border-glow-violet)"
-                  style={{ pointerEvents: 'none' }}
-                />
-              ))}
-            </g>
-          ))}
-
-          {/* ── DUN Paths (when zoomed) ── */}
-          {/* DUN boundaries: emerald dot-dash with dark under-stroke for contrast */}
-          {visibleDun.map(feature => (
-            <g key={feature.id}>
-              {/* DUN under-stroke for contrast */}
-              {feature.paths.map((pathD, idx) => (
-                <path
-                  key={`${feature.id}-dunu-${idx}`}
-                  d={pathD}
-                  fill="transparent"
-                  stroke="rgba(0,0,0,0.3)"
-                  strokeWidth={1.4 / transform.scale}
-                  strokeLinejoin="round"
-                  style={{ pointerEvents: 'none' }}
-                />
-              ))}
-              {/* DUN over-stroke: emerald dot-dash pattern */}
-              {feature.paths.map((pathD, idx) => (
-                <path
-                  key={`${feature.id}-dun-${idx}`}
-                  d={pathD}
-                  fill="transparent"
-                  stroke="rgba(16, 185, 129, 0.55)"
-                  strokeWidth={0.8 / transform.scale}
-                  strokeDasharray={`${2 / transform.scale} ${2 / transform.scale} ${6 / transform.scale} ${2 / transform.scale}`}
-                  strokeLinejoin="round"
-                  filter="url(#geo-border-glow-emerald)"
-                  style={{ pointerEvents: 'none' }}
-                />
-              ))}
-              {/* DUN name labels at high zoom */}
-              {transform.scale >= 3 && (
-                <text x={feature.centroid.x} y={feature.centroid.y} fill="rgba(16, 185, 129, 0.6)" fontSize={Math.max(3.5, 6 / transform.scale)} fontFamily="monospace" textAnchor="middle" dominantBaseline="middle" style={{ pointerEvents: 'none', userSelect: 'none' }}>
-                  {feature.dunName}
-                </text>
-              )}
-            </g>
-          ))}
         </g>
 
         {/* ── Decorative Corner Markers ── */}
@@ -700,10 +743,10 @@ export default function MalaysiaGeoJSONMap({
 
       {/* ── Zoom Controls ── */}
       <div className="absolute top-3 right-3 z-20 flex flex-col gap-1.5">
-        <button onClick={zoomIn} className="w-7 h-7 rounded border flex items-center justify-center text-xs font-mono transition-all hover:shadow-[0_0_12px_rgba(6,182,212,0.3)]" style={{ background: 'rgba(10,14,26,0.85)', borderColor: 'rgba(6,182,212,0.25)', color: '#06b6d4' }} aria-label="Zoom in">+</button>
-        <button onClick={zoomOut} className="w-7 h-7 rounded border flex items-center justify-center text-xs font-mono transition-all hover:shadow-[0_0_12px_rgba(6,182,212,0.3)]" style={{ background: 'rgba(10,14,26,0.85)', borderColor: 'rgba(6,182,212,0.25)', color: '#06b6d4' }} aria-label="Zoom out">−</button>
+        <button onClick={zoomIn} className="w-7 h-7 rounded border flex items-center justify-center text-xs font-mono transition-colors hover:shadow-[0_0_12px_rgba(6,182,212,0.3)]" style={{ background: 'rgba(10,14,26,0.85)', borderColor: 'rgba(6,182,212,0.25)', color: '#06b6d4' }} aria-label="Zoom in">+</button>
+        <button onClick={zoomOut} className="w-7 h-7 rounded border flex items-center justify-center text-xs font-mono transition-colors hover:shadow-[0_0_12px_rgba(6,182,212,0.3)]" style={{ background: 'rgba(10,14,26,0.85)', borderColor: 'rgba(6,182,212,0.25)', color: '#06b6d4' }} aria-label="Zoom out">−</button>
         {transform.scale !== 1 && (
-          <button onClick={resetZoom} className="w-7 h-7 rounded border flex items-center justify-center transition-all hover:shadow-[0_0_12px_rgba(6,182,212,0.3)]" style={{ background: 'rgba(10,14,26,0.85)', borderColor: 'rgba(6,182,212,0.25)', color: '#06b6d4' }} aria-label="Reset zoom">
+          <button onClick={resetZoom} className="w-7 h-7 rounded border flex items-center justify-center transition-colors hover:shadow-[0_0_12px_rgba(6,182,212,0.3)]" style={{ background: 'rgba(10,14,26,0.85)', borderColor: 'rgba(6,182,212,0.25)', color: '#06b6d4' }} aria-label="Reset zoom">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg>
           </button>
         )}
@@ -739,7 +782,7 @@ export default function MalaysiaGeoJSONMap({
                   // Need to select a state first for sub-state layers
                 }
               }}
-              className="flex items-center gap-1.5 px-2 py-1 rounded border text-[8px] font-mono tracking-wider transition-all"
+              className="flex items-center gap-1.5 px-2 py-1 rounded border text-[8px] font-mono tracking-wider transition-colors"
               style={{
                 background: isActive ? `${colors[level]}15` : 'rgba(10,14,26,0.85)',
                 borderColor: isActive ? `${colors[level]}40` : 'rgba(6,182,212,0.12)',
@@ -761,8 +804,16 @@ export default function MalaysiaGeoJSONMap({
       </div>
 
       {/* ── Tooltip ── */}
+      {/* ── PERF FIX: Tooltip uses ref-based positioning (no mousePos state) ── */}
       {hoveredData && (
-        <div className="absolute z-20 pointer-events-none" style={{ left: `${Math.min(mousePos.x + 16, 380)}px`, top: `${Math.min(mousePos.y - 10, 280)}px` }}>
+        <div
+          ref={tooltipRef}
+          className="absolute z-20 pointer-events-none"
+          style={{
+            left: `${Math.min(mousePosRef.current.x + 16, 380)}px`,
+            top: `${Math.min(mousePosRef.current.y - 10, 280)}px`,
+          }}
+        >
           <div className="px-3 py-2.5 rounded-md backdrop-blur-md border" style={{ background: 'rgba(10, 14, 26, 0.92)', borderColor: 'rgba(6, 182, 212, 0.35)', boxShadow: '0 0 20px rgba(6, 182, 212, 0.15)' }}>
             <div className="flex items-center gap-2 mb-1.5">
               <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#06b6d4', boxShadow: '0 0 6px rgba(6, 182, 212, 0.6)' }} />
@@ -797,57 +848,67 @@ export default function MalaysiaGeoJSONMap({
 
       {/* ── Selected State Info Panel ── */}
       {selectedData && (
-        <div className="absolute bottom-3 right-3 z-15 px-3 py-2.5 rounded-md backdrop-blur-md border max-w-[180px]" style={{ background: 'rgba(10, 14, 26, 0.88)', borderColor: 'rgba(6, 182, 212, 0.3)', boxShadow: '0 0 30px rgba(6, 182, 212, 0.1)' }}>
-          <div className="flex items-center gap-1.5 mb-1">
-            <div className="w-2 h-2 rounded-full" style={{ background: '#06b6d4', boxShadow: '0 0 8px rgba(6, 182, 212, 0.6)' }} />
+        <div className="absolute bottom-3 right-3 z-15 px-3 py-2.5 rounded-md backdrop-blur-md border max-w-[200px]" style={{
+          background: 'rgba(10, 14, 26, 0.92)',
+          borderColor: selectedState === hoveredState ? 'rgba(6, 182, 212, 0.5)' : 'rgba(6, 182, 212, 0.3)',
+          boxShadow: '0 0 20px rgba(6, 182, 212, 0.1)',
+        }}>
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <div className="w-2 h-2 rounded-full" style={{ background: '#06b6d4', boxShadow: '0 0 6px rgba(6, 182, 212, 0.6)' }} />
             <span className="text-[10px] font-semibold tracking-wider" style={{ color: '#06b6d4' }}>{selectedData.name}</span>
           </div>
           <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
-            {(['population', 'gdp', 'births', 'deaths', 'unemployment', 'datasets'] as const).map(layer => {
+            {(['population', 'gdp', 'births', 'deaths', 'unemployment', 'datasets'] as const).map((layer) => {
               const val = selectedData[layer];
               const isActive = layer === activeLayer;
               return (
                 <div key={layer} className="flex items-center gap-1">
-                  <span className="text-[8px] font-mono uppercase" style={{ color: isActive ? 'rgba(6, 182, 212, 0.8)' : 'rgba(6, 182, 212, 0.3)' }}>{layer.slice(0, 3)}</span>
-                  <span className="text-[9px] font-mono font-bold" style={{ color: isActive ? '#e0f7fa' : 'rgba(224, 247, 250, 0.4)' }}>{formatValue(val, layer)}</span>
+                  <span className="text-[8px] font-mono uppercase" style={{ color: isActive ? 'rgba(6, 182, 212, 0.8)' : 'rgba(6, 182, 212, 0.3)' }}>
+                    {layer.slice(0, 3)}
+                  </span>
+                  <span className="text-[9px] font-mono font-bold" style={{ color: isActive ? '#e0f7fa' : 'rgba(224, 247, 250, 0.4)' }}>
+                    {formatValue(val, layer)}
+                  </span>
                 </div>
               );
             })}
           </div>
           {zoomLevel !== 'states' && (
-            <div className="mt-1.5 pt-1.5 border-t" style={{ borderColor: 'rgba(6,182,212,0.1)' }}>
-              <div className="flex items-center gap-2">
-                <span className="text-[8px] font-mono" style={{ color: 'rgba(245,158,11,0.6)' }}>
-                  {districtFeatures.filter(d => d.stateId === selectedState).length} {lang === 'ms' ? 'Daerah' : 'Dist'}
-                </span>
-                <span className="text-[8px] font-mono" style={{ color: 'rgba(16,185,129,0.6)' }}>
-                  {dunFeatures.filter(d => d.stateId === selectedState).length} DUN
-                </span>
-                <span className="text-[8px] font-mono" style={{ color: 'rgba(167,139,250,0.6)' }}>
-                  {parlimenFeatures.filter(d => d.stateId === selectedState).length} Parl.
-                </span>
+            <div className="mt-1.5 pt-1.5 border-t" style={{ borderColor: 'rgba(6, 182, 212, 0.1)' }}>
+              <div className="text-[8px] font-mono tracking-wider" style={{ color: 'rgba(245, 158, 11, 0.5)' }}>
+                {districtFeatures.filter(d => d.stateId === selectedState).length} {lang === 'ms' ? 'Daerah' : 'Districts'}
+                {zoomLevel === 'dun' && ` • ${dunFeatures.filter(d => d.stateId === selectedState).length} DUN`}
               </div>
             </div>
           )}
+          <div className="mt-1.5 flex gap-1.5">
+            <button
+              onClick={() => {
+                setZoomLevel('states');
+                setFocusedState(null);
+                setTransform({ x: 0, y: 0, scale: 1 });
+                onSelectState(selectedData.id);
+              }}
+              className="flex-1 px-2 py-1 rounded border text-[8px] font-mono tracking-wider transition-colors hover:bg-cyan-950/30"
+              style={{ borderColor: 'rgba(6, 182, 212, 0.2)', color: 'rgba(6, 182, 212, 0.5)' }}
+            >
+              {lang === 'ms' ? 'Reset' : 'RESET'}
+            </button>
+            <button
+              onClick={() => {
+                setFocusedState(null);
+                onHoverState(null);
+                setZoomLevel('states');
+                setTransform({ x: 0, y: 0, scale: 1 });
+              }}
+              className="flex-1 px-2 py-1 rounded border text-[8px] font-mono tracking-wider transition-colors hover:bg-cyan-950/30"
+              style={{ borderColor: 'rgba(6, 182, 212, 0.2)', color: 'rgba(6, 182, 212, 0.5)' }}
+            >
+              {lang === 'ms' ? 'Tutup' : 'CLOSE'}
+            </button>
+          </div>
         </div>
       )}
-
-      {/* ── Zoom Back Button ── */}
-      <AnimatePresence>
-        {focusedState && (
-          <motion.button
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -10 }}
-            onClick={resetZoom}
-            className="absolute bottom-3 left-3 z-20 flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-[9px] font-mono tracking-wider transition-all hover:shadow-[0_0_12px_rgba(6,182,212,0.2)]"
-            style={{ background: 'rgba(10,14,26,0.85)', borderColor: 'rgba(6,182,212,0.3)', color: '#06b6d4' }}
-          >
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
-            {lang === 'ms' ? 'KEMBALI KE PETA' : 'BACK TO MAP'}
-          </motion.button>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
