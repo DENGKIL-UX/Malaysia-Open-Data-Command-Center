@@ -15,7 +15,7 @@ export function AnimatedBorderCard({ children, className = '', accentColor = '#0
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className={`relative rounded-lg overflow-hidden ${className}`}
+      className={`relative rounded-xl overflow-hidden ${className}`}
       style={{
         border: `1px solid ${accentColor}20`,
       }}

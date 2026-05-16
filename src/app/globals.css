@@ -44,6 +44,21 @@
 }
 
 :root {
+  /* ── Typography System ── */
+  --font-h1: 24px;
+  --font-h2: 18px;
+  --font-h3: 14px;
+  --font-body: 12px;
+  --font-small: 10px;
+  --font-micro: 9px;
+  --font-weight-bold: 700;
+  --font-weight-semibold: 600;
+  --font-weight-medium: 500;
+  --font-weight-regular: 400;
+  --spacing-section: 24px;
+  --spacing-card: 16px;
+  --spacing-element: 8px;
+
   --radius: 0.625rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);

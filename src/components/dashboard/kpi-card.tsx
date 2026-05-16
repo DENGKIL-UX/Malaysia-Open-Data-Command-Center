@@ -41,11 +41,12 @@ function Sparkline({ data, color, width = 40, height = 16 }: {
 }
 
 // ─── KPI Card Component ─────────────────────────────────────────────
-export function KPICard({ icon: Icon, label, value, unit, change, color, lang, sparkline, trendValue }: {
+export function KPICard({ icon: Icon, label, value, unit, change, color, lang, sparkline, trendValue, onClick }: {
   icon: React.ElementType; label: string; value: string; unit: string;
   change?: number; color: string; lang: Lang;
   sparkline?: number[];
   trendValue?: string;
+  onClick?: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
 
@@ -57,7 +58,8 @@ export function KPICard({ icon: Icon, label, value, unit, change, color, lang, s
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="relative overflow-hidden rounded-lg p-4 border"
+      onClick={onClick}
+      className={`relative overflow-hidden rounded-lg p-4 border ${onClick ? 'cursor-pointer' : ''}`}
       style={{
         background: hovered
           ? `linear-gradient(135deg, rgba(10,14,26,0.75), rgba(10,14,26,0.6))`

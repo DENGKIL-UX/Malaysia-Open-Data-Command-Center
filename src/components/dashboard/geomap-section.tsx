@@ -9,6 +9,7 @@ import {
 import dynamic from 'next/dynamic';
 import { STATES, MAP_LAYERS } from '@/lib/data/malaysia-data';
 import type { Lang, LayerId } from '@/lib/dashboard-types';
+import { StateSearch } from '@/components/dashboard/state-search';
 
 // Dynamic import for map (avoid SSR issues)
 const MalaysiaMap = dynamic(() => import('@/components/map/malaysia-map'), { ssr: false });
@@ -333,6 +334,9 @@ export function GeoMapSection({ lang, onViewProfile }: { lang: Lang; onViewProfi
           style={{ height: 2, background: 'linear-gradient(90deg, #06b6d4, transparent)', transformOrigin: 'left', width: 120 }}
         />
       </div>
+      {/* State Search */}
+      <StateSearch lang={lang} onSelect={(stateId) => setSelectedState(stateId)} />
+
       {/* Layer Controls */}
       <div className="flex flex-wrap items-center gap-2">
         {/* LIVE Badge */}

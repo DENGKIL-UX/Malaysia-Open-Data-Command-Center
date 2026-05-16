@@ -24,11 +24,12 @@ export function DataEnginePulse({ lang }: { lang: Lang }) {
   }, []);
 
   return (
-    <div className="relative group rounded-lg border p-4" style={{
-      background: 'linear-gradient(135deg, rgba(6,182,212,0.06), rgba(10,14,26,0.85))',
+    <div className="relative group rounded-xl border p-5" style={{
+      background: 'linear-gradient(180deg, rgba(6,182,212,0.03) 0%, rgba(10,14,26,0.85) 30%)',
       borderColor: 'rgba(6,182,212,0.15)',
       backdropFilter: 'blur(12px)',
       WebkitBackdropFilter: 'blur(12px)',
+      boxShadow: 'inset 0 1px 0 0 rgba(6,182,212,0.06)',
     }}>
       <HUDBracket />
       <div className="flex items-center gap-2 mb-3">
@@ -42,7 +43,7 @@ export function DataEnginePulse({ lang }: { lang: Lang }) {
             <Activity size={14} style={{ color: '#06b6d4' }} />
           </motion.div>
         </div>
-        <span className="text-[10px] font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+        <span className="text-[11px] font-semibold font-mono tracking-wider" style={{ color: '#06b6d4' }}>
           {lang === 'ms' ? 'ENJIN DATA MASA NYATA' : 'REAL-TIME DATA ENGINE'}
         </span>
         <div className="ml-auto flex items-center gap-1.5">

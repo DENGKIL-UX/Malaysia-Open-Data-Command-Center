@@ -100,7 +100,7 @@ export function DataSnapshotWidget({ lang }: { lang: Lang }) {
       transition={{ duration: 0.4, delay: 0.2 }}
     >
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-[10px] font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+        <span className="text-[13px] font-bold font-mono tracking-[0.2em]" style={{ color: '#06b6d4', textShadow: '0 0 8px rgba(6,182,212,0.4)' }}>
           {lang === 'ms' ? 'PETIKA DATA' : 'DATA SNAPSHOT'}
         </span>
         <SectionHeaderLine color="#06b6d4" delay={0.2} />

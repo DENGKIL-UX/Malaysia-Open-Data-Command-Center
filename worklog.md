@@ -1182,3 +1182,433 @@ Stage Summary:
 3. More accurate Malaysia SVG map with proper geographic boundaries
 4. Performance optimization (lazy loading, code splitting for heavy chart components)
 5. User preferences persistence (localStorage for settings, language, etc.)
+
+---
+Task ID: S6
+Agent: Subagent (feature-developer)
+Task: Create State Search, Animated Data Flow Lines, and Quick Stats Floating Bar
+
+Work Log:
+
+### Feature 1: State Search & Quick Access Component
+- Created `/src/components/dashboard/state-search.tsx`:
+  - Compact search input with Search icon (lucide)
+  - Bilingual placeholder ("Search states..." / "Cari negeri...")
+  - Monospace font, 11px, dark background with cyan border
+  - Dropdown list of matching states (max 8 results)
+  - Each result shows: state abbreviation badge, full name (EN/MS), tiny population indicator bar
+  - East Malaysia badge (E.MY) for Sabah/Sarawak/Labuan states
+  - Keyboard navigation (Arrow Up/Down, Enter to select, Escape to close)
+  - Click outside to dismiss
+  - Framer Motion animated dropdown appearance (scaleY + opacity)
+  - Footer hint bar with keyboard navigation hints (↑↓ Navigate, ↵ Select, ESC Close)
+  - Props: `{ lang: 'en' | 'ms'; onSelect: (stateId: string) => void }`
+- Integrated into `/src/components/dashboard/geomap-section.tsx`:
+  - Imported StateSearch component
+  - Added above the map layer controls, full-width
+  - When state is selected from search, updates `selectedState` to highlight that state on map and show state detail panel
+
+### Feature 2: Animated Data Flow Lines
+- Created `/src/components/dashboard/data-flow-lines.tsx`:
+  - Fixed-position SVG overlay (pointer-events: none, z-index: 5)
+  - Draws subtle animated dashed lines between card elements using CSS selectors
+  - Lines use cyan color with low opacity (0.15)
+  - Animation: dashes flow along path using strokeDasharray + strokeDashoffset CSS animation
+  - 4 data flow connections defined:
+    1. Population KPI card → Population & GDP chart
+    2. GDP KPI card → Population & GDP chart
+    3. Data Engine → Activity Feed
+    4. Health Index → State Mini Cards
+  - Each line has a small animated dot (circle) traveling along it using `<animateMotion>` SVG
+  - Start/end point indicators (small circles at 0.3 opacity)
+  - Smooth bezier curve paths between elements
+  - Recalculates positions on window resize and periodically (3s interval)
+  - Only visible on desktop (lg breakpoint 1024px), hidden on mobile
+  - Uses requestAnimationFrame for initial calculation (avoids lint error)
+  - Props: `{ enabled: boolean }`
+- Integrated into `/src/components/dashboard/overview-section.tsx`:
+  - Imported DataFlowLines, rendered at top of section (position: fixed so overlays)
+  - Added `data-flow` attributes to 7 elements:
+    - `data-flow="kpi-population"` on Population KPI card wrapper
+    - `data-flow="kpi-gdp"` on GDP KPI card wrapper
+    - `data-flow="chart-popgdp"` on Population & GDP bar chart
+    - `data-flow="data-engine"` on DataEnginePulse
+    - `data-flow="state-cards"` on StateMiniCards
+    - `data-flow="health-index"` on HealthIndexWidget
+    - `data-flow="activity-feed"` on DataActivityFeed
+
+### Feature 3: Quick Stats Floating Bar
+- Created `/src/components/dashboard/quick-stats-bar.tsx`:
+  - Fixed position at bottom center (above footer)
+  - Width: max-w-2xl, centered via left-1/2 -translate-x-1/2
+  - Shows 5 key metrics: Population (34.3M), GDP (RM 1.68T), Growth (4.5%), Unemployment (3.4%), Datasets (287)
+  - Each metric: small icon + value + tiny trend arrow (ArrowUpRight/ArrowDownRight)
+  - Very compact (h-10)
+  - Glassmorphism background with blur (16px)
+  - Cyan border top (0.4 opacity)
+  - Framer Motion slide-up animation when appearing (spring transition)
+  - Clicking the bar scrolls back to top
+  - Keyboard accessible (Enter/Space to activate)
+  - Bilingual labels
+  - "↑ TOP" scroll hint on right side
+  - Props: `{ lang: 'en' | 'ms' }`
+- Integrated into `/src/app/page.tsx`:
+  - Imported QuickStatsBar
+  - Added `showQuickStats` state (boolean)
+  - Updated scroll listener: show when `scrollY > 600`
+  - Only shows when on Overview tab and booted
+  - Rendered with AnimatePresence for smooth enter/exit transitions
+
+### Lint & Build
+- Fixed lint error in data-flow-lines.tsx: moved initial setState call into requestAnimationFrame callback to avoid `react-hooks/set-state-in-effect` error
+- Pre-existing lint error in data-explorer-modal.tsx (not from this task)
+- All new code lint checks pass with zero errors
+- Dev server compiles successfully
+
+Stage Summary:
+- State Search component enables quick state lookup with keyboard navigation and bilingual support
+- Animated Data Flow Lines create subtle visual connections between related data panels on desktop
+- Quick Stats Floating Bar provides at-a-glance key metrics when scrolling past the KPI section
+- All three features use Framer Motion for smooth animations
+- All features bilingual (EN/MS)
+- Command center dark theme with cyan accents maintained throughout
+- Zero breaking changes to existing functionality
+
+---
+Task ID: F3
+Agent: Subagent (data-explorer-developer)
+Task: Add Interactive Data Explorer and Year-over-Year Comparison Panel
+
+Work Log:
+- Created `/src/components/dashboard/data-explorer-modal.tsx`:
+  - Full-screen z-50 overlay modal with dark backdrop and glassmorphism
+  - Framer Motion animated slide-in from bottom with spring transition (damping: 25, stiffness: 300)
+  - Close button (X) top-right and Escape key handler
+  - Header: Selected metric name (bilingual), icon with colored background, current value in large font, trend sparkline SVG
+  - Top Stats Row: 4 mini stat cards (Current Value, YoY Change %, 5-Year CAGR, National Rank) with staggered entrance animations
+  - Main Chart Area: Full-width recharts AreaChart (2019-2024) with:
+    - Gradient fill under the line (metric-specific color)
+    - Custom tooltip showing year + value + % change
+    - X-axis: years with bilingual "Year/Tahun" label, Y-axis: metric values with formatted ticks
+    - Dot and activeDot styling
+  - Bottom Section: Ranking table showing all 19 states sorted by the selected metric:
+    - Rank number, state name, animated bar width indicator, formatted value
+    - Top 3 highlighted with gold/silver/bronze medal emojis
+    - Selected state row highlighted in metric color with left border
+    - Clickable rows that update the chart to show state-specific time-series
+  - METRIC_CONFIG with 6 metric definitions (population, gdp, gdpGrowth, births, unemployment, datasets)
+  - generateTimeSeries() helper creates simulated 2019-2024 data for national and all 19 states
+  - Props: isOpen, onClose, metricKey, lang
+  - All text bilingual (EN/MS) with command center dark theme
+
+- Created `/src/components/dashboard/yoy-comparison-panel.tsx`:
+  - Full-width card panel with command center styling and HUDBracket decoration
+  - Header with GitCompare icon, bilingual title "YEAR-OVER-YEAR COMPARISON" / "PERBANDINGAN TAHUN-KE-TAHUN"
+  - Year selector row: two dropdowns (Year A, Year B) for 2020-2024, default: 2023 vs 2024
+  - 6 metric comparison cards in responsive grid (1 col mobile, 2 col sm, 3 col lg):
+    1. Population (cyan, Users icon)
+    2. GDP (amber, TrendingUp icon)
+    3. GDP Growth (green, TrendingUp icon)
+    4. Births (pink, Baby icon)
+    5. Unemployment (purple, Briefcase icon)
+    6. Datasets (pink, Database icon)
+  - Each card shows: metric name (bilingual), Year A value → Year B value with arrow, delta indicator (green if improving, red if worsening), tiny horizontal bar showing change magnitude, percentage or percentage-point change
+  - yearlyData object with simulated national data for 2020-2024
+  - Props: { lang: 'en' | 'ms' }
+
+- Modified `/src/components/dashboard/kpi-card.tsx`:
+  - Added `onClick` optional prop to KPICard component
+  - Added cursor-pointer class when onClick is provided
+  - Passed onClick to the root motion.div element
+
+- Modified `/src/components/dashboard/state-mini-cards.tsx`:
+  - Added `onStateClick` optional prop to StateMiniCards component
+  - Added cursor-pointer class when onStateClick is provided
+  - Added onClick handler to each state mini-card that calls onStateClick with state ID
+
+- Modified `/src/components/dashboard/overview-section.tsx`:
+  - Added imports for DataExplorerModal and YoYComparisonPanel
+  - Added useState import from React
+  - Added `explorerMetric` state (null when closed, metric key when open)
+  - Made KPI cards clickable: each KPICard now has onClick that sets explorerMetric to corresponding metric key (population, gdp, gdpGrowth, births, unemployment, datasets)
+  - Made state mini-cards clickable: onStateClick opens explorer with 'population' metric
+  - Added YoYComparisonPanel as full-width row AFTER the Data Insights Engine row
+  - Added DataExplorerModal at the bottom with key={explorerMetric} for proper re-mount on metric change
+
+- Fixed pre-existing lint error in `/src/components/dashboard/data-flow-lines.tsx`:
+  - Removed unused eslint-disable-next-line directive
+
+- Lint check passes with zero errors
+- Dev server compiles and serves all pages cleanly
+
+Stage Summary:
+- Two major new interactive features added to the Overview section
+- Interactive Data Explorer Modal provides drill-down view for any KPI with time-series chart, stats, and state ranking
+- Year-over-Year Comparison Panel shows metric changes between any two years with visual indicators
+- KPI cards and state mini-cards are now clickable to open the Data Explorer
+- Full bilingual support (English/Bahasa Malaysia) throughout
+- Command center dark theme with glassmorphism, cyan accents, HUDBracket decorations maintained
+- Zero breaking changes to existing functionality
+- All existing imports, components, and features preserved
+
+---
+Task ID: S5
+Agent: Subagent (visual-polish)
+Task: Visual Hierarchy, Chart Labels, Spacing & Premium Polish
+
+Work Log:
+
+### 1. Typography System Standardization
+- Updated `/src/app/globals.css` with CSS custom properties for the typography system:
+  - `--font-h1: 24px`, `--font-h2: 18px`, `--font-h3: 14px`, `--font-body: 12px`, `--font-small: 10px`, `--font-micro: 9px`
+  - `--font-weight-bold: 700`, `--font-weight-semibold: 600`, `--font-weight-medium: 500`, `--font-weight-regular: 400`
+  - `--spacing-section: 24px`, `--spacing-card: 16px`, `--spacing-element: 8px`
+
+### 2. Enhanced Spacing & Breathing Room
+- Updated `/src/components/dashboard/overview-section.tsx`:
+  - Increased gap between major section rows from `gap-4` to `gap-6` (24px)
+  - Added `mb-6` after hero banner
+  - Increased card padding from `p-4` to `p-5` on all major cards
+  - Increased chart height from 240px to 260px for bar chart
+- Updated `/src/components/dashboard/analytics-section.tsx`:
+  - Same spacing improvements: `gap-4` → `gap-6`
+  - Increased card padding to `p-5`
+  - Same chart height improvements
+
+### 3. Chart Data Labels & Readability
+- Updated overview-section.tsx Population & GDP bar chart:
+  - Added `<LabelList>` inside each `<Bar>` component showing values directly on bars
+  - Population bars show "M" suffix (millions), GDP bars show "B" suffix (billions)
+  - Style: `fill="#b8c5d4"`, `fontSize={9}`, `fontFamily="monospace"`, `position="top"`
+  - Added `popLabel` and `gdpLabel` fields to `topStatesData`
+- Updated pie chart:
+  - Added `<LabelList>` inside the Pie component showing percentage values
+  - Style: `fill="#e0f7fa"`, `fontSize={9}`, `stroke="none"`, `position="outside"`
+  - Added `pct` field to `freqDist` data
+- Updated analytics-section.tsx bar charts:
+  - Added GDP Growth Rate bar chart with `<LabelList>` showing percentage values (e.g., "4.4%", "-5.3%")
+  - Added Sector Contribution horizontal bar chart with `<LabelList>` showing percentage (e.g., "58%", "23%")
+  - Added `<LabelList>` to Category Distribution bar chart showing dataset counts
+  - All labels: monospace, 9px font, light color (#b8c5d4)
+
+### 4. Enhanced Section Headers with Better Hierarchy
+- Updated all section headers across overview-section.tsx:
+  - Section titles ("DATA ANALYSIS", "CATALOG & UPDATES"): `text-[13px]`, `font-bold`, `tracking-[0.2em]`, with cyan `text-shadow: 0 0 8px rgba(6,182,212,0.4)`
+  - Sub-headers (card titles): `text-[11px]`, `font-semibold`, `tracking-wider`
+  - "NATIONAL DATA INTELLIGENCE" hero title: upgraded to `text-[13px]`, `font-bold`, `tracking-[0.2em]` with text-shadow
+  - "DATA SNAPSHOT" header in data-snapshot-widget.tsx: same upgrade to `text-[13px]`, `font-bold`, `tracking-[0.2em]`
+  - "LIVE DATA ACTIVITY FEED" header: same upgrade
+- Updated analytics-section.tsx section headers:
+  - "TRENDS & COMPARISON": `text-[13px]`, `font-bold`, `tracking-[0.2em]` with amber text-shadow
+  - "DISTRIBUTION & MATRIX": same with cyan text-shadow
+  - "DEEP ANALYTICS": same with green text-shadow
+  - All sub-headers: `text-[11px]`, `font-semibold`, `tracking-wider`
+
+### 5. Refined Card Styling
+- Added `premiumCardStyle()` helper function with:
+  - Subtle inner shadow: `boxShadow: 'inset 0 1px 0 0 rgba(6,182,212,0.06)'`
+  - Increased border radius: `rounded-lg` → `rounded-xl` on all major cards
+  - Subtle gradient overlay at top: `background: 'linear-gradient(180deg, rgba(6,182,212,0.03) 0%, rgba(10,14,26,0.85) 30%)'`
+- Applied to all card panels in:
+  - overview-section.tsx (bar chart, pie chart, category blocks, timeline)
+  - analytics-section.tsx (GDP trend, radar, category distribution, state matrix, correlation matrix, key insights, population pyramid, treemap, data quality)
+  - data-engine-pulse.tsx
+  - health-index.tsx
+  - state-mini-cards.tsx
+  - data-source-stats.tsx
+  - data-insights-engine.tsx
+  - data-activity-feed.tsx
+  - animated-border-card.tsx (rounded-lg → rounded-xl)
+  - Hero banner (rounded-lg → rounded-xl)
+
+### 6. Animated Section Dividers
+- Added `AnimatedDivider` component to overview-section.tsx:
+  - Gradient background line: `linear-gradient(90deg, transparent, rgba(6,182,212,0.2), rgba(6,182,212,0.4), rgba(6,182,212,0.2), transparent)`
+  - Animated motion.div traveling across: `linear-gradient(90deg, transparent, #06b6d4, transparent)` with 8s infinite animation
+- Added 6 dividers between major sections in overview-section.tsx:
+  1. Hero Banner ↔ Data Snapshot Widget
+  2. Data Snapshot Widget ↔ KPI Grid
+  3. KPI Grid ↔ Data Engine row
+  4. Charts Row ↔ Data Insights Engine
+  5. Data Insights Engine ↔ Category Blocks row
+  6. Category Blocks row ↔ Data Activity Feed
+- Added `AnimatedDivider` component to analytics-section.tsx with color prop:
+  - Between TRENDS section and DISTRIBUTION section (cyan)
+  - Between DISTRIBUTION section and DEEP ANALYTICS section (green)
+
+### 7. Better Chart Axis Styling
+- Added consistent chart axis style constants (`CHART_AXIS_TICK`, `CHART_AXIS_LINE`, `CHART_TICK_LINE`):
+  - X-axis: `tick={{ fill: '#8899aa', fontSize: 9 }}`, `axisLine={{ stroke: 'rgba(6,182,212,0.15)' }}`, `tickLine={{ stroke: 'rgba(6,182,212,0.15)' }}`
+  - Y-axis: same styling
+  - Axis labels: `fill: '#8899aa'` (changed from '#a0b0c0')
+- Added `CartesianGrid` to all charts:
+  - `strokeDasharray="3 3"`, `stroke="rgba(6,182,212,0.06)"`
+- Applied to all charts in:
+  - overview-section.tsx (Population & GDP bar chart)
+  - analytics-section.tsx (GDP trend area chart, GDP growth rate bar chart, sector contribution bar chart, category distribution bar chart)
+
+### 8. New Chart Panels in Analytics
+- Added GDP Growth Rate bar chart (2019-2024):
+  - Color-coded bars: amber for positive growth, red for negative
+  - Y-axis domain [-8, 10] for symmetric display
+  - LabelList showing rate values (e.g., "4.4%", "-5.3%")
+  - CartesianGrid with dashed lines
+- Added GDP Sector Contribution horizontal bar chart:
+  - 5 color-coded sectors (cyan, amber, purple, green, pink)
+  - LabelList showing percentage values (e.g., "58%", "23%")
+  - Bilingual Y-axis labels
+
+- Lint check passes with zero errors
+- Dev server compiles and serves all pages cleanly
+
+Stage Summary:
+- 7 comprehensive visual polish improvements applied across the dashboard
+- Typography system standardized with CSS custom properties in globals.css
+- Spacing increased throughout (gap-4→gap-6, p-4→p-5, mb-6 after hero)
+- Chart data labels added to all major charts (LabelList with values/percentages)
+- Section headers upgraded with larger size, bold weight, wide tracking, and text-shadow
+- All cards refined with rounded-xl, inner shadow, and gradient overlay
+- 8 animated section dividers added across Overview and Analytics sections
+- All chart axes restyled with subtle cyan-tinted lines and improved readability
+- 2 new chart panels added to Analytics section (GDP Growth Rate, Sector Contribution)
+- Zero breaking changes to existing functionality
+- All bilingual labels (EN/MS) preserved
+
+---
+Task ID: Session-R2
+Agent: Main Orchestrator
+Task: QA assessment, feature development, and styling improvements (Round 2)
+
+Work Log:
+- Reviewed worklog.md — 22 previous task entries, extensive project history
+- Performed comprehensive QA testing with agent-browser across all 4 tabs
+- Verified lint passes with zero errors
+- Verified dev server compiles and serves all pages cleanly (HTTP 200)
+- Fixed transient parsing error in datasets-section.tsx (was caused by concurrent subagent edits)
+- Used VLM to analyze screenshots — initial rating 6/10, identified key improvement areas
+- Launched 3 parallel subagents for feature development
+
+### New Features Added This Session:
+
+1. **Interactive Data Explorer Modal** (Task F3)
+   - Full-screen drill-down modal opening from KPI card clicks
+   - Header with metric name, icon, current value, sparkline trend
+   - 4 top stat cards: Current Value, YoY Change %, 5-Year CAGR, National Rank
+   - Full-width AreaChart (2019-2024) with gradient fill and custom tooltips
+   - Ranking table of all 19 states with gold/silver/bronze medals
+   - Supports 6 metrics: population, gdp, gdpGrowth, births, unemployment, datasets
+   - Bilingual labels (EN/MS)
+
+2. **Year-over-Year Comparison Panel** (Task F3)
+   - Compact comparison widget with year selectors (2020-2024)
+   - 6 metric comparison cards: Population, GDP, GDP Growth, Births, Unemployment, Datasets
+   - Delta indicators (green=improving, red=worsening) with change magnitude bars
+   - Default: 2023 vs 2024
+   - Bilingual labels (EN/MS)
+
+3. **Visual Hierarchy & Spacing Improvements** (Task S5)
+   - Added CSS custom properties for typography system (h1-h3, body, small, micro sizes and weights)
+   - Increased section gaps from gap-4 → gap-6 (24px breathing room)
+   - Card padding increased from p-4 → p-5
+   - Chart heights increased from 240px → 260px
+   - Section titles: text-[13px], font-bold, tracking-[0.2em], colored text-shadow
+   - Sub-headers: text-[11px], font-semibold, tracking-wider
+   - All cards upgraded to rounded-xl (from rounded-lg)
+   - Added subtle inner shadow and gradient overlay to all cards
+   - 8 animated section divider lines between major sections
+
+4. **Chart Data Labels & Enhanced Tooltips** (Task S5)
+   - Added LabelList to Population & GDP bar chart (M/B suffixes)
+   - Added LabelList to pie chart (percentage values)
+   - Added LabelList to GDP Growth Rate bars
+   - Added LabelList to Sector Contribution bars
+   - Added LabelList to Category Distribution bars
+   - All axes: consistent tick fill #8899aa, fontSize 9
+   - Added CartesianGrid with strokeDasharray="3 3" to all charts
+
+5. **State Search & Quick Access** (Task S6)
+   - Searchable state selector with bilingual placeholder
+   - Dropdown showing max 8 matching states with abbreviation badges
+   - Full keyboard navigation (↑↓ arrows, Enter select, Escape close)
+   - East Malaysia badge for Sabah/Sarawak/Labuan
+   - Integrated into GeoMap section above the map
+
+6. **Animated Data Flow Lines** (Task S6)
+   - SVG overlay with 4 animated connection lines between related panels
+   - Flowing dashed lines with animated dots traveling along bezier curves
+   - Desktop only (hidden on mobile)
+   - Auto-recalculates positions on resize
+
+7. **Quick Stats Floating Bar** (Task S6)
+   - Compact floating bar showing 5 key metrics with trend arrows
+   - Glassmorphism background with blur
+   - Appears when scrolling past 600px on Overview tab
+   - Framer Motion slide-up animation
+   - Click to scroll back to top
+
+### Final QA Results:
+- ✅ Lint: zero errors
+- ✅ All 4 tabs render correctly (HTTP 200)
+- ✅ Data Explorer modal opens on KPI card click
+- ✅ YoY Comparison panel renders with year selectors
+- ✅ State Search integrated into GeoMap
+- ✅ Language toggle works (EN/MS)
+- ✅ No page errors
+- ✅ VLM quality rating: Visual 8/10, Data Density 9/10, Premium Feel 8/10, Interactivity 7/10
+
+Stage Summary:
+- 7 major features/enhancements implemented
+- Interactive Data Explorer adds drill-down capability from overview to detailed metric analysis
+- YoY Comparison provides temporal context for all key metrics
+- Visual hierarchy significantly improved with standardized typography, spacing, and animated dividers
+- Chart data labels make values readable at a glance
+- State Search enables quick navigation to any Malaysian state
+- Data Flow Lines create visual connections between related panels
+- Quick Stats Floating Bar provides persistent access to key metrics while scrolling
+- Dashboard elevated from VLM rating 6/10 → 8/10 (visual quality and premium feel)
+- Zero breaking changes to existing functionality
+
+---
+## Current Project Status (Updated)
+
+### Completed Features (Full List - 22 major feature areas):
+1. Boot Sequence — Cinematic terminal-style typing animation
+2. Header — Live MYT clock, scrolling data ticker, system status
+3. Overview Section — Hero banner, 6 clickable KPI cards (with sparklines + Data Explorer), Data Snapshot widget, Data Engine Pulse, State Mini-Cards (clickable), National Performance Index, Population & GDP bar chart (with data labels), Data Frequency pie chart (with center label + percentages), Data Insights Engine, YoY Comparison Panel, Category Heat Blocks, Data Source Agencies, Data Update Timeline, Data Activity Feed, Animated Section Dividers, Data Flow Lines
+4. GeoMap Section — Interactive SVG map, 6 data layers, animated state ranking, state comparison tool, State Search
+5. Datasets Section — 287 datasets, search/filter/paginate, detail drawer
+6. Analytics Section — GDP Trend, Radar Chart, Category Distribution, State Matrix, GDP Forecast, Demographic Deep-Dive, Correlation Matrix, Population Pyramid, Economic Sector Treemap, Key Insights Panel, Data Quality Score
+7. Interactive Data Explorer Modal — Drill-down from any KPI card, time-series chart, state ranking table
+8. YoY Comparison Panel — Side-by-side year comparison with delta indicators
+9. Infographic Export — Layer selection, font size, PNG 2x export
+10. Data Export Hub — CSV/JSON data download
+11. Command Palette (Ctrl+K) — Searchable commands, dataset search
+12. Keyboard Shortcuts — 9 shortcuts with help modal
+13. Notification Center — 8 notifications, read/unread, filter tabs
+14. Settings Panel — Toggle particles, scan lines, animations
+15. Info Section — FAQ, Disclaimers, Citations
+16. Enhanced Footer — 4-column layout, animated gradient lines
+17. Visual Effects — Particles, HUD brackets, glassmorphism, scan lines, vignette, animated gradient borders, sparklines, skeleton loading, data flow lines
+18. State Search — Searchable selector with keyboard navigation
+19. Quick Stats Floating Bar — Persistent metrics while scrolling
+20. Chart Data Labels — Direct values on all bar/pie charts
+21. Animated Section Dividers — Cyan light sweeps between sections
+22. Standardized Typography System — CSS custom properties for consistent hierarchy
+
+### Bilingual Support: Full EN/MS throughout all sections
+
+### Unresolved Issues / Risks:
+- Framer Motion AnimatePresence "wait" mode warnings in console (cosmetic only)
+- Map SVG paths are simplified representations, not geographically accurate
+- All data is static/simulated — no live API integration
+- Data Flow Lines may need position adjustments after layout changes
+- Quick Stats Bar only shows on Overview tab
+
+### Priority Recommendations for Next Phase:
+1. Live API integration with data.gov.my for real-time data
+2. Mobile responsiveness improvements (better touch targets, responsive charts)
+3. More accurate Malaysia SVG map with geographic boundaries
+4. Performance optimization (lazy loading, code splitting for heavy components)
+5. User preferences persistence (localStorage for settings/language)
+6. Add more data visualization types (scatter plots, heatmaps, Sankey diagrams)
+7. Accessibility audit (ARIA labels, keyboard focus management, screen reader support)

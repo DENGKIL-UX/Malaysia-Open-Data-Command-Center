@@ -22,6 +22,7 @@ import { CommandPalette, KeyboardShortcutsModal } from '@/components/dashboard/c
 import { StateProfileModal } from '@/components/dashboard/state-profile-modal';
 import { NotificationCenter, NotificationBell } from '@/components/dashboard/notification-center';
 import { DataExportHub } from '@/components/dashboard/data-export-hub';
+import { QuickStatsBar } from '@/components/dashboard/quick-stats-bar';
 import { SettingsPanel, SettingsGearButton } from '@/components/dashboard/settings-panel';
 import { useSettings } from '@/hooks/use-settings';
 import { SkeletonCard, SkeletonChart, SkeletonMap } from '@/components/dashboard/skeleton-loader';
@@ -68,14 +69,16 @@ export default function Home() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [unreadCount, setUnreadCount] = useState(5);
   const [showExportHub, setShowExportHub] = useState(false);
+  const [showQuickStats, setShowQuickStats] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const { settings, updateSetting, resetToDefaults } = useSettings();
 
-  // Scroll listener for scroll-to-top button
+  // Scroll listener for scroll-to-top button and quick stats bar
   useEffect(() => {
     if (!booted) return;
     const handleScroll = () => {
       setShowScrollTop(window.scrollY > 400);
+      setShowQuickStats(window.scrollY > 600);
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
@@ -684,6 +687,13 @@ export default function Home() {
             isOpen={showExportHub}
             onClose={() => setShowExportHub(false)}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Quick Stats Floating Bar */}
+      <AnimatePresence>
+        {showQuickStats && booted && activeTab === 'overview' && (
+          <QuickStatsBar lang={lang} />
         )}
       </AnimatePresence>
 

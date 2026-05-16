@@ -11,6 +11,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   AreaChart, Area, RadarChart, Radar,
   PolarGrid, PolarAngleAxis, PolarRadiusAxis, Cell,
+  LabelList, CartesianGrid,
 } from 'recharts';
 import {
   STATES, DATASET_CATEGORIES,
@@ -18,6 +19,37 @@ import {
 import { DATASETS } from '@/lib/data/datasets';
 import type { Lang } from '@/lib/dashboard-types';
 import { HUDBracket, SectionHeaderLine } from '@/components/dashboard/particle-background';
+
+// ─── Premium Card Style Helper ───────────────────────────────────
+function premiumCardStyle(overrides?: Record<string, string>) {
+  return {
+    background: 'linear-gradient(180deg, rgba(6,182,212,0.03) 0%, rgba(10,14,26,0.85) 30%)',
+    borderColor: 'rgba(6,182,212,0.12)',
+    backdropFilter: 'blur(12px)',
+    WebkitBackdropFilter: 'blur(12px)',
+    boxShadow: 'inset 0 1px 0 0 rgba(6,182,212,0.06)',
+    ...overrides,
+  };
+}
+
+// ─── Chart Axis Styles ───────────────────────────────────────────
+const CHART_AXIS_TICK = { fill: '#8899aa', fontSize: 9 };
+const CHART_AXIS_LINE = { stroke: 'rgba(6,182,212,0.15)' };
+const CHART_TICK_LINE = { stroke: 'rgba(6,182,212,0.15)' };
+
+// ─── Animated Section Divider ────────────────────────────────────
+function AnimatedDivider({ color = '#06b6d4' }: { color?: string }) {
+  return (
+    <div className="w-full h-px my-4" style={{ background: `linear-gradient(90deg, transparent, ${color}33, ${color}66, ${color}33, transparent)` }}>
+      <motion.div
+        className="h-full w-16"
+        style={{ background: `linear-gradient(90deg, transparent, ${color}, transparent)` }}
+        animate={{ x: ['-100px', 'calc(100% + 100px)'] }}
+        transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
+      />
+    </div>
+  );
+}
 
 // ─── Helper: Pearson Correlation ────────────────────────────────
 function pearsonCorrelation(x: number[], y: number[]): number {
@@ -78,12 +110,31 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
     { year: '2023', value: 1640 }, { year: '2024', value: 1682 },
   ];
 
+  // GDP Growth Rate data
+  const gdpGrowthRateData = useMemo(() => [
+    { year: '2019', rate: 4.4, rateLabel: '4.4%' },
+    { year: '2020', rate: -5.3, rateLabel: '-5.3%' },
+    { year: '2021', rate: 3.3, rateLabel: '3.3%' },
+    { year: '2022', rate: 8.7, rateLabel: '8.7%' },
+    { year: '2023', rate: 3.7, rateLabel: '3.7%' },
+    { year: '2024', rate: 4.5, rateLabel: '4.5%' },
+  ], []);
+
+  // Sector Contribution data
+  const sectorContributionData = useMemo(() => [
+    { name: lang === 'ms' ? 'Perkhidmatan' : 'Services', nameMs: 'Perkhidmatan', value: 58, valueLabel: '58%' },
+    { name: lang === 'ms' ? 'Pembuatan' : 'Manufacturing', nameMs: 'Pembuatan', value: 23, valueLabel: '23%' },
+    { name: lang === 'ms' ? 'Perlombongan' : 'Mining', nameMs: 'Perlombongan', value: 7, valueLabel: '7%' },
+    { name: lang === 'ms' ? 'Pertanian' : 'Agriculture', nameMs: 'Pertanian', value: 7, valueLabel: '7%' },
+    { name: lang === 'ms' ? 'Pembinaan' : 'Construction', nameMs: 'Pembinaan', value: 5, valueLabel: '5%' },
+  ], [lang]);
+
   // Category distribution
   const catDist = useMemo(() => {
     const counts: Record<string, number> = {};
     DATASETS.forEach(d => { counts[d.category_en] = (counts[d.category_en] || 0) + 1; });
     return Object.entries(counts)
-      .map(([name, value]) => ({ name, value }))
+      .map(([name, value]) => ({ name, value, valueLabel: `${value}` }))
       .sort((a, b) => b.value - a.value);
   }, []);
 
@@ -219,30 +270,27 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
     },
   ], []);
 
+  const SECTOR_COLORS = ['#06b6d4', '#f59e0b', '#8b5cf6', '#10b981', '#ec4899'];
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Section Header: Trends & Comparison */}
       <div className="flex items-center gap-3">
         <div>
-          <span className="text-xs font-mono tracking-wider" style={{ color: '#f59e0b' }}>
+          <span className="text-[13px] font-bold font-mono tracking-[0.2em]" style={{ color: '#f59e0b', textShadow: '0 0 8px rgba(245,158,11,0.4)' }}>
             {lang === 'ms' ? 'TREND & PERBANDINGAN' : 'TRENDS & COMPARISON'}
           </span>
           <SectionHeaderLine color="#f59e0b" delay={0.2} />
         </div>
       </div>
       {/* ─── Existing Row 1: GDP Trend + Radar ─────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* GDP Trend Area Chart */}
-        <div className="relative group rounded-lg border p-4" style={{
-          background: 'rgba(10,14,26,0.85)',
-          borderColor: 'rgba(6,182,212,0.12)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-        }}>
+        <div className="relative group rounded-xl border p-5" style={premiumCardStyle()}>
           <HUDBracket />
           <div className="flex items-center gap-2 mb-4">
             <TrendingUp size={14} style={{ color: '#f59e0b' }} />
-            <span className="text-xs font-mono tracking-wider" style={{ color: '#f59e0b' }}>
+            <span className="text-[11px] font-semibold font-mono tracking-wider" style={{ color: '#f59e0b' }}>
               {lang === 'ms' ? 'TREND KDNK (RM B)' : 'GDP TREND (RM B)'}
             </span>
           </div>
@@ -254,8 +302,9 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
                   <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <XAxis dataKey="year" tick={{ fill: '#a0b0c0', fontSize: 10 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#a0b0c0', fontSize: 9 }} axisLine={false} tickLine={false} width={40} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(6,182,212,0.06)" />
+              <XAxis dataKey="year" tick={CHART_AXIS_TICK} axisLine={CHART_AXIS_LINE} tickLine={CHART_TICK_LINE} />
+              <YAxis tick={CHART_AXIS_TICK} axisLine={CHART_AXIS_LINE} tickLine={CHART_TICK_LINE} width={40} />
               <Tooltip contentStyle={{
                 background: 'rgba(10,14,26,0.97)',
                 border: '1px solid rgba(245,158,11,0.25)',
@@ -272,23 +321,18 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
         </div>
 
         {/* Radar Chart */}
-        <div className="relative group rounded-lg border p-4" style={{
-          background: 'rgba(10,14,26,0.85)',
-          borderColor: 'rgba(6,182,212,0.12)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-        }}>
+        <div className="relative group rounded-xl border p-5" style={premiumCardStyle()}>
           <HUDBracket />
           <div className="flex items-center gap-2 mb-4">
             <Activity size={14} style={{ color: '#06b6d4' }} />
-            <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+            <span className="text-[11px] font-semibold font-mono tracking-wider" style={{ color: '#06b6d4' }}>
               {lang === 'ms' ? 'PERBANDINGAN NEGERI TERATAS' : 'TOP STATES COMPARISON'}
             </span>
           </div>
           <ResponsiveContainer width="100%" height={220}>
             <RadarChart data={radarData}>
               <PolarGrid stroke="rgba(6,182,212,0.1)" />
-              <PolarAngleAxis dataKey="metric" tick={{ fill: '#a0b0c0', fontSize: 9 }} />
+              <PolarAngleAxis dataKey="metric" tick={{ fill: '#8899aa', fontSize: 9 }} />
               <PolarRadiusAxis tick={false} axisLine={false} />
               {topStates.map((s, i) => (
                 <Radar key={s.id} name={s.abbr} dataKey={s.abbr} stroke={RADAR_COLORS[i]} fill={RADAR_COLORS[i]} fillOpacity={0.1} />
@@ -306,10 +350,83 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
         </div>
       </div>
 
+      {/* GDP Growth Rate + Sector Contribution */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* GDP Growth Rate Bar Chart */}
+        <div className="relative group rounded-xl border p-5" style={premiumCardStyle()}>
+          <HUDBracket />
+          <div className="flex items-center gap-2 mb-4">
+            <TrendingUp size={14} style={{ color: '#10b981' }} />
+            <span className="text-[11px] font-semibold font-mono tracking-wider" style={{ color: '#10b981' }}>
+              {lang === 'ms' ? 'KADAR PERTUMBUHAN KDNK' : 'GDP GROWTH RATE'}
+            </span>
+          </div>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={gdpGrowthRateData} barCategoryGap="20%">
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(6,182,212,0.06)" />
+              <XAxis dataKey="year" tick={CHART_AXIS_TICK} axisLine={CHART_AXIS_LINE} tickLine={CHART_TICK_LINE} />
+              <YAxis tick={CHART_AXIS_TICK} axisLine={CHART_AXIS_LINE} tickLine={CHART_TICK_LINE} width={40} domain={[-8, 10]} />
+              <Tooltip contentStyle={{
+                background: 'rgba(10,14,26,0.97)',
+                border: '1px solid rgba(6,182,212,0.25)',
+                borderRadius: '8px',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+                padding: '8px 12px',
+                fontSize: '11px',
+                fontFamily: 'monospace',
+                color: '#e0f7fa',
+              }} itemStyle={{ color: '#b8c5d4' }} labelStyle={{ color: '#10b981', fontWeight: 'bold' }} />
+              <Bar dataKey="rate" radius={[4,4,0,0]}>
+                {gdpGrowthRateData.map((d, i) => (
+                  <Cell key={i} fill={d.rate >= 0 ? '#f59e0b' : '#ef4444'} opacity={0.8} />
+                ))}
+                <LabelList dataKey="rateLabel" position="top" fill="#b8c5d4" fontSize={9} fontFamily="monospace" />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Sector Contribution Horizontal Bar Chart */}
+        <div className="relative group rounded-xl border p-5" style={premiumCardStyle()}>
+          <HUDBracket />
+          <div className="flex items-center gap-2 mb-4">
+            <Layers size={14} style={{ color: '#8b5cf6' }} />
+            <span className="text-[11px] font-semibold font-mono tracking-wider" style={{ color: '#8b5cf6' }}>
+              {lang === 'ms' ? 'SUMBANGAN SEKTOR KDNK' : 'GDP SECTOR CONTRIBUTION'}
+            </span>
+          </div>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={sectorContributionData} layout="vertical" barCategoryGap="15%">
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(6,182,212,0.06)" />
+              <XAxis type="number" tick={CHART_AXIS_TICK} axisLine={CHART_AXIS_LINE} tickLine={CHART_TICK_LINE} />
+              <YAxis type="category" dataKey="name" tick={{ fill: '#b0bec5', fontSize: 9 }} axisLine={CHART_AXIS_LINE} tickLine={CHART_TICK_LINE} width={100} />
+              <Tooltip contentStyle={{
+                background: 'rgba(10,14,26,0.97)',
+                border: '1px solid rgba(139,92,246,0.25)',
+                borderRadius: '8px',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+                padding: '8px 12px',
+                fontSize: '11px',
+                fontFamily: 'monospace',
+                color: '#e0f7fa',
+              }} itemStyle={{ color: '#b8c5d4' }} labelStyle={{ color: '#8b5cf6', fontWeight: 'bold' }} />
+              <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                {sectorContributionData.map((_, i) => (
+                  <Cell key={i} fill={SECTOR_COLORS[i]} opacity={0.75} />
+                ))}
+                <LabelList dataKey="valueLabel" position="right" fill="#b8c5d4" fontSize={9} fontFamily="monospace" />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <AnimatedDivider color="#06b6d4" />
+
       {/* Section Header: Distribution & Matrix */}
       <div className="flex items-center gap-3">
         <div>
-          <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+          <span className="text-[13px] font-bold font-mono tracking-[0.2em]" style={{ color: '#06b6d4', textShadow: '0 0 8px rgba(6,182,212,0.4)' }}>
             {lang === 'ms' ? 'TABURAN & MATRIKS' : 'DISTRIBUTION & MATRIX'}
           </span>
           <SectionHeaderLine color="#06b6d4" delay={0.2} />
@@ -317,23 +434,19 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
       </div>
 
       {/* ─── Existing: Category Distribution Bar Chart ──────────── */}
-      <div className="relative group rounded-lg border p-4" style={{
-        background: 'rgba(10,14,26,0.85)',
-        borderColor: 'rgba(6,182,212,0.12)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
-      }}>
+      <div className="relative group rounded-xl border p-5" style={premiumCardStyle()}>
         <HUDBracket />
         <div className="flex items-center gap-2 mb-4">
           <Database size={14} style={{ color: '#06b6d4' }} />
-          <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+          <span className="text-[11px] font-semibold font-mono tracking-wider" style={{ color: '#06b6d4' }}>
             {lang === 'ms' ? 'TABURAN KATEGORI SET DATA' : 'DATASET CATEGORY DISTRIBUTION'}
           </span>
         </div>
         <ResponsiveContainer width="100%" height={280}>
           <BarChart data={catDist} layout="vertical" barCategoryGap="8%">
-            <XAxis type="number" tick={{ fill: '#a0b0c0', fontSize: 9 }} axisLine={false} tickLine={false} />
-            <YAxis type="category" dataKey="name" tick={{ fill: '#b8c5d4', fontSize: 9 }} axisLine={false} tickLine={false} width={120} />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(6,182,212,0.06)" />
+            <XAxis type="number" tick={CHART_AXIS_TICK} axisLine={CHART_AXIS_LINE} tickLine={CHART_TICK_LINE} />
+            <YAxis type="category" dataKey="name" tick={{ fill: '#b8c5d4', fontSize: 9 }} axisLine={CHART_AXIS_LINE} tickLine={CHART_TICK_LINE} width={120} />
             <Tooltip contentStyle={{
               background: 'rgba(10,14,26,0.97)',
               border: '1px solid rgba(6,182,212,0.25)',
@@ -346,22 +459,18 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
             }} itemStyle={{ color: '#b8c5d4', padding: '2px 0' }} labelStyle={{ color: '#06b6d4', fontWeight: 'bold', marginBottom: '4px', fontSize: '12px' }} />
             <Bar dataKey="value" radius={[0, 4, 4, 0]}>
               {catDist.map((_, i) => <Cell key={i} fill={DATASET_CATEGORIES[i % DATASET_CATEGORIES.length]?.color || '#06b6d4'} opacity={0.7} />)}
+              <LabelList dataKey="valueLabel" position="right" fill="#b8c5d4" fontSize={9} fontFamily="monospace" />
             </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>
 
       {/* ─── Existing: State Matrix ─────────────────────────────── */}
-      <div className="relative group rounded-lg border p-4" style={{
-        background: 'rgba(10,14,26,0.85)',
-        borderColor: 'rgba(6,182,212,0.12)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
-      }}>
+      <div className="relative group rounded-xl border p-5" style={premiumCardStyle()}>
         <HUDBracket />
         <div className="flex items-center gap-2 mb-4">
           <Layers size={14} style={{ color: '#06b6d4' }} />
-          <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+          <span className="text-[11px] font-semibold font-mono tracking-wider" style={{ color: '#06b6d4' }}>
             {lang === 'ms' ? 'MATRIKS METRIK NEGERI' : 'STATE METRICS MATRIX'}
           </span>
         </div>
@@ -395,10 +504,12 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
         </div>
       </div>
 
+      <AnimatedDivider color="#10b981" />
+
       {/* Section Header: Deep Analytics */}
       <div className="flex items-center gap-3">
         <div>
-          <span className="text-xs font-mono tracking-wider" style={{ color: '#10b981' }}>
+          <span className="text-[13px] font-bold font-mono tracking-[0.2em]" style={{ color: '#10b981', textShadow: '0 0 8px rgba(16,185,129,0.4)' }}>
             {lang === 'ms' ? 'ANALISIS MENDALAM' : 'DEEP ANALYTICS'}
           </span>
           <SectionHeaderLine color="#10b981" delay={0.2} />
@@ -412,19 +523,14 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
           ═════════════════════════════════════════════════════════════ */}
 
       {/* ─── Row 1: Correlation Matrix + Key Insights ───────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         {/* Correlation Matrix (col-span-2) */}
-        <div className="lg:col-span-2 relative group rounded-lg border p-4" style={{
-          background: 'rgba(10,14,26,0.85)',
-          borderColor: 'rgba(6,182,212,0.12)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-        }}>
+        <div className="lg:col-span-2 relative group rounded-xl border p-5" style={premiumCardStyle()}>
           <HUDBracket />
           <div className="flex items-center gap-2 mb-4">
             <Activity size={14} style={{ color: '#f59e0b' }} />
-            <span className="text-xs font-mono tracking-wider" style={{ color: '#f59e0b' }}>
+            <span className="text-[11px] font-semibold font-mono tracking-wider" style={{ color: '#f59e0b' }}>
               {lang === 'ms' ? 'MATRIKS KORELASI METRIK' : 'METRIC CORRELATION MATRIX'}
             </span>
           </div>
@@ -496,16 +602,11 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
         </div>
 
         {/* Key Insights Panel (col-span-1) */}
-        <div className="relative group rounded-lg border p-4" style={{
-          background: 'rgba(10,14,26,0.85)',
-          borderColor: 'rgba(6,182,212,0.12)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-        }}>
+        <div className="relative group rounded-xl border p-5" style={premiumCardStyle()}>
           <HUDBracket />
           <div className="flex items-center gap-2 mb-4">
             <Lightbulb size={14} style={{ color: '#f59e0b' }} />
-            <span className="text-xs font-mono tracking-wider" style={{ color: '#f59e0b' }}>
+            <span className="text-[11px] font-semibold font-mono tracking-wider" style={{ color: '#f59e0b' }}>
               {lang === 'ms' ? 'PANDUAN UTAMA' : 'KEY INSIGHTS'}
             </span>
           </div>
@@ -542,19 +643,14 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
       </div>
 
       {/* ─── Row 2: Population Pyramid + Treemap + Data Quality ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         {/* Population Pyramid (col-span-1) */}
-        <div className="relative group rounded-lg border p-4" style={{
-          background: 'rgba(10,14,26,0.85)',
-          borderColor: 'rgba(6,182,212,0.12)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-        }}>
+        <div className="relative group rounded-xl border p-5" style={premiumCardStyle()}>
           <HUDBracket />
           <div className="flex items-center gap-2 mb-3">
             <Layers size={14} style={{ color: '#ec4899' }} />
-            <span className="text-xs font-mono tracking-wider" style={{ color: '#ec4899' }}>
+            <span className="text-[11px] font-semibold font-mono tracking-wider" style={{ color: '#ec4899' }}>
               {lang === 'ms' ? 'PIRAMID POPULASI' : 'POPULATION PYRAMID'}
             </span>
           </div>
@@ -625,16 +721,11 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
         </div>
 
         {/* Economic Sector Treemap (col-span-1) */}
-        <div className="relative group rounded-lg border p-4" style={{
-          background: 'rgba(10,14,26,0.85)',
-          borderColor: 'rgba(6,182,212,0.12)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-        }}>
+        <div className="relative group rounded-xl border p-5" style={premiumCardStyle()}>
           <HUDBracket />
           <div className="flex items-center gap-2 mb-3">
             <Layers size={14} style={{ color: '#10b981' }} />
-            <span className="text-xs font-mono tracking-wider" style={{ color: '#10b981' }}>
+            <span className="text-[11px] font-semibold font-mono tracking-wider" style={{ color: '#10b981' }}>
               {lang === 'ms' ? 'SEKTOR EKONOMI' : 'ECONOMIC SECTORS'}
             </span>
           </div>
@@ -747,16 +838,11 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
         </div>
 
         {/* Data Quality Score (col-span-1) */}
-        <div className="relative group rounded-lg border p-4" style={{
-          background: 'rgba(10,14,26,0.85)',
-          borderColor: 'rgba(6,182,212,0.12)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-        }}>
+        <div className="relative group rounded-xl border p-5" style={premiumCardStyle()}>
           <HUDBracket />
           <div className="flex items-center gap-2 mb-3">
             <Shield size={14} style={{ color: '#06b6d4' }} />
-            <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+            <span className="text-[11px] font-semibold font-mono tracking-wider" style={{ color: '#06b6d4' }}>
               {lang === 'ms' ? 'SKOR KUALITI DATA' : 'DATA QUALITY SCORE'}
             </span>
           </div>

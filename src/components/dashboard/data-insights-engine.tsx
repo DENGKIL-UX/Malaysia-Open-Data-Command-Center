@@ -310,11 +310,12 @@ export function DataInsightsEngine({ lang }: { lang: Lang }) {
   ];
 
   return (
-    <div className="relative group rounded-lg border p-4" style={{
-      background: 'rgba(10,14,26,0.85)',
+    <div className="relative group rounded-xl border p-5" style={{
+      background: 'linear-gradient(180deg, rgba(6,182,212,0.03) 0%, rgba(10,14,26,0.85) 30%)',
       borderColor: 'rgba(6,182,212,0.12)',
       backdropFilter: 'blur(12px)',
       WebkitBackdropFilter: 'blur(12px)',
+      boxShadow: 'inset 0 1px 0 0 rgba(6,182,212,0.06)',
     }}>
       <HUDBracket />
 
@@ -330,7 +331,7 @@ export function DataInsightsEngine({ lang }: { lang: Lang }) {
             <Zap size={14} style={{ color: '#06b6d4' }} />
           </motion.div>
         </div>
-        <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+        <span className="text-[11px] font-semibold font-mono tracking-wider" style={{ color: '#06b6d4' }}>
           {lang === 'ms' ? 'ENJIN PANDANGAN DATA' : 'DATA INSIGHTS ENGINE'}
         </span>
         <SectionHeaderLine color="#06b6d4" delay={0.3} />
