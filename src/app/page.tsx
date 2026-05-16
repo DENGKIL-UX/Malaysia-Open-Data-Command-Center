@@ -75,6 +75,269 @@ function KPICard({ icon: Icon, label, value, unit, change, color, lang }: {
   );
 }
 
+// ─── Animated Counter Hook ──────────────────────────────────────────
+function useAnimatedValue(target: number, duration = 2000) {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    let start = 0;
+    const startTime = Date.now();
+    const step = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setValue(Math.round(start + (target - start) * eased));
+      if (progress < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }, [target, duration]);
+  return value;
+}
+
+// ─── Real-time Engine Pulse ───────────────────────────────────────
+function DataEnginePulse({ lang }: { lang: Lang }) {
+  const [pulse, setPulse] = useState(0);
+  const [throughput, setThroughput] = useState(0);
+  const [latency, setLatency] = useState(0);
+  const animPop = useAnimatedValue(34300);
+
+  useEffect(() => {
+    const iv = setInterval(() => {
+      setPulse(p => (p + 1) % 60);
+      setThroughput(Math.floor(120 + Math.random() * 80));
+      setLatency(Math.floor(8 + Math.random() * 12));
+    }, 1000);
+    return () => clearInterval(iv);
+  }, []);
+
+  return (
+    <div className="rounded-lg border p-4" style={{
+      background: 'linear-gradient(135deg, rgba(6,182,212,0.06), rgba(10,14,26,0.95))',
+      borderColor: 'rgba(6,182,212,0.15)',
+    }}>
+      <div className="flex items-center gap-2 mb-3">
+        <div className="relative">
+          <Activity size={14} style={{ color: '#06b6d4' }} />
+          <motion.div
+            className="absolute inset-0"
+            animate={{ scale: [1, 1.5, 1], opacity: [1, 0, 1] }}
+            transition={{ duration: 1.5, repeat: Infinity }}
+          >
+            <Activity size={14} style={{ color: '#06b6d4' }} />
+          </motion.div>
+        </div>
+        <span className="text-[10px] font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+          {lang === 'ms' ? 'ENJIN DATA MASA NYATA' : 'REAL-TIME DATA ENGINE'}
+        </span>
+        <div className="ml-auto flex items-center gap-1.5">
+          <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="text-[8px] font-mono text-emerald-400">ACTIVE</span>
+        </div>
+      </div>
+
+      {/* Throughput Waveform */}
+      <div className="flex items-end gap-px h-8 mb-3">
+        {Array.from({ length: 40 }).map((_, i) => (
+          <div
+            key={i}
+            className="flex-1 rounded-t-sm transition-all duration-300"
+            style={{
+              height: `${Math.max(8, Math.sin((pulse + i) * 0.3) * 50 + 50)}%`,
+              background: `linear-gradient(180deg, #06b6d4${Math.round(40 + Math.sin((pulse + i) * 0.3) * 30).toString(16).padStart(2, '0')}, rgba(6,182,212,0.05))`,
+            }}
+          />
+        ))}
+      </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        <div className="text-center">
+          <div className="text-sm font-bold font-mono" style={{ color: '#06b6d4' }}>{throughput}</div>
+          <div className="text-[8px] font-mono" style={{ color: 'rgba(6,182,212,0.5)' }}>
+            {lang === 'ms' ? 'REQ/MIN' : 'REQ/MIN'}
+          </div>
+        </div>
+        <div className="text-center">
+          <div className="text-sm font-bold font-mono" style={{ color: '#10b981' }}>{latency}ms</div>
+          <div className="text-[8px] font-mono" style={{ color: 'rgba(16,185,129,0.5)' }}>
+            {lang === 'ms' ? 'KELENGKAPAN' : 'LATENCY'}
+          </div>
+        </div>
+        <div className="text-center">
+          <div className="text-sm font-bold font-mono" style={{ color: '#f59e0b' }}>99.9%</div>
+          <div className="text-[8px] font-mono" style={{ color: 'rgba(245,158,11,0.5)' }}>
+            {lang === 'ms' ? 'KEBOLEHUPAYAAN' : 'UPTIME'}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Health Index Widget ──────────────────────────────────────────
+function HealthIndexWidget({ lang }: { lang: Lang }) {
+  const indices = [
+    { label_en: 'Healthcare', label_ms: 'Kesihatan', value: 78, color: '#ec4899', icon: '🏥' },
+    { label_en: 'Environment', label_ms: 'Alam Sekitar', value: 65, color: '#22c55e', icon: '🌿' },
+    { label_en: 'Education', label_ms: 'Pendidikan', value: 82, color: '#3b82f6', icon: '📚' },
+    { label_en: 'Economy', label_ms: 'Ekonomi', value: 71, color: '#f59e0b', icon: '💰' },
+    { label_en: 'Safety', label_ms: 'Keselamatan', value: 74, color: '#8b5cf6', icon: '🛡️' },
+    { label_en: 'Digital', label_ms: 'Digital', value: 68, color: '#06b6d4', icon: '💻' },
+  ];
+
+  return (
+    <div className="rounded-lg border p-4" style={{
+      background: 'rgba(10,14,26,0.95)',
+      borderColor: 'rgba(6,182,212,0.12)',
+    }}>
+      <div className="flex items-center gap-2 mb-3">
+        <Heart size={14} style={{ color: '#ec4899' }} />
+        <span className="text-[10px] font-mono tracking-wider" style={{ color: '#ec4899' }}>
+          {lang === 'ms' ? 'INDEKS KEBERKESANAN NEGARA' : 'NATIONAL PERFORMANCE INDEX'}
+        </span>
+      </div>
+      <div className="space-y-2.5">
+        {indices.map((idx) => (
+          <div key={idx.label_en}>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[10px] font-mono flex items-center gap-1.5" style={{ color: '#94a3b8' }}>
+                <span className="text-xs">{idx.icon}</span>
+                {lang === 'ms' ? idx.label_ms : idx.label_en}
+              </span>
+              <span className="text-[10px] font-mono font-bold" style={{ color: idx.color }}>{idx.value}</span>
+            </div>
+            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.04)' }}>
+              <motion.div
+                className="h-full rounded-full"
+                initial={{ width: 0 }}
+                animate={{ width: `${idx.value}%` }}
+                transition={{ duration: 1.2, delay: 0.2, ease: 'easeOut' }}
+                style={{
+                  background: `linear-gradient(90deg, ${idx.color}60, ${idx.color})`,
+                  boxShadow: `0 0 8px ${idx.color}40`,
+                }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── State Mini-Cards Grid ────────────────────────────────────────
+function StateMiniCards({ lang }: { lang: Lang }) {
+  const topStates = STATES.slice().sort((a, b) => b.population - a.population).slice(0, 6);
+  return (
+    <div className="rounded-lg border p-4" style={{
+      background: 'rgba(10,14,26,0.95)',
+      borderColor: 'rgba(6,182,212,0.12)',
+    }}>
+      <div className="flex items-center gap-2 mb-3">
+        <MapPin size={14} style={{ color: '#06b6d4' }} />
+        <span className="text-[10px] font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+          {lang === 'ms' ? 'NEGERI TERATAS MENGIKUT PENDUDUK' : 'TOP STATES BY POPULATION'}
+        </span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        {topStates.map((s, i) => (
+          <motion.div
+            key={s.id}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: i * 0.08 }}
+            className="relative rounded-md border p-3 overflow-hidden"
+            style={{
+              background: `linear-gradient(135deg, rgba(6,182,212,${0.03 + i * 0.01}), rgba(10,14,26,0.95))`,
+              borderColor: i === 0 ? 'rgba(6,182,212,0.25)' : 'rgba(6,182,212,0.08)',
+            }}
+          >
+            {/* Rank badge */}
+            <div className="absolute top-1.5 right-1.5 text-[8px] font-mono px-1 py-0.5 rounded" style={{
+              background: i < 3 ? 'rgba(6,182,212,0.15)' : 'rgba(6,182,212,0.05)',
+              color: i < 3 ? '#06b6d4' : 'rgba(6,182,212,0.4)',
+            }}>
+              #{i + 1}
+            </div>
+            <div className="text-xs font-bold mb-0.5" style={{ color: '#e0f7fa' }}>{s.name}</div>
+            <div className="text-[9px] font-mono" style={{ color: '#06b6d4' }}>
+              {s.population.toLocaleString()}k
+            </div>
+            <div className="flex items-center gap-1 mt-1">
+              <span className="text-[8px] font-mono" style={{ color: '#10b981' }}>
+                GDP {(s.gdp / 1000).toFixed(1)}B
+              </span>
+              <span className="text-[8px]" style={{ color: 'rgba(6,182,212,0.3)' }}>•</span>
+              <span className="text-[8px] font-mono" style={{ color: s.gdpGrowth >= 4 ? '#10b981' : '#f59e0b' }}>
+                {s.gdpGrowth}%
+              </span>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Data Source Statistics ───────────────────────────────────────
+function DataSourceStats({ lang }: { lang: Lang }) {
+  const sourceStats = useMemo(() => {
+    const counts: Record<string, { count: number; categories: Set<string> }> = {};
+    DATASETS.forEach(d => {
+      d.data_source.forEach(src => {
+        if (!counts[src]) counts[src] = { count: 0, categories: new Set() };
+        counts[src].count++;
+        counts[src].categories.add(d.category_en);
+      });
+    });
+    return Object.entries(counts)
+      .map(([source, data]) => ({ source, count: data.count, categories: data.categories.size }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
+  }, []);
+
+  const sourceColors: Record<string, string> = {
+    DOSM: '#06b6d4', BNM: '#f59e0b', KKM: '#ec4899', JPJ: '#8b5cf6',
+    KPM: '#3b82f6', KASA: '#22c55e', JDN: '#f97316', KD: '#64748b',
+  };
+
+  return (
+    <div className="rounded-lg border p-4" style={{
+      background: 'rgba(10,14,26,0.95)',
+      borderColor: 'rgba(6,182,212,0.12)',
+    }}>
+      <div className="flex items-center gap-2 mb-3">
+        <Database size={14} style={{ color: '#06b6d4' }} />
+        <span className="text-[10px] font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+          {lang === 'ms' ? 'AGENSI SUMBER DATA' : 'DATA SOURCE AGENCIES'}
+        </span>
+      </div>
+      <div className="space-y-2">
+        {sourceStats.map(s => {
+          const color = sourceColors[s.source] || '#64748b';
+          const maxCount = sourceStats[0]?.count || 1;
+          return (
+            <div key={s.source} className="flex items-center gap-2">
+              <span className="text-[9px] font-mono w-10 text-right font-bold" style={{ color }}>{s.source}</span>
+              <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                <motion.div
+                  className="h-full rounded-full"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${(s.count / maxCount) * 100}%` }}
+                  transition={{ duration: 1, delay: 0.1 }}
+                  style={{
+                    background: `linear-gradient(90deg, ${color}80, ${color})`,
+                    boxShadow: `0 0 6px ${color}30`,
+                  }}
+                />
+              </div>
+              <span className="text-[8px] font-mono w-5 text-right" style={{ color: '#94a3b8' }}>{s.count}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── Overview Section ─────────────────────────────────────────────
 function OverviewSection({ lang }: { lang: Lang }) {
   const kpis = [
@@ -99,6 +362,18 @@ function OverviewSection({ lang }: { lang: Lang }) {
     return Object.entries(counts).map(([name, value]) => ({ name, value }));
   }, []);
 
+  // Category stats for treemap
+  const catStats = useMemo(() => {
+    const counts: Record<string, number> = {};
+    DATASETS.forEach(d => { counts[d.category_en] = (counts[d.category_en] || 0) + 1; });
+    return Object.entries(counts)
+      .map(([name, value]) => {
+        const cat = DATASET_CATEGORIES.find(c => c.en === name);
+        return { name, value, color: cat?.color || '#64748b' };
+      })
+      .sort((a, b) => b.value - a.value);
+  }, []);
+
   const PIE_COLORS = ['#06b6d4', '#f59e0b', '#8b5cf6', '#10b981', '#ef4444', '#64748b', '#ec4899'];
 
   return (
@@ -116,12 +391,28 @@ function OverviewSection({ lang }: { lang: Lang }) {
         <div className="absolute top-0 right-0 w-64 h-64 opacity-10" style={{
           background: 'radial-gradient(circle at top right, #06b6d4, transparent 70%)',
         }} />
+        <div className="absolute bottom-0 left-0 w-48 h-48 opacity-5" style={{
+          background: 'radial-gradient(circle at bottom left, #10b981, transparent 70%)',
+        }} />
+        {/* Animated grid lines in background */}
+        <div className="absolute inset-0 opacity-[0.02]" style={{
+          backgroundImage: `linear-gradient(rgba(6,182,212,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(6,182,212,0.8) 1px, transparent 1px)`,
+          backgroundSize: '30px 30px',
+        }} />
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-2">
             <Zap size={16} style={{ color: '#06b6d4' }} />
             <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
               {lang === 'ms' ? 'PENGANALISIS DATA NASIONAL' : 'NATIONAL DATA INTELLIGENCE'}
             </span>
+            <motion.span
+              className="text-[8px] font-mono px-1.5 py-0.5 rounded"
+              style={{ background: 'rgba(6,182,212,0.12)', color: '#06b6d4', border: '1px solid rgba(6,182,212,0.2)' }}
+              animate={{ opacity: [0.5, 1, 0.5] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            >
+              v3.0
+            </motion.span>
           </div>
           <h2 className="text-2xl md:text-3xl font-bold mb-2" style={{
             color: '#e0f7fa',
@@ -135,18 +426,22 @@ function OverviewSection({ lang }: { lang: Lang }) {
               : 'A premium SaaS-grade intelligence dashboard powered entirely by data.gov.my open data. 287+ datasets across 18 categories.'
             }
           </p>
-          <div className="flex items-center gap-4 mt-4">
-            <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-3 mt-4">
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded border" style={{ background: 'rgba(16,185,129,0.06)', borderColor: 'rgba(16,185,129,0.15)' }}>
               <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span className="text-[10px] font-mono text-emerald-400">LIVE DATA</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <MapPin size={12} style={{ color: '#06b6d4' }} />
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded border" style={{ background: 'rgba(6,182,212,0.06)', borderColor: 'rgba(6,182,212,0.15)' }}>
+              <MapPin size={10} style={{ color: '#06b6d4' }} />
               <span className="text-[10px] font-mono" style={{ color: '#06b6d4' }}>16 STATES + 3 FT</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <Layers size={12} style={{ color: '#f59e0b' }} />
-              <span className="text-[10px] font-mono" style={{ color: '#f59e0b' }}>6 DATA LAYERS</span>
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded border" style={{ background: 'rgba(245,158,11,0.06)', borderColor: 'rgba(245,158,11,0.15)' }}>
+              <Layers size={10} style={{ color: '#f59e0b' }} />
+              <span className="text-[10px] font-mono" style={{ color: '#f59e0b' }}>6 LAYERS</span>
+            </div>
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded border" style={{ background: 'rgba(139,92,246,0.06)', borderColor: 'rgba(139,92,246,0.15)' }}>
+              <Globe size={10} style={{ color: '#8b5cf6' }} />
+              <span className="text-[10px] font-mono" style={{ color: '#8b5cf6' }}>18 CATEGORIES</span>
             </div>
           </div>
         </div>
@@ -159,6 +454,13 @@ function OverviewSection({ lang }: { lang: Lang }) {
         ))}
       </div>
 
+      {/* Row: Data Engine + State Cards + Health Index */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <DataEnginePulse lang={lang} />
+        <StateMiniCards lang={lang} />
+        <HealthIndexWidget lang={lang} />
+      </div>
+
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Bar Chart - Top States */}
@@ -166,22 +468,45 @@ function OverviewSection({ lang }: { lang: Lang }) {
           background: 'rgba(10,14,26,0.95)',
           borderColor: 'rgba(6,182,212,0.12)',
         }}>
-          <div className="flex items-center gap-2 mb-4">
-            <BarChart3 size={14} style={{ color: '#06b6d4' }} />
-            <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
-              {lang === 'ms' ? 'PENDUDUK MENGIKUT NEGERI' : 'POPULATION BY STATE'}
-            </span>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <BarChart3 size={14} style={{ color: '#06b6d4' }} />
+              <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+                {lang === 'ms' ? 'PENDUDUK & KDNK MENGIKUT NEGERI' : 'POPULATION & GDP BY STATE'}
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full" style={{ background: '#06b6d4' }} />
+                <span className="text-[8px] font-mono" style={{ color: '#94a3b8' }}>POP</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full" style={{ background: '#f59e0b' }} />
+                <span className="text-[8px] font-mono" style={{ color: '#94a3b8' }}>GDP</span>
+              </div>
+            </div>
           </div>
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={topStatesData} barCategoryGap="20%">
+              <defs>
+                <linearGradient id="popGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#06b6d4" stopOpacity={0.9} />
+                  <stop offset="100%" stopColor="#06b6d4" stopOpacity={0.4} />
+                </linearGradient>
+                <linearGradient id="gdpBarGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.9} />
+                  <stop offset="100%" stopColor="#f59e0b" stopOpacity={0.4} />
+                </linearGradient>
+              </defs>
               <XAxis dataKey="name" tick={{ fill: '#06b6d466', fontSize: 10 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: '#06b6d466', fontSize: 9 }} axisLine={false} tickLine={false} width={40} />
               <Tooltip
-                contentStyle={{ background: '#0a0e1a', border: '1px solid #06b6d430', borderRadius: 8, fontSize: 11 }}
+                contentStyle={{ background: '#0a0e1a', border: '1px solid #06b6d430', borderRadius: 8, fontSize: 11, boxShadow: '0 0 20px rgba(6,182,212,0.1)' }}
                 labelStyle={{ color: '#06b6d4' }}
                 itemStyle={{ color: '#e0f7fa' }}
               />
-              <Bar dataKey="population" fill="#06b6d4" radius={[4,4,0,0]} opacity={0.8} />
+              <Bar dataKey="population" fill="url(#popGrad)" radius={[4,4,0,0]} />
+              <Bar dataKey="gdp" fill="url(#gdpBarGrad)" radius={[4,4,0,0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -197,15 +522,15 @@ function OverviewSection({ lang }: { lang: Lang }) {
               {lang === 'ms' ? 'FREKUENSI DATA' : 'DATA FREQUENCY'}
             </span>
           </div>
-          <ResponsiveContainer width="100%" height={240}>
+          <ResponsiveContainer width="100%" height={200}>
             <PieChart>
-              <Pie data={freqDist} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" paddingAngle={2}>
+              <Pie data={freqDist} cx="50%" cy="50%" innerRadius={45} outerRadius={75} dataKey="value" paddingAngle={2} stroke="none">
                 {freqDist.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
               </Pie>
-              <Tooltip contentStyle={{ background: '#0a0e1a', border: '1px solid #06b6d430', borderRadius: 8, fontSize: 11 }} />
+              <Tooltip contentStyle={{ background: '#0a0e1a', border: '1px solid #06b6d430', borderRadius: 8, fontSize: 11, boxShadow: '0 0 20px rgba(6,182,212,0.1)' }} />
             </PieChart>
           </ResponsiveContainer>
-          <div className="flex flex-wrap gap-2 mt-2">
+          <div className="flex flex-wrap gap-2 mt-2 justify-center">
             {freqDist.map((d, i) => (
               <div key={i} className="flex items-center gap-1">
                 <div className="w-2 h-2 rounded-full" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
@@ -216,39 +541,91 @@ function OverviewSection({ lang }: { lang: Lang }) {
         </div>
       </div>
 
-      {/* Timeline */}
-      <div className="rounded-lg border p-4" style={{
-        background: 'rgba(10,14,26,0.95)',
-        borderColor: 'rgba(6,182,212,0.12)',
-      }}>
-        <div className="flex items-center gap-2 mb-4">
-          <Clock size={14} style={{ color: '#06b6d4' }} />
-          <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
-            {lang === 'ms' ? 'GARIS MASA KEMAS KINI DATA' : 'DATA UPDATE TIMELINE'}
-          </span>
+      {/* Row: Category Heat Blocks + Data Sources + Timeline */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Category Heat Blocks */}
+        <div className="rounded-lg border p-4" style={{
+          background: 'rgba(10,14,26,0.95)',
+          borderColor: 'rgba(6,182,212,0.12)',
+        }}>
+          <div className="flex items-center gap-2 mb-3">
+            <Layers size={14} style={{ color: '#06b6d4' }} />
+            <span className="text-[10px] font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+              {lang === 'ms' ? 'BLOK KATEGORI' : 'CATEGORY BLOCKS'}
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-1.5">
+            {catStats.slice(0, 18).map((cat) => (
+              <div
+                key={cat.name}
+                className="rounded p-1.5 text-center cursor-default transition-transform hover:scale-105"
+                style={{
+                  background: `${cat.color}12`,
+                  border: `1px solid ${cat.color}20`,
+                }}
+              >
+                <div className="text-[10px] font-mono font-bold" style={{ color: cat.color }}>{cat.value}</div>
+                <div className="text-[7px] font-mono truncate" style={{ color: '#94a3b8' }}>{cat.name}</div>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
-          {[
-            { date: '2025-07', en: 'Population estimates updated to 2025', ms: 'Anggaran penduduk dikemas kini ke 2025' },
-            { date: '2025-04', en: 'Q1 2025 GDP data released', ms: 'Data KDNK Q1 2025 dikeluarkan' },
-            { date: '2025-03', en: 'Labour Force Survey Q1 2025', ms: 'Survei Tenaga Buruh Q1 2025' },
-            { date: '2025-01', en: 'CPI Annual Inflation 2024 released', ms: 'Inflasi Tahunan CPI 2024 dikeluarkan' },
-            { date: '2024-11', en: 'Vital Statistics 2024 published', ms: 'Statistik Utama 2024 diterbitkan' },
-            { date: '2024-08', en: 'GDP by State 2023 updated', ms: 'KDNK mengikut Negeri 2023 dikemas kini' },
-          ].map((event, i) => (
-            <div key={i} className="flex items-center gap-3 py-1.5 px-2 rounded" style={{
-              background: i === 0 ? 'rgba(6,182,212,0.05)' : 'transparent',
-              borderLeft: i === 0 ? '2px solid #06b6d4' : '2px solid transparent',
-            }}>
-              <span className="text-[10px] font-mono whitespace-nowrap" style={{ color: '#06b6d4' }}>{event.date}</span>
-              <span className="text-xs" style={{ color: '#94a3b8' }}>{lang === 'ms' ? event.ms : event.en}</span>
-              {i === 0 && (
-                <span className="text-[8px] font-mono px-1.5 py-0.5 rounded" style={{
-                  background: 'rgba(6,182,212,0.15)', color: '#06b6d4',
-                }}>LATEST</span>
-              )}
-            </div>
-          ))}
+
+        {/* Data Source Stats */}
+        <DataSourceStats lang={lang} />
+
+        {/* Timeline */}
+        <div className="rounded-lg border p-4" style={{
+          background: 'rgba(10,14,26,0.95)',
+          borderColor: 'rgba(6,182,212,0.12)',
+        }}>
+          <div className="flex items-center gap-2 mb-4">
+            <Clock size={14} style={{ color: '#06b6d4' }} />
+            <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+              {lang === 'ms' ? 'GARIS MASA KEMAS KINI DATA' : 'DATA UPDATE TIMELINE'}
+            </span>
+          </div>
+          <div className="space-y-1.5 max-h-64 overflow-y-auto custom-scrollbar">
+            {[
+              { date: '2025-07', en: 'Population estimates updated to 2025', ms: 'Anggaran penduduk dikemas kini ke 2025', type: 'census' },
+              { date: '2025-04', en: 'Q1 2025 GDP data released', ms: 'Data KDNK Q1 2025 dikeluarkan', type: 'gdp' },
+              { date: '2025-03', en: 'Labour Force Survey Q1 2025', ms: 'Survei Tenaga Buruh Q1 2025', type: 'labour' },
+              { date: '2025-01', en: 'CPI Annual Inflation 2024 released', ms: 'Inflasi Tahunan CPI 2024 dikeluarkan', type: 'prices' },
+              { date: '2024-11', en: 'Vital Statistics 2024 published', ms: 'Statistik Utama 2024 diterbitkan', type: 'vital' },
+              { date: '2024-08', en: 'GDP by State 2023 updated', ms: 'KDNK mengikut Negeri 2023 dikemas kini', type: 'gdp' },
+              { date: '2024-07', en: 'Household Income Survey 2023', ms: 'Survei Pendapatan Isi Rumah 2023', type: 'household' },
+              { date: '2024-06', en: 'Environmental Quality Report', ms: 'Laporan Kualiti Alam Sekitar', type: 'environment' },
+            ].map((event, i) => {
+              const typeColors: Record<string, string> = {
+                census: '#06b6d4', gdp: '#f59e0b', labour: '#8b5cf6', prices: '#ef4444',
+                vital: '#ec4899', household: '#10b981', environment: '#22c55e',
+              };
+              const dotColor = typeColors[event.type] || '#06b6d4';
+              return (
+                <div key={i} className="flex items-start gap-2.5 py-1.5 px-2 rounded transition-colors hover:bg-cyan-950/20" style={{
+                  borderLeft: i === 0 ? '2px solid #06b6d4' : '2px solid rgba(6,182,212,0.08)',
+                }}>
+                  <div className="w-1.5 h-1.5 rounded-full mt-1 flex-shrink-0" style={{
+                    background: dotColor,
+                    boxShadow: i === 0 ? `0 0 6px ${dotColor}60` : 'none',
+                  }} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono whitespace-nowrap" style={{ color: dotColor }}>{event.date}</span>
+                      {i === 0 && (
+                        <span className="text-[7px] font-mono px-1 py-0.5 rounded" style={{
+                          background: 'rgba(6,182,212,0.15)', color: '#06b6d4',
+                        }}>LATEST</span>
+                      )}
+                    </div>
+                    <span className="text-[10px] block truncate" style={{ color: '#94a3b8' }}>
+                      {lang === 'ms' ? event.ms : event.en}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
