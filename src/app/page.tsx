@@ -1,0 +1,1360 @@
+'use client';
+
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Users, TrendingUp, Baby, Heart, Briefcase, Database,
+  BarChart3, Map, LayoutDashboard, FileText, Download,
+  Search, Filter, ChevronLeft, ChevronRight, Globe,
+  ChevronDown, X, Printer, Info, AlertTriangle,
+  ExternalLink, Clock, MapPin, Layers, Settings,
+  ArrowUpRight, ArrowDownRight, Activity, Zap,
+  HelpCircle, BookOpen, Shield, Languages,
+} from 'lucide-react';
+import dynamic from 'next/dynamic';
+
+import BootSequence from '@/components/dashboard/boot-sequence';
+import Header from '@/components/dashboard/header';
+import {
+  STATES, MALAYSIA_TOTALS, MAP_LAYERS, DATASET_CATEGORIES,
+  FREQUENCY_COLORS, FAQ_DATA, DISCLAIMERS, CITATIONS,
+} from '@/lib/data/malaysia-data';
+import { DATASETS } from '@/lib/data/datasets';
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, AreaChart, Area, RadarChart, Radar,
+  PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+} from 'recharts';
+
+// Dynamic import for map (avoid SSR issues)
+const MalaysiaMap = dynamic(() => import('@/components/map/malaysia-map'), { ssr: false });
+
+type TabId = 'overview' | 'geomap' | 'datasets' | 'analytics';
+type LayerId = 'population' | 'gdp' | 'births' | 'deaths' | 'unemployment' | 'datasets';
+type Lang = 'en' | 'ms';
+
+// ─── KPI Card Component ─────────────────────────────────────────────
+function KPICard({ icon: Icon, label, value, unit, change, color, lang }: {
+  icon: React.ElementType; label: string; value: string; unit: string;
+  change?: number; color: string; lang: Lang;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="relative overflow-hidden rounded-lg p-4 border backdrop-blur-sm"
+      style={{
+        background: `linear-gradient(135deg, rgba(10,14,26,0.95), rgba(10,14,26,0.8))`,
+        borderColor: `${color}25`,
+      }}
+    >
+      <div className="absolute top-0 right-0 w-24 h-24 opacity-5" style={{
+        background: `radial-gradient(circle at top right, ${color}, transparent)`,
+      }} />
+      <div className="flex items-start justify-between mb-2">
+        <Icon size={18} style={{ color }} />
+        {change !== undefined && (
+          <div className={`flex items-center gap-0.5 text-xs font-mono ${change >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            {change >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+            {Math.abs(change)}%
+          </div>
+        )}
+      </div>
+      <div className="text-2xl font-bold font-mono" style={{ color: '#e0f7fa' }}>
+        {value}
+        <span className="text-xs font-normal ml-1 opacity-50">{unit}</span>
+      </div>
+      <div className="text-[10px] font-mono mt-1 tracking-wider uppercase opacity-60" style={{ color }}>
+        {label}
+      </div>
+      {/* Bottom accent line */}
+      <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{
+        background: `linear-gradient(90deg, transparent, ${color}40, transparent)`,
+      }} />
+    </motion.div>
+  );
+}
+
+// ─── Overview Section ─────────────────────────────────────────────
+function OverviewSection({ lang }: { lang: Lang }) {
+  const kpis = [
+    { icon: Users, label: lang === 'ms' ? 'Penduduk' : 'Population', value: '34.3M', unit: "('000)", change: 1.1, color: '#06b6d4' },
+    { icon: TrendingUp, label: lang === 'ms' ? 'KDNK' : 'GDP', value: '1.68T', unit: 'RM M', change: 4.5, color: '#f59e0b' },
+    { icon: Baby, label: lang === 'ms' ? 'Kelahiran' : 'Births', value: '602.9', unit: "('000)", change: -2.3, color: '#10b981' },
+    { icon: Heart, label: lang === 'ms' ? 'Kematian' : 'Deaths', value: '159.7', unit: "('000)", change: 1.8, color: '#ef4444' },
+    { icon: Briefcase, label: lang === 'ms' ? 'Pengangguran' : 'Unemployment', value: '3.4', unit: '%', change: -0.3, color: '#8b5cf6' },
+    { icon: Database, label: lang === 'ms' ? 'Set Data' : 'Datasets', value: '287', unit: '', change: 12, color: '#ec4899' },
+  ];
+
+  // Top states bar chart data
+  const topStatesData = STATES.slice()
+    .sort((a, b) => b.population - a.population)
+    .slice(0, 8)
+    .map(s => ({ name: s.abbr, population: s.population, gdp: Math.round(s.gdp / 1000) }));
+
+  // Frequency distribution for pie
+  const freqDist = useMemo(() => {
+    const counts: Record<string, number> = {};
+    DATASETS.forEach(d => { counts[d.frequency] = (counts[d.frequency] || 0) + 1; });
+    return Object.entries(counts).map(([name, value]) => ({ name, value }));
+  }, []);
+
+  const PIE_COLORS = ['#06b6d4', '#f59e0b', '#8b5cf6', '#10b981', '#ef4444', '#64748b', '#ec4899'];
+
+  return (
+    <div className="space-y-6">
+      {/* Hero Banner */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="relative overflow-hidden rounded-lg border p-6"
+        style={{
+          background: 'linear-gradient(135deg, rgba(6,182,212,0.08), rgba(16,185,129,0.04), rgba(10,14,26,0.95))',
+          borderColor: 'rgba(6,182,212,0.15)',
+        }}
+      >
+        <div className="absolute top-0 right-0 w-64 h-64 opacity-10" style={{
+          background: 'radial-gradient(circle at top right, #06b6d4, transparent 70%)',
+        }} />
+        <div className="relative z-10">
+          <div className="flex items-center gap-2 mb-2">
+            <Zap size={16} style={{ color: '#06b6d4' }} />
+            <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+              {lang === 'ms' ? 'PENGANALISIS DATA NASIONAL' : 'NATIONAL DATA INTELLIGENCE'}
+            </span>
+          </div>
+          <h2 className="text-2xl md:text-3xl font-bold mb-2" style={{
+            color: '#e0f7fa',
+            textShadow: '0 0 20px rgba(6,182,212,0.3)',
+          }}>
+            {lang === 'ms' ? 'Pusat Perintah Data Malaysia' : 'Malaysia Data Command Center'}
+          </h2>
+          <p className="text-sm opacity-60 max-w-2xl" style={{ color: '#94a3b8' }}>
+            {lang === 'ms'
+              ? 'Papan pemuka kecerdasan gred SaaS premium yang dikuasakan sepenuhnya oleh data.gov.my data terbuka. 287+ set data merentasi 18 kategori.'
+              : 'A premium SaaS-grade intelligence dashboard powered entirely by data.gov.my open data. 287+ datasets across 18 categories.'
+            }
+          </p>
+          <div className="flex items-center gap-4 mt-4">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-[10px] font-mono text-emerald-400">LIVE DATA</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <MapPin size={12} style={{ color: '#06b6d4' }} />
+              <span className="text-[10px] font-mono" style={{ color: '#06b6d4' }}>16 STATES + 3 FT</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Layers size={12} style={{ color: '#f59e0b' }} />
+              <span className="text-[10px] font-mono" style={{ color: '#f59e0b' }}>6 DATA LAYERS</span>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* KPI Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        {kpis.map((kpi, i) => (
+          <KPICard key={i} {...kpi} lang={lang} />
+        ))}
+      </div>
+
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Bar Chart - Top States */}
+        <div className="lg:col-span-2 rounded-lg border p-4" style={{
+          background: 'rgba(10,14,26,0.95)',
+          borderColor: 'rgba(6,182,212,0.12)',
+        }}>
+          <div className="flex items-center gap-2 mb-4">
+            <BarChart3 size={14} style={{ color: '#06b6d4' }} />
+            <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+              {lang === 'ms' ? 'PENDUDUK MENGIKUT NEGERI' : 'POPULATION BY STATE'}
+            </span>
+          </div>
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={topStatesData} barCategoryGap="20%">
+              <XAxis dataKey="name" tick={{ fill: '#06b6d466', fontSize: 10 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: '#06b6d466', fontSize: 9 }} axisLine={false} tickLine={false} width={40} />
+              <Tooltip
+                contentStyle={{ background: '#0a0e1a', border: '1px solid #06b6d430', borderRadius: 8, fontSize: 11 }}
+                labelStyle={{ color: '#06b6d4' }}
+                itemStyle={{ color: '#e0f7fa' }}
+              />
+              <Bar dataKey="population" fill="#06b6d4" radius={[4,4,0,0]} opacity={0.8} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Pie Chart - Frequency */}
+        <div className="rounded-lg border p-4" style={{
+          background: 'rgba(10,14,26,0.95)',
+          borderColor: 'rgba(6,182,212,0.12)',
+        }}>
+          <div className="flex items-center gap-2 mb-4">
+            <Activity size={14} style={{ color: '#06b6d4' }} />
+            <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+              {lang === 'ms' ? 'FREKUENSI DATA' : 'DATA FREQUENCY'}
+            </span>
+          </div>
+          <ResponsiveContainer width="100%" height={240}>
+            <PieChart>
+              <Pie data={freqDist} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" paddingAngle={2}>
+                {freqDist.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+              </Pie>
+              <Tooltip contentStyle={{ background: '#0a0e1a', border: '1px solid #06b6d430', borderRadius: 8, fontSize: 11 }} />
+            </PieChart>
+          </ResponsiveContainer>
+          <div className="flex flex-wrap gap-2 mt-2">
+            {freqDist.map((d, i) => (
+              <div key={i} className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
+                <span className="text-[9px] font-mono" style={{ color: '#94a3b8' }}>{d.name} ({d.value})</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Timeline */}
+      <div className="rounded-lg border p-4" style={{
+        background: 'rgba(10,14,26,0.95)',
+        borderColor: 'rgba(6,182,212,0.12)',
+      }}>
+        <div className="flex items-center gap-2 mb-4">
+          <Clock size={14} style={{ color: '#06b6d4' }} />
+          <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+            {lang === 'ms' ? 'GARIS MASA KEMAS KINI DATA' : 'DATA UPDATE TIMELINE'}
+          </span>
+        </div>
+        <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
+          {[
+            { date: '2025-07', en: 'Population estimates updated to 2025', ms: 'Anggaran penduduk dikemas kini ke 2025' },
+            { date: '2025-04', en: 'Q1 2025 GDP data released', ms: 'Data KDNK Q1 2025 dikeluarkan' },
+            { date: '2025-03', en: 'Labour Force Survey Q1 2025', ms: 'Survei Tenaga Buruh Q1 2025' },
+            { date: '2025-01', en: 'CPI Annual Inflation 2024 released', ms: 'Inflasi Tahunan CPI 2024 dikeluarkan' },
+            { date: '2024-11', en: 'Vital Statistics 2024 published', ms: 'Statistik Utama 2024 diterbitkan' },
+            { date: '2024-08', en: 'GDP by State 2023 updated', ms: 'KDNK mengikut Negeri 2023 dikemas kini' },
+          ].map((event, i) => (
+            <div key={i} className="flex items-center gap-3 py-1.5 px-2 rounded" style={{
+              background: i === 0 ? 'rgba(6,182,212,0.05)' : 'transparent',
+              borderLeft: i === 0 ? '2px solid #06b6d4' : '2px solid transparent',
+            }}>
+              <span className="text-[10px] font-mono whitespace-nowrap" style={{ color: '#06b6d4' }}>{event.date}</span>
+              <span className="text-xs" style={{ color: '#94a3b8' }}>{lang === 'ms' ? event.ms : event.en}</span>
+              {i === 0 && (
+                <span className="text-[8px] font-mono px-1.5 py-0.5 rounded" style={{
+                  background: 'rgba(6,182,212,0.15)', color: '#06b6d4',
+                }}>LATEST</span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── GeoMap Section ──────────────────────────────────────────────
+function GeoMapSection({ lang }: { lang: Lang }) {
+  const [activeLayer, setActiveLayer] = useState<LayerId>('population');
+  const [selectedState, setSelectedState] = useState<string | null>(null);
+  const [hoveredState, setHoveredState] = useState<string | null>(null);
+
+  const selectedData = useMemo(() => STATES.find(s => s.id === selectedState), [selectedState]);
+  const hoveredData = useMemo(() => STATES.find(s => s.id === hoveredState), [hoveredState]);
+
+  return (
+    <div className="space-y-4">
+      {/* Layer Controls */}
+      <div className="flex flex-wrap items-center gap-2">
+        {MAP_LAYERS.map(layer => (
+          <button
+            key={layer.id}
+            onClick={() => setActiveLayer(layer.id as LayerId)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-mono tracking-wider transition-all border"
+            style={{
+              background: activeLayer === layer.id ? 'rgba(6,182,212,0.15)' : 'rgba(10,14,26,0.8)',
+              borderColor: activeLayer === layer.id ? 'rgba(6,182,212,0.4)' : 'rgba(6,182,212,0.1)',
+              color: activeLayer === layer.id ? '#06b6d4' : 'rgba(6,182,212,0.5)',
+              boxShadow: activeLayer === layer.id ? '0 0 15px rgba(6,182,212,0.1)' : 'none',
+            }}
+          >
+            {layer.label_en}
+            {activeLayer === layer.id && (
+              <motion.div layoutId="layer-indicator" className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+            )}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        {/* Map */}
+        <div className="lg:col-span-3 rounded-lg border overflow-hidden" style={{
+          background: '#0a0e1a',
+          borderColor: 'rgba(6,182,212,0.12)',
+          minHeight: '450px',
+        }}>
+          <MalaysiaMap
+            activeLayer={activeLayer}
+            selectedState={selectedState}
+            onSelectState={setSelectedState}
+            onHoverState={setHoveredState}
+          />
+        </div>
+
+        {/* State Detail Panel */}
+        <div className="space-y-3">
+          {(selectedData || hoveredData) ? (
+            <StateDetailPanel state={selectedData || hoveredData!} lang={lang} onClose={() => setSelectedState(null)} />
+          ) : (
+            <div className="rounded-lg border p-4 h-full flex flex-col items-center justify-center min-h-[300px]" style={{
+              background: 'rgba(10,14,26,0.95)',
+              borderColor: 'rgba(6,182,212,0.12)',
+            }}>
+              <MapPin size={24} style={{ color: 'rgba(6,182,212,0.3)' }} />
+              <p className="text-xs font-mono mt-2 text-center" style={{ color: 'rgba(6,182,212,0.4)' }}>
+                {lang === 'ms' ? 'Klik negeri pada peta untuk butiran' : 'Click a state on the map for details'}
+              </p>
+            </div>
+          )}
+
+          {/* Mini state ranking */}
+          <div className="rounded-lg border p-3" style={{
+            background: 'rgba(10,14,26,0.95)',
+            borderColor: 'rgba(6,182,212,0.12)',
+          }}>
+            <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: '#06b6d4' }}>
+              {lang === 'ms' ? 'KEDUDUKAN NEGERI' : 'STATE RANKING'} — {MAP_LAYERS.find(l => l.id === activeLayer)?.label_en?.toUpperCase()}
+            </div>
+            <div className="space-y-1 max-h-64 overflow-y-auto custom-scrollbar">
+              {STATES.slice()
+                .sort((a, b) => (b[activeLayer as keyof typeof b] as number) - (a[activeLayer as keyof typeof a] as number))
+                .map((s, i) => {
+                  const val = s[activeLayer as keyof typeof s] as number;
+                  const maxVal = Math.max(...STATES.map(st => st[activeLayer as keyof typeof st] as number));
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => setSelectedState(s.id)}
+                      className="w-full flex items-center gap-2 py-1 px-2 rounded text-left hover:bg-cyan-950/30 transition-colors"
+                    >
+                      <span className="text-[9px] font-mono w-4 text-right" style={{ color: i < 3 ? '#06b6d4' : 'rgba(6,182,212,0.3)' }}>
+                        {i + 1}
+                      </span>
+                      <span className="text-[10px] font-mono flex-1 truncate" style={{ color: selectedState === s.id ? '#06b6d4' : '#94a3b8' }}>
+                        {s.abbr}
+                      </span>
+                      <div className="flex-1 h-1 rounded-full" style={{ background: 'rgba(6,182,212,0.1)' }}>
+                        <div className="h-full rounded-full" style={{
+                          width: `${(val / maxVal) * 100}%`,
+                          background: i < 3 ? '#06b6d4' : 'rgba(6,182,212,0.4)',
+                        }} />
+                      </div>
+                      <span className="text-[9px] font-mono" style={{ color: '#e0f7fa' }}>
+                        {typeof val === 'number' ? (activeLayer === 'unemployment' ? `${val}%` : activeLayer === 'gdp' ? `${(val/1000).toFixed(1)}B` : val.toLocaleString()) : val}
+                      </span>
+                    </button>
+                  );
+                })}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StateDetailPanel({ state, lang, onClose }: { state: typeof STATES[0]; lang: Lang; onClose: () => void }) {
+  const metrics = [
+    { key: 'population', label_en: 'Population', label_ms: 'Penduduk', unit: "'000", icon: Users, color: '#06b6d4' },
+    { key: 'gdp', label_en: 'GDP', label_ms: 'KDNK', unit: 'RM M', icon: TrendingUp, color: '#f59e0b' },
+    { key: 'gdpGrowth', label_en: 'GDP Growth', label_ms: 'Pertumbuhan KDNK', unit: '%', icon: ArrowUpRight, color: '#10b981' },
+    { key: 'births', label_en: 'Births', label_ms: 'Kelahiran', unit: "'000", icon: Baby, color: '#ec4899' },
+    { key: 'deaths', label_en: 'Deaths', label_ms: 'Kematian', unit: "'000", icon: Heart, color: '#ef4444' },
+    { key: 'unemployment', label_en: 'Unemployment', label_ms: 'Pengangguran', unit: '%', icon: Briefcase, color: '#8b5cf6' },
+    { key: 'datasets', label_en: 'Datasets', label_ms: 'Set Data', unit: '', icon: Database, color: '#06b6d4' },
+    { key: 'area', label_en: 'Area', label_ms: 'Keluasan', unit: 'km²', icon: MapPin, color: '#64748b' },
+    { key: 'density', label_en: 'Density', label_ms: 'Kepadatan', unit: '/km²', icon: Users, color: '#f97316' },
+  ];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      className="rounded-lg border p-4"
+      style={{
+        background: 'rgba(10,14,26,0.95)',
+        borderColor: 'rgba(6,182,212,0.2)',
+        boxShadow: '0 0 30px rgba(6,182,212,0.05)',
+      }}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <div className="text-xs font-mono tracking-wider" style={{ color: 'rgba(6,182,212,0.5)' }}>
+            {state.region === 'east_malaysia' ? 'EAST MALAYSIA' : 'PENINSULAR'}
+          </div>
+          <div className="text-lg font-bold" style={{ color: '#e0f7fa' }}>{state.name}</div>
+          <div className="text-[10px] font-mono" style={{ color: 'rgba(6,182,212,0.4)' }}>{state.name_ms} • {state.abbr}</div>
+        </div>
+        <button onClick={onClose} className="p-1 rounded hover:bg-cyan-950/30">
+          <X size={14} style={{ color: 'rgba(6,182,212,0.5)' }} />
+        </button>
+      </div>
+
+      <div className="space-y-2">
+        {metrics.map(m => {
+          const val = state[m.key as keyof typeof state] as number;
+          return (
+            <div key={m.key} className="flex items-center gap-2 py-1.5 px-2 rounded" style={{
+              background: 'rgba(6,182,212,0.03)',
+            }}>
+              <m.icon size={12} style={{ color: m.color }} />
+              <span className="text-[10px] font-mono flex-1" style={{ color: '#94a3b8' }}>
+                {lang === 'ms' ? m.label_ms : m.label_en}
+              </span>
+              <span className="text-xs font-mono font-bold" style={{ color: '#e0f7fa' }}>
+                {m.key === 'gdp' ? `${(val/1000).toFixed(1)}B` : val.toLocaleString()}
+                <span className="text-[8px] font-normal ml-0.5 opacity-50">{m.unit}</span>
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── Datasets Section ────────────────────────────────────────────
+function DatasetsSection({ lang }: { lang: Lang }) {
+  const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('ALL');
+  const [freqFilter, setFreqFilter] = useState('ALL');
+  const [page, setPage] = useState(1);
+  const perPage = 20;
+
+  const filtered = useMemo(() => {
+    let result = DATASETS;
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter(d =>
+        d.title_en.toLowerCase().includes(q) || d.title_ms.toLowerCase().includes(q) ||
+        d.id.toLowerCase().includes(q) || d.description_en.toLowerCase().includes(q)
+      );
+    }
+    if (categoryFilter !== 'ALL') result = result.filter(d => d.category_en === categoryFilter);
+    if (freqFilter !== 'ALL') result = result.filter(d => d.frequency === freqFilter);
+    return result;
+  }, [search, categoryFilter, freqFilter]);
+
+  const totalPages = Math.ceil(filtered.length / perPage);
+  const paginated = filtered.slice((page - 1) * perPage, page * perPage);
+
+  const categories = useMemo(() => ['ALL', ...new Set(DATASETS.map(d => d.category_en))].sort(), []);
+  const frequencies = useMemo(() => ['ALL', ...new Set(DATASETS.map(d => d.frequency))].sort(), []);
+
+  const getCategoryColor = (cat: string) => {
+    const found = DATASET_CATEGORIES.find(c => c.en === cat);
+    return found?.color || '#64748b';
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Search & Filters */}
+      <div className="flex flex-col md:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'rgba(6,182,212,0.5)' }} />
+          <input
+            type="text"
+            placeholder={lang === 'ms' ? 'Cari set data...' : 'Search datasets...'}
+            value={search}
+            onChange={e => { setSearch(e.target.value); setPage(1); }}
+            className="w-full pl-9 pr-4 py-2 rounded-md border text-xs font-mono"
+            style={{
+              background: 'rgba(10,14,26,0.9)',
+              borderColor: 'rgba(6,182,212,0.15)',
+              color: '#e0f7fa',
+            }}
+          />
+        </div>
+        <select
+          value={categoryFilter}
+          onChange={e => { setCategoryFilter(e.target.value); setPage(1); }}
+          className="px-3 py-2 rounded-md border text-xs font-mono"
+          style={{ background: 'rgba(10,14,26,0.9)', borderColor: 'rgba(6,182,212,0.15)', color: '#06b6d4' }}
+        >
+          {categories.map(c => <option key={c} value={c}>{c === 'ALL' ? (lang === 'ms' ? 'Semua Kategori' : 'All Categories') : c}</option>)}
+        </select>
+        <select
+          value={freqFilter}
+          onChange={e => { setFreqFilter(e.target.value); setPage(1); }}
+          className="px-3 py-2 rounded-md border text-xs font-mono"
+          style={{ background: 'rgba(10,14,26,0.9)', borderColor: 'rgba(6,182,212,0.15)', color: '#06b6d4' }}
+        >
+          {frequencies.map(f => <option key={f} value={f}>{f === 'ALL' ? (lang === 'ms' ? 'Semua Frekuensi' : 'All Frequencies') : f}</option>)}
+        </select>
+      </div>
+
+      {/* Results count */}
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-mono" style={{ color: 'rgba(6,182,212,0.5)' }}>
+          {filtered.length} {lang === 'ms' ? 'set data dijumpai' : 'datasets found'}
+        </span>
+      </div>
+
+      {/* Table */}
+      <div className="rounded-lg border overflow-hidden" style={{
+        background: 'rgba(10,14,26,0.95)',
+        borderColor: 'rgba(6,182,212,0.12)',
+      }}>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr style={{ borderBottom: '1px solid rgba(6,182,212,0.12)' }}>
+                <th className="text-left px-3 py-2 font-mono tracking-wider" style={{ color: '#06b6d4' }}>#</th>
+                <th className="text-left px-3 py-2 font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+                  {lang === 'ms' ? 'TAJUK' : 'TITLE'}
+                </th>
+                <th className="text-left px-3 py-2 font-mono tracking-wider hidden md:table-cell" style={{ color: '#06b6d4' }}>
+                  {lang === 'ms' ? 'KATEGORI' : 'CATEGORY'}
+                </th>
+                <th className="text-left px-3 py-2 font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+                  {lang === 'ms' ? 'FREKUENSI' : 'FREQ'}
+                </th>
+                <th className="text-left px-3 py-2 font-mono tracking-wider hidden lg:table-cell" style={{ color: '#06b6d4' }}>
+                  {lang === 'ms' ? 'GEOGRAFI' : 'GEO'}
+                </th>
+                <th className="text-left px-3 py-2 font-mono tracking-wider hidden lg:table-cell" style={{ color: '#06b6d4' }}>
+                  YEARS
+                </th>
+                <th className="text-left px-3 py-2 font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+                  <ExternalLink size={10} />
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginated.map((d, i) => (
+                <tr key={d.id} className="hover:bg-cyan-950/20 transition-colors" style={{
+                  borderBottom: '1px solid rgba(6,182,212,0.05)',
+                }}>
+                  <td className="px-3 py-2 font-mono" style={{ color: 'rgba(6,182,212,0.3)' }}>
+                    {(page - 1) * perPage + i + 1}
+                  </td>
+                  <td className="px-3 py-2">
+                    <div className="font-medium" style={{ color: '#e0f7fa' }}>
+                      {lang === 'ms' ? d.title_ms : d.title_en}
+                    </div>
+                    <div className="text-[9px] opacity-50 mt-0.5 truncate max-w-xs" style={{ color: '#94a3b8' }}>
+                      {lang === 'ms' ? d.description_ms : d.description_en}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 hidden md:table-cell">
+                    <span className="text-[9px] px-1.5 py-0.5 rounded font-mono" style={{
+                      background: `${getCategoryColor(d.category_en)}15`,
+                      color: getCategoryColor(d.category_en),
+                      border: `1px solid ${getCategoryColor(d.category_en)}30`,
+                    }}>
+                      {lang === 'ms' ? d.category_ms : d.category_en}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2">
+                    <span className="text-[9px] px-1.5 py-0.5 rounded font-mono" style={{
+                      background: `${FREQUENCY_COLORS[d.frequency] || '#64748b'}15`,
+                      color: FREQUENCY_COLORS[d.frequency] || '#64748b',
+                    }}>
+                      {d.frequency}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 hidden lg:table-cell">
+                    <span className="text-[9px] font-mono" style={{ color: '#94a3b8' }}>
+                      {d.geography.join(', ') || '—'}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 hidden lg:table-cell font-mono" style={{ color: '#94a3b8' }}>
+                    {d.dataset_begin}–{d.dataset_end}
+                  </td>
+                  <td className="px-3 py-2">
+                    <a
+                      href={`https://data.gov.my/data-catalogue/${d.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[9px] font-mono px-1.5 py-0.5 rounded hover:bg-cyan-950/30"
+                      style={{ color: '#06b6d4' }}
+                    >
+                      <ExternalLink size={8} />
+                    </a>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Pagination */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => setPage(p => Math.max(1, p - 1))}
+          disabled={page === 1}
+          className="flex items-center gap-1 px-3 py-1.5 rounded-md border text-xs font-mono disabled:opacity-30"
+          style={{ background: 'rgba(10,14,26,0.8)', borderColor: 'rgba(6,182,212,0.15)', color: '#06b6d4' }}
+        >
+          <ChevronLeft size={12} /> {lang === 'ms' ? 'Sebelum' : 'Prev'}
+        </button>
+        <span className="text-[10px] font-mono" style={{ color: 'rgba(6,182,212,0.5)' }}>
+          {lang === 'ms' ? 'Halaman' : 'Page'} {page} / {totalPages}
+        </span>
+        <button
+          onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+          disabled={page === totalPages}
+          className="flex items-center gap-1 px-3 py-1.5 rounded-md border text-xs font-mono disabled:opacity-30"
+          style={{ background: 'rgba(10,14,26,0.8)', borderColor: 'rgba(6,182,212,0.15)', color: '#06b6d4' }}
+        >
+          {lang === 'ms' ? 'Seterusnya' : 'Next'} <ChevronRight size={12} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Analytics Section ───────────────────────────────────────────
+function AnalyticsSection({ lang }: { lang: Lang }) {
+  // State comparison radar chart
+  const topStates = STATES.slice().sort((a, b) => b.population - a.population).slice(0, 5);
+  const radarData = [
+    { metric: 'Population', ...Object.fromEntries(topStates.map(s => [s.abbr, Math.round(s.population / 71)])) },
+    { metric: 'GDP', ...Object.fromEntries(topStates.map(s => [s.abbr, Math.round(s.gdp / 3624)])) },
+    { metric: 'Births', ...Object.fromEntries(topStates.map(s => [s.abbr, Math.round(s.births / 1.18)])) },
+    { metric: 'Growth', ...Object.fromEntries(topStates.map(s => [s.abbr, Math.round(s.gdpGrowth * 10)])) },
+  ];
+
+  const RADAR_COLORS = ['#06b6d4', '#f59e0b', '#10b981', '#8b5cf6', '#ef4444'];
+
+  // Area chart - GDP trend (simulated)
+  const gdpTrend = [
+    { year: '2019', value: 1510 }, { year: '2020', value: 1430 },
+    { year: '2021', value: 1500 }, { year: '2022', value: 1590 },
+    { year: '2023', value: 1640 }, { year: '2024', value: 1682 },
+  ];
+
+  // Category distribution
+  const catDist = useMemo(() => {
+    const counts: Record<string, number> = {};
+    DATASETS.forEach(d => { counts[d.category_en] = (counts[d.category_en] || 0) + 1; });
+    return Object.entries(counts)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+  }, []);
+
+  // State matrix data
+  const stateMatrix = STATES.slice().sort((a, b) => b.population - a.population).slice(0, 10);
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* GDP Trend Area Chart */}
+        <div className="rounded-lg border p-4" style={{
+          background: 'rgba(10,14,26,0.95)',
+          borderColor: 'rgba(6,182,212,0.12)',
+        }}>
+          <div className="flex items-center gap-2 mb-4">
+            <TrendingUp size={14} style={{ color: '#f59e0b' }} />
+            <span className="text-xs font-mono tracking-wider" style={{ color: '#f59e0b' }}>
+              {lang === 'ms' ? 'TREND KDNK (RM B)' : 'GDP TREND (RM B)'}
+            </span>
+          </div>
+          <ResponsiveContainer width="100%" height={220}>
+            <AreaChart data={gdpTrend}>
+              <defs>
+                <linearGradient id="gdpGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <XAxis dataKey="year" tick={{ fill: '#f59e0b66', fontSize: 10 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: '#f59e0b66', fontSize: 9 }} axisLine={false} tickLine={false} width={40} />
+              <Tooltip contentStyle={{ background: '#0a0e1a', border: '1px solid #f59e0b30', borderRadius: 8, fontSize: 11 }} />
+              <Area type="monotone" dataKey="value" stroke="#f59e0b" fill="url(#gdpGrad)" strokeWidth={2} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Radar Chart */}
+        <div className="rounded-lg border p-4" style={{
+          background: 'rgba(10,14,26,0.95)',
+          borderColor: 'rgba(6,182,212,0.12)',
+        }}>
+          <div className="flex items-center gap-2 mb-4">
+            <Activity size={14} style={{ color: '#06b6d4' }} />
+            <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+              {lang === 'ms' ? 'PERBANDINGAN NEGERI TERATAS' : 'TOP STATES COMPARISON'}
+            </span>
+          </div>
+          <ResponsiveContainer width="100%" height={220}>
+            <RadarChart data={radarData}>
+              <PolarGrid stroke="rgba(6,182,212,0.1)" />
+              <PolarAngleAxis dataKey="metric" tick={{ fill: '#06b6d466', fontSize: 9 }} />
+              <PolarRadiusAxis tick={false} axisLine={false} />
+              {topStates.map((s, i) => (
+                <Radar key={s.id} name={s.abbr} dataKey={s.abbr} stroke={RADAR_COLORS[i]} fill={RADAR_COLORS[i]} fillOpacity={0.1} />
+              ))}
+            </RadarChart>
+          </ResponsiveContainer>
+          <div className="flex flex-wrap gap-2 mt-2">
+            {topStates.map((s, i) => (
+              <div key={s.id} className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full" style={{ background: RADAR_COLORS[i] }} />
+                <span className="text-[9px] font-mono" style={{ color: '#94a3b8' }}>{s.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Category Distribution Bar Chart */}
+      <div className="rounded-lg border p-4" style={{
+        background: 'rgba(10,14,26,0.95)',
+        borderColor: 'rgba(6,182,212,0.12)',
+      }}>
+        <div className="flex items-center gap-2 mb-4">
+          <Database size={14} style={{ color: '#06b6d4' }} />
+          <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+            {lang === 'ms' ? 'TABURAN KATEGORI SET DATA' : 'DATASET CATEGORY DISTRIBUTION'}
+          </span>
+        </div>
+        <ResponsiveContainer width="100%" height={280}>
+          <BarChart data={catDist} layout="vertical" barCategoryGap="8%">
+            <XAxis type="number" tick={{ fill: '#06b6d466', fontSize: 9 }} axisLine={false} tickLine={false} />
+            <YAxis type="category" dataKey="name" tick={{ fill: '#94a3b8', fontSize: 9 }} axisLine={false} tickLine={false} width={120} />
+            <Tooltip contentStyle={{ background: '#0a0e1a', border: '1px solid #06b6d430', borderRadius: 8, fontSize: 11 }} />
+            <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+              {catDist.map((_, i) => <Cell key={i} fill={DATASET_CATEGORIES[i % DATASET_CATEGORIES.length]?.color || '#06b6d4'} opacity={0.7} />)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* State Matrix */}
+      <div className="rounded-lg border p-4" style={{
+        background: 'rgba(10,14,26,0.95)',
+        borderColor: 'rgba(6,182,212,0.12)',
+      }}>
+        <div className="flex items-center gap-2 mb-4">
+          <Layers size={14} style={{ color: '#06b6d4' }} />
+          <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+            {lang === 'ms' ? 'MATRIKS METRIK NEGERI' : 'STATE METRICS MATRIX'}
+          </span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[10px] font-mono">
+            <thead>
+              <tr style={{ borderBottom: '1px solid rgba(6,182,212,0.1)' }}>
+                <th className="text-left px-2 py-1.5" style={{ color: '#06b6d4' }}>STATE</th>
+                <th className="text-right px-2 py-1.5" style={{ color: '#06b6d4' }}>POP</th>
+                <th className="text-right px-2 py-1.5" style={{ color: '#f59e0b' }}>GDP</th>
+                <th className="text-right px-2 py-1.5" style={{ color: '#10b981' }}>GROWTH</th>
+                <th className="text-right px-2 py-1.5" style={{ color: '#ec4899' }}>BIRTHS</th>
+                <th className="text-right px-2 py-1.5" style={{ color: '#ef4444' }}>DEATHS</th>
+                <th className="text-right px-2 py-1.5" style={{ color: '#8b5cf6' }}>UNEMP</th>
+              </tr>
+            </thead>
+            <tbody>
+              {stateMatrix.map(s => (
+                <tr key={s.id} className="hover:bg-cyan-950/20" style={{ borderBottom: '1px solid rgba(6,182,212,0.04)' }}>
+                  <td className="px-2 py-1.5" style={{ color: '#e0f7fa' }}>{s.abbr}</td>
+                  <td className="text-right px-2 py-1.5" style={{ color: '#06b6d4' }}>{s.population.toLocaleString()}</td>
+                  <td className="text-right px-2 py-1.5" style={{ color: '#f59e0b' }}>{(s.gdp/1000).toFixed(1)}B</td>
+                  <td className="text-right px-2 py-1.5" style={{ color: '#10b981' }}>{s.gdpGrowth}%</td>
+                  <td className="text-right px-2 py-1.5" style={{ color: '#ec4899' }}>{s.births}</td>
+                  <td className="text-right px-2 py-1.5" style={{ color: '#ef4444' }}>{s.deaths}</td>
+                  <td className="text-right px-2 py-1.5" style={{ color: '#8b5cf6' }}>{s.unemployment}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Infographic Export Modal ────────────────────────────────────
+function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () => void }) {
+  const [selectedLayers, setSelectedLayers] = useState<string[]>(['population', 'gdp', 'births']);
+  const [fontSize, setFontSize] = useState<'S' | 'M' | 'L'>('M');
+  const [exporting, setExporting] = useState(false);
+  const previewRef = useRef<HTMLDivElement>(null);
+
+  const layers = [
+    { id: 'population', label_en: 'Population', label_ms: 'Penduduk', color: '#06b6d4' },
+    { id: 'gdp', label_en: 'GDP & Economy', label_ms: 'KDNK & Ekonomi', color: '#f59e0b' },
+    { id: 'demography', label_en: 'Demography', label_ms: 'Demografi', color: '#10b981' },
+    { id: 'healthcare', label_en: 'Healthcare', label_ms: 'Kesihatan', color: '#ec4899' },
+    { id: 'environment', label_en: 'Environment', label_ms: 'Alam Sekitar', color: '#22c55e' },
+    { id: 'education', label_en: 'Education', label_ms: 'Pendidikan', color: '#3b82f6' },
+  ];
+
+  const toggleLayer = (id: string) => {
+    setSelectedLayers(prev =>
+      prev.includes(id) ? prev.filter(l => l !== id) : [...prev, id]
+    );
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      if (previewRef.current) {
+        const canvas = await html2canvas(previewRef.current, {
+          scale: 2,
+          backgroundColor: '#0a0e1a',
+          useCORS: true,
+        });
+        const link = document.createElement('a');
+        link.download = `malaysia-data-infographic-${Date.now()}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      }
+    } catch (e) {
+      console.error('Export failed:', e);
+    }
+    setExporting(false);
+  };
+
+  const fs = fontSize === 'S' ? '10px' : fontSize === 'M' ? '12px' : '14px';
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.8)' }}
+    >
+      <motion.div
+        initial={{ scale: 0.95, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        className="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-lg border custom-scrollbar"
+        style={{
+          background: '#0a0e1a',
+          borderColor: 'rgba(6,182,212,0.2)',
+          boxShadow: '0 0 60px rgba(6,182,212,0.1)',
+        }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: 'rgba(6,182,212,0.12)' }}>
+          <div className="flex items-center gap-2">
+            <Printer size={16} style={{ color: '#06b6d4' }} />
+            <span className="text-sm font-mono font-bold" style={{ color: '#06b6d4' }}>
+              {lang === 'ms' ? 'EKSPOR INFOGRAFIK' : 'INFOGRAPHIC EXPORT'}
+            </span>
+          </div>
+          <button onClick={onClose} className="p-1 rounded hover:bg-cyan-950/30">
+            <X size={16} style={{ color: 'rgba(6,182,212,0.5)' }} />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 p-4">
+          {/* Controls */}
+          <div className="space-y-4">
+            <div>
+              <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: '#06b6d4' }}>
+                {lang === 'ms' ? 'PILIH LAPISAN' : 'SELECT LAYERS'}
+              </div>
+              <div className="space-y-1.5">
+                {layers.map(l => (
+                  <button
+                    key={l.id}
+                    onClick={() => toggleLayer(l.id)}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-md border text-left text-xs font-mono transition-all"
+                    style={{
+                      background: selectedLayers.includes(l.id) ? `${l.color}15` : 'rgba(10,14,26,0.8)',
+                      borderColor: selectedLayers.includes(l.id) ? `${l.color}40` : 'rgba(6,182,212,0.1)',
+                      color: selectedLayers.includes(l.id) ? l.color : '#94a3b8',
+                    }}
+                  >
+                    <div className="w-2.5 h-2.5 rounded-sm border" style={{
+                      background: selectedLayers.includes(l.id) ? l.color : 'transparent',
+                      borderColor: l.color,
+                    }} />
+                    {lang === 'ms' ? l.label_ms : l.label_en}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: '#06b6d4' }}>
+                {lang === 'ms' ? 'SAIZ FONT' : 'FONT SIZE'}
+              </div>
+              <div className="flex gap-2">
+                {(['S', 'M', 'L'] as const).map(s => (
+                  <button
+                    key={s}
+                    onClick={() => setFontSize(s)}
+                    className="px-3 py-1.5 rounded border text-xs font-mono"
+                    style={{
+                      background: fontSize === s ? 'rgba(6,182,212,0.15)' : 'rgba(10,14,26,0.8)',
+                      borderColor: fontSize === s ? 'rgba(6,182,212,0.4)' : 'rgba(6,182,212,0.1)',
+                      color: fontSize === s ? '#06b6d4' : '#94a3b8',
+                    }}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button
+              onClick={handleExport}
+              disabled={exporting || selectedLayers.length === 0}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-md border text-xs font-mono font-bold disabled:opacity-30"
+              style={{
+                background: 'linear-gradient(135deg, rgba(6,182,212,0.2), rgba(16,185,129,0.1))',
+                borderColor: 'rgba(6,182,212,0.3)',
+                color: '#06b6d4',
+              }}
+            >
+              <Download size={14} />
+              {exporting
+                ? (lang === 'ms' ? 'MENGEKSPORT...' : 'EXPORTING...')
+                : (lang === 'ms' ? 'EKSPOR PNG (2x)' : 'EXPORT PNG (2x)')
+              }
+            </button>
+          </div>
+
+          {/* Preview */}
+          <div className="lg:col-span-2">
+            <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: '#06b6d4' }}>
+              {lang === 'ms' ? 'PRATONTON' : 'PREVIEW'}
+            </div>
+            <div ref={previewRef} className="rounded-lg border p-6" style={{
+              background: '#0a0e1a',
+              borderColor: 'rgba(6,182,212,0.12)',
+              fontSize: fs,
+            }}>
+              {/* Infographic Header */}
+              <div className="text-center mb-6 pb-4" style={{ borderBottom: '1px solid rgba(6,182,212,0.15)' }}>
+                <div className="text-[9px] font-mono tracking-[0.3em] mb-1" style={{ color: 'rgba(6,182,212,0.5)' }}>DATA.GOV.MY</div>
+                <div className="text-xl font-bold" style={{ color: '#06b6d4', textShadow: '0 0 20px rgba(6,182,212,0.3)' }}>
+                  {lang === 'ms' ? 'PUSAT PERINTAH DATA MALAYSIA' : 'MALAYSIA DATA COMMAND CENTER'}
+                </div>
+                <div className="text-[10px] font-mono mt-1" style={{ color: '#94a3b8' }}>
+                  {lang === 'ms' ? 'Infografik Data Nasional' : 'National Data Infographic'} — {new Date().getFullYear()}
+                </div>
+              </div>
+
+              {/* Overview Stats */}
+              <div className="grid grid-cols-3 gap-3 mb-6">
+                <div className="text-center p-3 rounded border" style={{ background: 'rgba(6,182,212,0.05)', borderColor: 'rgba(6,182,212,0.1)' }}>
+                  <div className="text-lg font-bold font-mono" style={{ color: '#06b6d4' }}>34.3M</div>
+                  <div className="text-[9px] font-mono" style={{ color: '#94a3b8' }}>{lang === 'ms' ? 'Penduduk' : 'Population'}</div>
+                </div>
+                <div className="text-center p-3 rounded border" style={{ background: 'rgba(245,158,11,0.05)', borderColor: 'rgba(245,158,11,0.1)' }}>
+                  <div className="text-lg font-bold font-mono" style={{ color: '#f59e0b' }}>RM1.68T</div>
+                  <div className="text-[9px] font-mono" style={{ color: '#94a3b8' }}>{lang === 'ms' ? 'KDNK' : 'GDP'}</div>
+                </div>
+                <div className="text-center p-3 rounded border" style={{ background: 'rgba(16,185,129,0.05)', borderColor: 'rgba(16,185,129,0.1)' }}>
+                  <div className="text-lg font-bold font-mono" style={{ color: '#10b981' }}>287</div>
+                  <div className="text-[9px] font-mono" style={{ color: '#94a3b8' }}>{lang === 'ms' ? 'Set Data' : 'Datasets'}</div>
+                </div>
+              </div>
+
+              {/* Selected Layers Content */}
+              {selectedLayers.includes('population') && (
+                <div className="mb-4">
+                  <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: '#06b6d4' }}>
+                    ▸ {lang === 'ms' ? 'PENDUDUK MENGIKUT NEGERI' : 'POPULATION BY STATE'}
+                  </div>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {STATES.slice().sort((a,b) => b.population - a.population).slice(0, 8).map(s => (
+                      <div key={s.id} className="p-1.5 rounded border" style={{ background: 'rgba(6,182,212,0.03)', borderColor: 'rgba(6,182,212,0.08)' }}>
+                        <div className="text-[8px] font-mono" style={{ color: '#94a3b8' }}>{s.abbr}</div>
+                        <div className="text-[10px] font-bold font-mono" style={{ color: '#e0f7fa' }}>{s.population.toLocaleString()}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {selectedLayers.includes('gdp') && (
+                <div className="mb-4">
+                  <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: '#f59e0b' }}>
+                    ▸ {lang === 'ms' ? 'KDNK MENGIKUT NEGERI' : 'GDP BY STATE'}
+                  </div>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {STATES.slice().sort((a,b) => b.gdp - a.gdp).slice(0, 8).map(s => (
+                      <div key={s.id} className="p-1.5 rounded border" style={{ background: 'rgba(245,158,11,0.03)', borderColor: 'rgba(245,158,11,0.08)' }}>
+                        <div className="text-[8px] font-mono" style={{ color: '#94a3b8' }}>{s.abbr}</div>
+                        <div className="text-[10px] font-bold font-mono" style={{ color: '#e0f7fa' }}>RM{(s.gdp/1000).toFixed(1)}B</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {selectedLayers.includes('demography') && (
+                <div className="mb-4">
+                  <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: '#10b981' }}>
+                    ▸ {lang === 'ms' ? 'STATISTIK VITAL' : 'VITAL STATISTICS'}
+                  </div>
+                  <div className="flex gap-4">
+                    <div className="flex-1 p-2 rounded border text-center" style={{ background: 'rgba(16,185,129,0.03)', borderColor: 'rgba(16,185,129,0.08)' }}>
+                      <div className="text-sm font-bold font-mono" style={{ color: '#10b981' }}>602.9k</div>
+                      <div className="text-[8px] font-mono" style={{ color: '#94a3b8' }}>{lang === 'ms' ? 'Kelahiran' : 'Births'}</div>
+                    </div>
+                    <div className="flex-1 p-2 rounded border text-center" style={{ background: 'rgba(239,68,68,0.03)', borderColor: 'rgba(239,68,68,0.08)' }}>
+                      <div className="text-sm font-bold font-mono" style={{ color: '#ef4444' }}>159.7k</div>
+                      <div className="text-[8px] font-mono" style={{ color: '#94a3b8' }}>{lang === 'ms' ? 'Kematian' : 'Deaths'}</div>
+                    </div>
+                    <div className="flex-1 p-2 rounded border text-center" style={{ background: 'rgba(139,92,246,0.03)', borderColor: 'rgba(139,92,246,0.08)' }}>
+                      <div className="text-sm font-bold font-mono" style={{ color: '#8b5cf6' }}>3.4%</div>
+                      <div className="text-[8px] font-mono" style={{ color: '#94a3b8' }}>{lang === 'ms' ? 'Pengangguran' : 'Unemployment'}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {selectedLayers.includes('healthcare') && (
+                <div className="mb-4">
+                  <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: '#ec4899' }}>
+                    ▸ {lang === 'ms' ? 'KESIHATAN' : 'HEALTHCARE'}
+                  </div>
+                  <div className="p-2 rounded border" style={{ background: 'rgba(236,72,153,0.03)', borderColor: 'rgba(236,72,153,0.08)' }}>
+                    <div className="text-[9px] font-mono" style={{ color: '#94a3b8' }}>
+                      {lang === 'ms'
+                        ? 'Data penjagaan kesihatan merangkumi imunisasi bayi, penendermaan darah, katil hospital, dan kakitangan kesihatan dari KKM.'
+                        : 'Healthcare data covers infant immunisation, blood donations, hospital beds, and healthcare staffing from KKM.'
+                      }
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {selectedLayers.includes('environment') && (
+                <div className="mb-4">
+                  <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: '#22c55e' }}>
+                    ▸ {lang === 'ms' ? 'ALAM SEKITAR' : 'ENVIRONMENT'}
+                  </div>
+                  <div className="p-2 rounded border" style={{ background: 'rgba(34,197,94,0.03)', borderColor: 'rgba(34,197,94,0.08)' }}>
+                    <div className="text-[9px] font-mono" style={{ color: '#94a3b8' }}>
+                      {lang === 'ms'
+                        ? 'Data alam sekitar merangkumi pencemaran udara, akses air, penggunaan elektrik, dan rizab hutan dari DOSM dan KASA.'
+                        : 'Environmental data covers air pollution, water access, electricity consumption, and forest reserves from DOSM and KASA.'
+                      }
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {selectedLayers.includes('education') && (
+                <div className="mb-4">
+                  <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: '#3b82f6' }}>
+                    ▸ {lang === 'ms' ? 'PENDIDIKAN' : 'EDUCATION'}
+                  </div>
+                  <div className="p-2 rounded border" style={{ background: 'rgba(59,130,246,0.03)', borderColor: 'rgba(59,130,246,0.08)' }}>
+                    <div className="text-[9px] font-mono" style={{ color: '#94a3b8' }}>
+                      {lang === 'ms'
+                        ? 'Data pendidikan merangkumi pendaftaran sekolah, guru, pensyarah universiti, dan kadar tamat sekolah dari KPM.'
+                        : 'Education data covers school enrolment, teachers, university lecturers, and school completion rates from KPM.'
+                      }
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Footer attribution */}
+              <div className="mt-6 pt-4 text-center" style={{ borderTop: '1px solid rgba(6,182,212,0.1)' }}>
+                <div className="text-[8px] font-mono" style={{ color: 'rgba(6,182,212,0.4)' }}>
+                  {lang === 'ms'
+                    ? 'Data diperoleh daripada data.gov.my • Lesen CC BY 4.0 • Pusat Perintah Data Malaysia v3.0'
+                    : 'Data sourced from data.gov.my • CC BY 4.0 License • Malaysia Data Command Center v3.0'
+                  }
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ─── FAQ & Info Section ──────────────────────────────────────────
+function InfoSection({ lang }: { lang: Lang }) {
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  return (
+    <div className="space-y-6">
+      {/* FAQ */}
+      <div className="rounded-lg border p-4" style={{
+        background: 'rgba(10,14,26,0.95)',
+        borderColor: 'rgba(6,182,212,0.12)',
+      }}>
+        <div className="flex items-center gap-2 mb-4">
+          <HelpCircle size={14} style={{ color: '#06b6d4' }} />
+          <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+            {lang === 'ms' ? 'SOALAN LAZIM' : 'FREQUENTLY ASKED QUESTIONS'}
+          </span>
+        </div>
+        <div className="space-y-2">
+          {FAQ_DATA.map((faq, i) => (
+            <div key={i}>
+              <button
+                onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                className="w-full flex items-center justify-between py-2 px-3 rounded text-left text-xs transition-colors hover:bg-cyan-950/20"
+                style={{ color: '#e0f7fa' }}
+              >
+                <span>{lang === 'ms' ? faq.q_ms : faq.q_en}</span>
+                <ChevronDown size={12} style={{
+                  color: '#06b6d4',
+                  transform: openFaq === i ? 'rotate(180deg)' : 'rotate(0deg)',
+                  transition: 'transform 0.2s',
+                }} />
+              </button>
+              <AnimatePresence>
+                {openFaq === i && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="px-3 pb-2 text-[11px] leading-relaxed" style={{ color: '#94a3b8' }}>
+                      {lang === 'ms' ? faq.a_ms : faq.a_en}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Disclaimers */}
+      <div className="rounded-lg border p-4" style={{
+        background: 'rgba(10,14,26,0.95)',
+        borderColor: 'rgba(245,158,11,0.12)',
+      }}>
+        <div className="flex items-center gap-2 mb-3">
+          <AlertTriangle size={14} style={{ color: '#f59e0b' }} />
+          <span className="text-xs font-mono tracking-wider" style={{ color: '#f59e0b' }}>
+            {lang === 'ms' ? 'PENAFIAN' : 'DISCLAIMERS'}
+          </span>
+        </div>
+        <ul className="space-y-1.5">
+          {(lang === 'ms' ? DISCLAIMERS.ms : DISCLAIMERS.en).map((d, i) => (
+            <li key={i} className="flex items-start gap-2 text-[11px]" style={{ color: '#94a3b8' }}>
+              <span style={{ color: '#f59e0b' }}>•</span>
+              {d}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Citations */}
+      <div className="rounded-lg border p-4" style={{
+        background: 'rgba(10,14,26,0.95)',
+        borderColor: 'rgba(16,185,129,0.12)',
+      }}>
+        <div className="flex items-center gap-2 mb-3">
+          <BookOpen size={14} style={{ color: '#10b981' }} />
+          <span className="text-xs font-mono tracking-wider" style={{ color: '#10b981' }}>
+            {lang === 'ms' ? 'SUMBER & PETIKAN' : 'SOURCES & CITATIONS'}
+          </span>
+        </div>
+        <div className="space-y-2">
+          {CITATIONS.map((c, i) => (
+            <div key={i} className="flex items-start gap-2 py-1.5 px-2 rounded" style={{ background: 'rgba(16,185,129,0.03)' }}>
+              <Shield size={10} className="mt-0.5 flex-shrink-0" style={{ color: '#10b981' }} />
+              <div>
+                <div className="text-xs font-medium" style={{ color: '#e0f7fa' }}>{c.source}</div>
+                <div className="text-[10px]" style={{ color: '#94a3b8' }}>{c.description}</div>
+                <a href={c.url} target="_blank" rel="noopener noreferrer" className="text-[9px] font-mono inline-flex items-center gap-0.5" style={{ color: '#10b981' }}>
+                  <ExternalLink size={8} /> {c.url}
+                </a>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Dashboard ──────────────────────────────────────────────
+export default function Home() {
+  const [booted, setBooted] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabId>('overview');
+  const [lang, setLang] = useState<Lang>('en');
+  const [showInfographic, setShowInfographic] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
+
+  const tabs: { id: TabId; icon: React.ElementType; label_en: string; label_ms: string }[] = [
+    { id: 'overview', icon: LayoutDashboard, label_en: 'Overview', label_ms: 'Gambaran' },
+    { id: 'geomap', icon: Map, label_en: 'GeoMap', label_ms: 'PetaGeo' },
+    { id: 'datasets', icon: Database, label_en: 'Datasets', label_ms: 'Set Data' },
+    { id: 'analytics', icon: BarChart3, label_en: 'Analytics', label_ms: 'Analitik' },
+  ];
+
+  return (
+    <div className="min-h-screen flex flex-col" style={{ background: '#0a0e1a' }}>
+      {/* Boot Sequence */}
+      <AnimatePresence>
+        {!booted && <BootSequence onComplete={() => setBooted(true)} />}
+      </AnimatePresence>
+
+      {booted && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5 }}
+          className="flex flex-col min-h-screen"
+        >
+          {/* Header */}
+          <Header />
+
+          {/* Navigation Bar */}
+          <nav className="flex-shrink-0 border-b px-4" style={{
+            background: 'rgba(10,14,26,0.95)',
+            borderColor: 'rgba(6,182,212,0.1)',
+          }}>
+            <div className="flex items-center justify-between max-w-[1400px] mx-auto">
+              <div className="flex items-center gap-1">
+                {tabs.map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className="relative flex items-center gap-1.5 px-3 py-2.5 text-xs font-mono tracking-wider transition-all"
+                    style={{
+                      color: activeTab === tab.id ? '#06b6d4' : 'rgba(6,182,212,0.4)',
+                    }}
+                  >
+                    <tab.icon size={14} />
+                    <span className="hidden sm:inline">{lang === 'ms' ? tab.label_ms : tab.label_en}</span>
+                    {activeTab === tab.id && (
+                      <motion.div
+                        layoutId="activeTab"
+                        className="absolute bottom-0 left-0 right-0 h-0.5"
+                        style={{
+                          background: 'linear-gradient(90deg, transparent, #06b6d4, transparent)',
+                          boxShadow: '0 0 10px rgba(6,182,212,0.5)',
+                        }}
+                      />
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2">
+                {/* Language Toggle */}
+                <button
+                  onClick={() => setLang(l => l === 'en' ? 'ms' : 'en')}
+                  className="flex items-center gap-1 px-2 py-1.5 rounded border text-[10px] font-mono tracking-wider"
+                  style={{
+                    background: 'rgba(10,14,26,0.8)',
+                    borderColor: 'rgba(6,182,212,0.15)',
+                    color: '#06b6d4',
+                  }}
+                >
+                  <Languages size={10} />
+                  {lang === 'en' ? 'BM' : 'EN'}
+                </button>
+
+                {/* Infographic Export */}
+                <button
+                  onClick={() => setShowInfographic(true)}
+                  className="flex items-center gap-1 px-2 py-1.5 rounded border text-[10px] font-mono tracking-wider"
+                  style={{
+                    background: 'rgba(10,14,26,0.8)',
+                    borderColor: 'rgba(6,182,212,0.15)',
+                    color: '#06b6d4',
+                  }}
+                >
+                  <Printer size={10} />
+                  <span className="hidden sm:inline">{lang === 'ms' ? 'Infografik' : 'Infographic'}</span>
+                </button>
+
+                {/* Info */}
+                <button
+                  onClick={() => setShowInfo(!showInfo)}
+                  className="flex items-center gap-1 px-2 py-1.5 rounded border text-[10px] font-mono tracking-wider"
+                  style={{
+                    background: showInfo ? 'rgba(6,182,212,0.1)' : 'rgba(10,14,26,0.8)',
+                    borderColor: showInfo ? 'rgba(6,182,212,0.3)' : 'rgba(6,182,212,0.15)',
+                    color: '#06b6d4',
+                  }}
+                >
+                  <Info size={10} />
+                  <span className="hidden sm:inline">{lang === 'ms' ? 'Maklumat' : 'Info'}</span>
+                </button>
+              </div>
+            </div>
+          </nav>
+
+          {/* Main Content */}
+          <main className="flex-1 overflow-y-auto px-4 py-4 max-w-[1400px] mx-auto w-full">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+              >
+                {activeTab === 'overview' && <OverviewSection lang={lang} />}
+                {activeTab === 'geomap' && <GeoMapSection lang={lang} />}
+                {activeTab === 'datasets' && <DatasetsSection lang={lang} />}
+                {activeTab === 'analytics' && <AnalyticsSection lang={lang} />}
+              </motion.div>
+            </AnimatePresence>
+
+            {/* Info Section (shown below main content when toggled) */}
+            <AnimatePresence>
+              {showInfo && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mt-6"
+                >
+                  <InfoSection lang={lang} />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </main>
+
+          {/* Footer */}
+          <footer className="mt-auto flex-shrink-0 border-t px-4 py-3" style={{
+            background: 'rgba(10,14,26,0.98)',
+            borderColor: 'rgba(6,182,212,0.1)',
+          }}>
+            <div className="max-w-[1400px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-[10px] font-mono" style={{ color: 'rgba(6,182,212,0.35)' }}>
+              <div className="flex items-center gap-3">
+                <span>MALAYSIA DATA COMMAND CENTER v3.0</span>
+                <span>•</span>
+                <span>POWERED BY data.gov.my</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span>CC BY 4.0</span>
+                <span>•</span>
+                <span>287 DATASETS</span>
+                <span>•</span>
+                <span>18 CATEGORIES</span>
+                <span>•</span>
+                <span>16 STATES + 3 FT</span>
+              </div>
+            </div>
+          </footer>
+        </motion.div>
+      )}
+
+      {/* Infographic Export Modal */}
+      <AnimatePresence>
+        {showInfographic && (
+          <InfographicModal lang={lang} onClose={() => setShowInfographic(false)} />
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
