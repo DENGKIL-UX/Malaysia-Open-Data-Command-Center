@@ -360,3 +360,140 @@ Stage Summary:
 - Command center dark theme with cyan accents maintained throughout
 - Zero breaking changes to existing functionality
 - All existing imports, components, and features preserved
+
+---
+Task ID: S1
+Agent: Subagent (visual-enhancer)
+Task: Add premium visual enhancements throughout the dashboard
+
+Work Log:
+1. **Glassmorphism Card Effect** — Added `glassStyle()` helper function to `/src/app/page.tsx`
+   - Creates `backdropFilter: 'blur(12px)'` and `WebkitBackdropFilter: 'blur(12px)'`
+   - Changes background from `rgba(10,14,26,0.95)` to `rgba(10,14,26,0.85)` (more transparent for glass effect)
+   - Adds `boxShadow: 'inset 0 1px 0 0 rgba(6,182,212,0.05)'` (subtle inner border glow)
+   - Applied to 12 major card panels:
+     1. DataEnginePulse (Real-time Data Engine)
+     2. HealthIndexWidget (National Performance Index)
+     3. StateMiniCards (Top States by Population)
+     4. DataSourceStats (Data Source Agencies)
+     5. Bar Chart panel (Population & GDP by State)
+     6. Pie Chart panel (Data Frequency)
+     7. Category Heat Blocks
+     8. Timeline (Data Update Timeline)
+     9. GDP Trend Area Chart (Analytics)
+     10. Radar Chart (Top States Comparison)
+     11. Category Distribution Bar Chart (Analytics)
+     12. State Metrics Matrix (Analytics)
+
+2. **Animated Card Entrance Stagger** — Added stagger animation variants and containers
+   - Created `staggerContainer` variant: `hidden: { opacity: 0 }`, `visible: { opacity: 1, transition: { staggerChildren: 0.1 } }`
+   - Created `staggerItem` variant: `hidden: { opacity: 0, y: 20 }`, `visible: { opacity: 1, y: 0 }`
+   - Wrapped 4 major rows in `motion.div` with stagger variants:
+     - KPI Grid (6 cards)
+     - Data Engine + State Cards + Health Index row
+     - Charts Row (Bar Chart + Pie Chart)
+     - Category Heat Blocks + Data Sources + Timeline row
+   - Creates cascading waterfall effect when page loads
+
+3. **Enhanced KPI Card Hover Effects** — Upgraded KPICard component
+   - Added `hovered` state tracking via `onMouseEnter`/`onMouseLeave`
+   - On hover: scale up to 1.02 with `transform: scale(1.02)`
+   - On hover: background shifts to lighter shade (`rgba(10,14,26,0.9)` → `rgba(10,14,26,0.75)`)
+   - On hover: border color brightens from `${color}25` to `${color}50`
+   - On hover: box shadow adds glow `0 0 15px ${color}20`
+   - Bottom accent line animates from `${color}40` (dim) to full `${color}` (bright) on hover
+   - Bottom accent line adds glow on hover: `boxShadow: 0 0 8px ${color}60`
+   - All transitions use `cubic-bezier(0.4, 0, 0.2, 1)` for smooth easing
+   - Added `backdropFilter: 'blur(8px)'` for glass effect
+
+4. **Pulsing Data Nodes on Map** — Enhanced `/src/components/map/malaysia-map.tsx`
+   - Added subtle continuous pulse animation to ALL state centroids (not just hovered ones)
+   - Each state has a tiny dot (2px radius) that pulses: opacity 0.3→0.6→0.3
+   - Pulse duration: 3 seconds per cycle
+   - Staggered timing using state index * 0.2s delay (`begin={`${Object.keys(STATE_PATHS).indexOf(stateId) * 0.2}s`}`)
+   - Only shown when state is NOT hovered and NOT selected (replaced by larger interactive dots)
+   - Very subtle — not distracting, just alive
+
+5. **Enhanced Pie Chart with Center Label** — Updated pie chart in Overview section
+   - Added center label overlay using absolute positioning within the chart container
+   - Shows "287" in large bold font with cyan text-shadow glow
+   - Shows "DATASETS" in small tracking-widest font below
+   - Uses `pointer-events-none` so it doesn't block chart interactions
+   - Positioned with `top: '24px'` offset to align with chart center
+
+6. **Scan Line Enhancement in CSS** — Updated `/src/app/globals.css`
+   - Increased scan line opacity from 0.015 to 0.02
+   - Added second slower scan line moving in opposite direction:
+     - Uses `::after` pseudo-element on `.scan-line-overlay`
+     - Thicker pattern (3px/6px vs 2px/4px)
+     - Lower opacity (0.012)
+     - Slower animation (14s vs 8s)
+     - Moves in reverse direction (bottom-to-top)
+   - Added vignette effect with `.vignette-overlay` class:
+     - Fixed position covering entire viewport
+     - `radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.35) 100%)`
+     - `pointer-events: none` — doesn't block interactions
+     - z-index: 1 (above particles, below content)
+   - Added `<div className="vignette-overlay" />` in main Home component
+
+- Lint check passes with zero errors
+- Dev server compiles and serves all pages cleanly
+
+Stage Summary:
+- 6 premium visual enhancements applied across the dashboard
+- Glassmorphism blur effect on 12 major card panels creates depth and modern feel
+- Staggered card entrance animations create elegant cascading waterfall effect
+- KPI cards have dramatic hover effects with scale, glow, and animated accent lines
+- Map has subtle pulsing data nodes on all 19 state centroids with staggered timing
+- Pie chart center label shows total count for at-a-glance comprehension
+- Enhanced scan lines with reverse-direction secondary line and vignette overlay add atmospheric depth
+- Zero breaking changes to existing functionality
+- All existing imports, components, and features preserved
+
+---
+Task ID: F1
+Agent: Subagent (analytics-developer)
+
+Work Log:
+- Added new recharts imports: `LineChart`, `Line`, `Legend` to existing recharts import block
+- Added 7 new data arrays in `AnalyticsSection` function:
+  1. `gdpForecastData` — 9 data points (2019-2027) with `actual` and `forecast` fields, using null for missing values to create visual separation between actual and projected data. 2024 has both actual and forecast values for continuity.
+  2. `gdpGrowthRateData` — 6 data points (2019-2024) with growth rate percentages including negative value for 2020 (-5.3%)
+  3. `sectorContributionData` — 5 sectors with bilingual name/name_ms fields and value percentages (Services 58%, Manufacturing 23%, Mining 7%, Agriculture 7%, Construction 5%)
+  4. `birthDeathData` — 6 data points (2019-2024) with birth and death rates per 1000
+  5. `popGrowthData` — 6 data points (2019-2024) with population growth rate percentages
+  6. `stateDensityData` — Top 10 states sorted by population density (useMemo), derived from STATES array
+  7. `dependencyRatioData` — 3 segments (Working Age 69%, Young Dependents 24%, Elderly Dependents 7%) with bilingual labels
+- Added **GDP Forecast & Trend Projections** card panel:
+  - Full-width card with `HUDBracket` decoration and TrendingUp icon (cyan accent)
+  - 3-column grid layout (lg:grid-cols-3):
+    - Column 1: GDP Trend with Forecast — AreaChart with dual areas: actual (amber, solid fill) and forecast (cyan, dashed stroke, semi-transparent fill). Custom gradient definitions (gdpActualGrad, gdpForecastGrad). Legend with solid/dashed line indicators. Bilingual labels.
+    - Column 2: GDP Growth Rate Comparison — BarChart with color-coded bars (amber for positive, red for negative growth). Y-axis domain [-8, 8] for symmetric display. Rounded top corners on bars.
+    - Column 3: GDP Sector Contribution — Horizontal BarChart with 5 color-coded sectors (cyan, amber, green, pink, purple). Bilingual Y-axis labels (English/Malay). Rounded right corners on bars.
+- Added **Demographic Deep-Dive Panel** card panel:
+  - Full-width card with `HUDBracket` decoration and Users icon (pink accent)
+  - 4-column grid layout (lg:grid-cols-4):
+    - Column 1: Birth vs Death Rate Trends — LineChart with dual lines (pink for births, green for deaths). Custom dot styling. Manual legend below chart. Bilingual labels.
+    - Column 2: Population Growth Rate — LineChart with green line, custom dot and activeDot styling. Y-axis domain [0.5, 1.5].
+    - Column 3: State Density Ranking — Horizontal BarChart showing top 10 states by population density. Top 3 bars in pink, rest in purple with decreasing opacity. Custom Tooltip formatter showing density/km² with bilingual label.
+    - Column 4: Dependency Ratio — Donut PieChart (innerRadius=45, outerRadius=70, paddingAngle=3). 3 segments (cyan, pink, purple). Custom legend below chart with color dots and bilingual labels showing percentage.
+- All chart styling matches command center dark theme:
+  - Background: `rgba(10,14,26,0.95)`
+  - Border: `rgba(6,182,212,0.12)`
+  - Tooltip: dark background with colored borders
+  - Axis text: `#94a3b8` at 8-9px font size
+  - Consistent monospace font throughout
+- All labels bilingual (EN/MS) using `lang === 'ms' ? BM : EN` pattern
+- All existing Analytics section content preserved (GDP Trend, Radar Chart, Category Distribution, State Matrix)
+- Lint check passes with zero errors
+- Dev server compiles and serves all pages cleanly
+
+Stage Summary:
+- Two major new analytical panels added to the Analytics section
+- GDP Forecast & Trend Projections: 3 sub-charts (area chart with actual/forecast, growth rate bar chart, sector contribution horizontal bar)
+- Demographic Deep-Dive Panel: 4 sub-charts (birth/death dual-line, population growth line, state density horizontal bar, dependency ratio donut)
+- All 7 data arrays hardcoded with simulated data — no API calls
+- Full bilingual support (English/Bahasa Malaysia) throughout
+- Command center dark theme with cyan/amber/pink/green accents maintained
+- Zero breaking changes to existing functionality
+- All existing imports, components, and features preserved

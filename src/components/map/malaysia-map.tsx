@@ -468,6 +468,25 @@ export default function MalaysiaMap({
                   {stateData.abbr}
                 </text>
               )}
+
+              {/* Subtle pulsing data node on every state centroid */}
+              {(!isHovered && !isSelected) && (
+                <circle
+                  cx={labelInfo?.x ?? stateData.coordinates.x}
+                  cy={labelInfo?.y ?? stateData.coordinates.y}
+                  r="2"
+                  fill="#06b6d4"
+                  opacity="0.3"
+                >
+                  <animate
+                    attributeName="opacity"
+                    values="0.3;0.6;0.3"
+                    dur="3s"
+                    begin={`${Object.keys(STATE_PATHS).indexOf(stateId) * 0.2}s`}
+                    repeatCount="indefinite"
+                  />
+                </circle>
+              )}
             </g>
           );
         })}
