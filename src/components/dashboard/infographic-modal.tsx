@@ -288,7 +288,7 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
     setExporting(true);
     const patches = patchStylesheetsForExport();
     try {
-      // Dynamic import with error handling — some builds export default differently
+      // Dynamic import with error handling
       let html2canvasFn: typeof import('html2canvas').default;
       try {
         const h2cModule = await import('html2canvas');
@@ -308,40 +308,77 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
         return;
       }
 
-      // Get the natural dimensions of the preview element before any export overrides
-      const naturalW = target.offsetWidth;
-      const naturalH = target.offsetHeight;
-
       // Target export dimensions based on aspect ratio selection
       let targetW: number;
       let targetH: number;
       if (aspectRatio === '16:9') {
-        targetW = 1920;
-        targetH = 1080;
+        targetW = 960;
+        targetH = 540;
       } else if (aspectRatio === '9:16') {
-        targetW = 1080;
-        targetH = 1920;
+        targetW = 540;
+        targetH = 960;
       } else {
-        // Auto: use the actual rendered dimensions at 2× for retina quality
-        targetW = naturalW;
-        targetH = naturalH;
+        // Auto: use the actual rendered dimensions
+        targetW = target.offsetWidth;
+        targetH = target.offsetHeight;
       }
 
-      // Calculate zoom factor to proportionally scale content to target dimensions.
-      // CSS zoom scales ALL content (text, padding, borders, grid gaps) proportionally,
-      // preventing the "tiny text in a big canvas" margin problem.
       const isAutoMode = aspectRatio === 'auto';
-      const zoomFactor = isAutoMode ? 1 : targetW / naturalW;
+      const pad = Math.round(targetW * 0.04); // 4% padding = clean margins at export size
 
-      // For auto mode, use scale:2 for retina quality.
-      // For fixed ratios, zoom handles the resolution, so use scale:1 to avoid over-scaling.
-      const h2cScale = isAutoMode ? 2 : 1;
+      // ─── Off-screen rendering approach ───
+      // Create an off-screen container at EXACT target dimensions.
+      // Clone the preview content into it. The browser lays out the content
+      // naturally at the target size, so everything (text, grids, padding)
+      // is properly proportioned. Then html2canvas captures it at scale:2
+      // for retina-quality output (e.g., 960→1920px for 16:9).
+      const offscreen = document.createElement('div');
+      offscreen.style.cssText = `
+        position: fixed;
+        left: -99999px;
+        top: 0;
+        width: ${targetW}px;
+        min-height: ${targetH}px;
+        background: #0a0e1a;
+        padding: ${pad}px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: ${fs};
+        color: #e0f7fa;
+        overflow: hidden;
+        box-sizing: border-box;
+      `;
 
-      const canvas = await html2canvasFn(target, {
-        scale: h2cScale,
+      // Clone the infographic content from the preview (children only, not the preview wrapper)
+      const contentClone = target.cloneNode(true) as HTMLElement;
+      // Strip preview-only styling from the clone
+      contentClone.style.cssText = `
+        background: transparent;
+        border: none;
+        border-radius: 0;
+        box-shadow: none;
+        padding: 0;
+        margin: 0;
+        width: 100%;
+        overflow: hidden;
+      `;
+      // Remove aspect-ratio / max-height constraints
+      contentClone.style.aspectRatio = '';
+      contentClone.style.maxHeight = 'none';
+      contentClone.style.overflowY = 'visible';
+
+      offscreen.appendChild(contentClone);
+      document.body.appendChild(offscreen);
+
+      // Wait for layout to settle
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+      const canvas = await html2canvasFn(offscreen, {
+        scale: 2,
         backgroundColor: '#0a0e1a',
         useCORS: true,
         logging: false,
+        width: targetW,
+        height: targetH,
         onclone: (clonedDoc, clonedEl) => {
           // Patch cloned document's stylesheets for modern CSS color functions
           try {
@@ -360,7 +397,7 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
             }
           } catch { /* ignore */ }
 
-          // Fix only outline and caret colors (NOT border-color)
+          // Fix only outline and caret colors
           const cloneStyle = clonedDoc.createElement('style');
           cloneStyle.textContent = `
             *, *::before, *::after {
@@ -369,28 +406,15 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
             }
           `;
           clonedDoc.head.appendChild(cloneStyle);
-
-          // ─── Strip preview chrome ───
-          clonedEl.style.border = 'none';
-          clonedEl.style.borderRadius = '0';
-          clonedEl.style.boxShadow = 'none';
-          clonedEl.style.overflow = 'hidden';
-          // Remove max-height constraint (portrait preview clips with overflow)
-          clonedEl.style.maxHeight = 'none';
-
-          if (!isAutoMode) {
-            // Apply CSS zoom to proportionally scale the preview content to target dimensions.
-            // This ensures all text, padding, borders, and grid gaps scale together,
-            // producing correct margins at the target resolution.
-            clonedEl.style.zoom = String(zoomFactor);
-          }
         },
       });
 
-      // Crop the canvas to exact target dimensions if needed.
-      // After zoom, the canvas may be slightly larger than target due to sub-pixel rounding.
-      const finalW = isAutoMode ? canvas.width : targetW * h2cScale;
-      const finalH = isAutoMode ? canvas.height : targetH * h2cScale;
+      // Clean up off-screen element
+      offscreen.remove();
+
+      // Crop to exact target dimensions × 2 (scale:2)
+      const finalW = targetW * 2;
+      const finalH = targetH * 2;
 
       let outputCanvas = canvas;
       if (canvas.width !== finalW || canvas.height !== finalH) {
@@ -403,7 +427,7 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
           ctx.fillRect(0, 0, finalW, finalH);
           ctx.drawImage(canvas, 0, 0, finalW, finalH);
         } else {
-          outputCanvas = canvas; // fallback
+          outputCanvas = canvas;
         }
       }
 
@@ -424,7 +448,7 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
 
   const fs = fontSize === 'S' ? '10px' : fontSize === 'M' ? '12px' : '14px';
 
-  // Export dimension label (actual output pixel dimensions)
+  // Export dimension label (actual output pixel dimensions at 2× scale)
   const exportDimLabel = useMemo(() => {
     if (aspectRatio === '16:9') return '1920×1080';
     if (aspectRatio === '9:16') return '1080×1920';
