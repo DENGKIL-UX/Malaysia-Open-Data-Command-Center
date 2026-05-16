@@ -68,19 +68,19 @@ export function DataEnginePulse({ lang }: { lang: Lang }) {
       <div className="grid grid-cols-3 gap-3">
         <div className="text-center">
           <div className="text-sm font-bold font-mono" style={{ color: '#06b6d4' }}>{throughput}</div>
-          <div className="text-[8px] font-mono" style={{ color: 'rgba(6,182,212,0.5)' }}>
+          <div className="text-[8px] font-mono" style={{ color: '#8899aa' }}>
             {lang === 'ms' ? 'REQ/MIN' : 'REQ/MIN'}
           </div>
         </div>
         <div className="text-center">
           <div className="text-sm font-bold font-mono" style={{ color: '#10b981' }}>{latency}ms</div>
-          <div className="text-[8px] font-mono" style={{ color: 'rgba(16,185,129,0.5)' }}>
+          <div className="text-[8px] font-mono" style={{ color: '#8899aa' }}>
             {lang === 'ms' ? 'KELENGKAPAN' : 'LATENCY'}
           </div>
         </div>
         <div className="text-center">
           <div className="text-sm font-bold font-mono" style={{ color: '#f59e0b' }}>99.9%</div>
-          <div className="text-[8px] font-mono" style={{ color: 'rgba(245,158,11,0.5)' }}>
+          <div className="text-[8px] font-mono" style={{ color: '#8899aa' }}>
             {lang === 'ms' ? 'KEBOLEHUPAYAAN' : 'UPTIME'}
           </div>
         </div>

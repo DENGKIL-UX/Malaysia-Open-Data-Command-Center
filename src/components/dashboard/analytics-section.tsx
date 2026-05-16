@@ -17,7 +17,7 @@ import {
 } from '@/lib/data/malaysia-data';
 import { DATASETS } from '@/lib/data/datasets';
 import type { Lang } from '@/lib/dashboard-types';
-import { HUDBracket } from '@/components/dashboard/particle-background';
+import { HUDBracket, SectionHeaderLine } from '@/components/dashboard/particle-background';
 
 // ─── Helper: Pearson Correlation ────────────────────────────────
 function pearsonCorrelation(x: number[], y: number[]): number {
@@ -223,14 +223,12 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
     <div className="space-y-4">
       {/* Section Header: Trends & Comparison */}
       <div className="flex items-center gap-3">
-        <span className="text-xs font-mono tracking-wider" style={{ color: '#f59e0b' }}>
-          {lang === 'ms' ? 'TREND & PERBANDINGAN' : 'TRENDS & COMPARISON'}
-        </span>
-        <motion.div
-          animate={{ scaleX: [0, 1] }}
-          transition={{ duration: 0.8, ease: 'easeOut' }}
-          style={{ height: 2, background: 'linear-gradient(90deg, #f59e0b, transparent)', transformOrigin: 'left', width: 120 }}
-        />
+        <div>
+          <span className="text-xs font-mono tracking-wider" style={{ color: '#f59e0b' }}>
+            {lang === 'ms' ? 'TREND & PERBANDINGAN' : 'TRENDS & COMPARISON'}
+          </span>
+          <SectionHeaderLine color="#f59e0b" delay={0.2} />
+        </div>
       </div>
       {/* ─── Existing Row 1: GDP Trend + Radar ─────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -256,9 +254,18 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
                   <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <XAxis dataKey="year" tick={{ fill: '#f59e0b66', fontSize: 10 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#f59e0b66', fontSize: 9 }} axisLine={false} tickLine={false} width={40} />
-              <Tooltip contentStyle={{ background: '#0a0e1a', border: '1px solid #f59e0b30', borderRadius: 8, fontSize: 11 }} />
+              <XAxis dataKey="year" tick={{ fill: '#a0b0c0', fontSize: 10 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: '#a0b0c0', fontSize: 9 }} axisLine={false} tickLine={false} width={40} />
+              <Tooltip contentStyle={{
+                background: 'rgba(10,14,26,0.97)',
+                border: '1px solid rgba(245,158,11,0.25)',
+                borderRadius: '8px',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.5), 0 0 15px rgba(245,158,11,0.1)',
+                padding: '8px 12px',
+                fontSize: '11px',
+                fontFamily: 'monospace',
+                color: '#e0f7fa',
+              }} itemStyle={{ color: '#b8c5d4', padding: '2px 0' }} labelStyle={{ color: '#f59e0b', fontWeight: 'bold', marginBottom: '4px', fontSize: '12px' }} />
               <Area type="monotone" dataKey="value" stroke="#f59e0b" fill="url(#gdpGrad)" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
@@ -281,7 +288,7 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
           <ResponsiveContainer width="100%" height={220}>
             <RadarChart data={radarData}>
               <PolarGrid stroke="rgba(6,182,212,0.1)" />
-              <PolarAngleAxis dataKey="metric" tick={{ fill: '#06b6d466', fontSize: 9 }} />
+              <PolarAngleAxis dataKey="metric" tick={{ fill: '#a0b0c0', fontSize: 9 }} />
               <PolarRadiusAxis tick={false} axisLine={false} />
               {topStates.map((s, i) => (
                 <Radar key={s.id} name={s.abbr} dataKey={s.abbr} stroke={RADAR_COLORS[i]} fill={RADAR_COLORS[i]} fillOpacity={0.1} />
@@ -301,14 +308,12 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
 
       {/* Section Header: Distribution & Matrix */}
       <div className="flex items-center gap-3">
-        <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
-          {lang === 'ms' ? 'TABURAN & MATRIKS' : 'DISTRIBUTION & MATRIX'}
-        </span>
-        <motion.div
-          animate={{ scaleX: [0, 1] }}
-          transition={{ duration: 0.8, ease: 'easeOut' }}
-          style={{ height: 2, background: 'linear-gradient(90deg, #06b6d4, transparent)', transformOrigin: 'left', width: 120 }}
-        />
+        <div>
+          <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+            {lang === 'ms' ? 'TABURAN & MATRIKS' : 'DISTRIBUTION & MATRIX'}
+          </span>
+          <SectionHeaderLine color="#06b6d4" delay={0.2} />
+        </div>
       </div>
 
       {/* ─── Existing: Category Distribution Bar Chart ──────────── */}
@@ -327,9 +332,18 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
         </div>
         <ResponsiveContainer width="100%" height={280}>
           <BarChart data={catDist} layout="vertical" barCategoryGap="8%">
-            <XAxis type="number" tick={{ fill: '#06b6d466', fontSize: 9 }} axisLine={false} tickLine={false} />
-            <YAxis type="category" dataKey="name" tick={{ fill: '#b0bec5', fontSize: 9 }} axisLine={false} tickLine={false} width={120} />
-            <Tooltip contentStyle={{ background: '#0a0e1a', border: '1px solid #06b6d430', borderRadius: 8, fontSize: 11 }} />
+            <XAxis type="number" tick={{ fill: '#a0b0c0', fontSize: 9 }} axisLine={false} tickLine={false} />
+            <YAxis type="category" dataKey="name" tick={{ fill: '#b8c5d4', fontSize: 9 }} axisLine={false} tickLine={false} width={120} />
+            <Tooltip contentStyle={{
+              background: 'rgba(10,14,26,0.97)',
+              border: '1px solid rgba(6,182,212,0.25)',
+              borderRadius: '8px',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.5), 0 0 15px rgba(6,182,212,0.1)',
+              padding: '8px 12px',
+              fontSize: '11px',
+              fontFamily: 'monospace',
+              color: '#e0f7fa',
+            }} itemStyle={{ color: '#b8c5d4', padding: '2px 0' }} labelStyle={{ color: '#06b6d4', fontWeight: 'bold', marginBottom: '4px', fontSize: '12px' }} />
             <Bar dataKey="value" radius={[0, 4, 4, 0]}>
               {catDist.map((_, i) => <Cell key={i} fill={DATASET_CATEGORIES[i % DATASET_CATEGORIES.length]?.color || '#06b6d4'} opacity={0.7} />)}
             </Bar>
@@ -383,14 +397,12 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
 
       {/* Section Header: Deep Analytics */}
       <div className="flex items-center gap-3">
-        <span className="text-xs font-mono tracking-wider" style={{ color: '#10b981' }}>
-          {lang === 'ms' ? 'ANALISIS MENDALAM' : 'DEEP ANALYTICS'}
-        </span>
-        <motion.div
-          animate={{ scaleX: [0, 1] }}
-          transition={{ duration: 0.8, ease: 'easeOut' }}
-          style={{ height: 2, background: 'linear-gradient(90deg, #10b981, transparent)', transformOrigin: 'left', width: 120 }}
-        />
+        <div>
+          <span className="text-xs font-mono tracking-wider" style={{ color: '#10b981' }}>
+            {lang === 'ms' ? 'ANALISIS MENDALAM' : 'DEEP ANALYTICS'}
+          </span>
+          <SectionHeaderLine color="#10b981" delay={0.2} />
+        </div>
       </div>
 
       {/* ═════════════════════════════════════════════════════════════
@@ -446,7 +458,7 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
                       title={`${correlationMetrics.metricLabels[i]} ↔ ${correlationMetrics.metricLabels[j]}: ${val.toFixed(3)}`}
                     >
                       <span className="text-[8px] font-mono font-bold" style={{
-                        color: Math.abs(val) > 0.5 ? '#0a0e1a' : '#94a3b8',
+                        color: Math.abs(val) > 0.5 ? '#0a0e1a' : '#b8c5d4',
                         textShadow: Math.abs(val) > 0.5 ? 'none' : '0 0 2px rgba(0,0,0,0.5)',
                       }}>
                         {val.toFixed(2)}

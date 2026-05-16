@@ -854,3 +854,331 @@ Stage Summary:
 - Full bilingual support (English/Bahasa Malaysia)
 - Command center dark theme with cyan accents maintained
 - Zero breaking changes to existing functionality
+
+---
+Task ID: F2
+Agent: Subagent (insights-developer)
+Task: Create Data Insights Engine panel and Data Snapshot Widget
+
+Work Log:
+- Created /src/components/dashboard/data-insights-engine.tsx:
+  - Full-width card panel with command-center dark theme
+  - HUDBracket decoration, pulsing Zap icon header, AI ACTIVE badge
+  - 6 auto-generated insight cards in responsive 3-column grid:
+    1. Economic Powerhouse (TrendingUp, amber, mini bar comparison)
+    2. Population Density Gap (Users, pink, dual horizontal bar comparison)
+    3. Employment Divide (Briefcase, green, range indicator with markers)
+    4. Growth Leaders (ArrowUpRight, cyan, top 3 ranking with medals)
+    5. Data Coverage (Database, purple, mini donut SVG chart)
+    6. Demographic Trend (Activity, red, declining trend line SVG)
+  - Each insight card: colored left border, icon circle, bilingual title/description, mini visualization, Framer Motion staggered entrance, hover glow effect
+
+- Created /src/components/dashboard/data-snapshot-widget.tsx:
+  - 4 compact metric boxes: Population 33.8M, GDP RM1.68T, Births 455K, Density 99/km2
+  - Each with bilingual label, trend arrow (green/red), sparkline SVG
+  - Very compact (max-h-20), Framer Motion entrance animation
+
+- Created /src/components/dashboard/animated-border-card.tsx:
+  - Wrapper component with animated top gradient border (fixes pre-existing missing component)
+
+- Integrated into /src/components/dashboard/overview-section.tsx:
+  - DataSnapshotWidget: between Hero Banner and KPI Grid
+  - DataInsightsEngine: between Charts Row and Category Heat Blocks row
+
+- Lint check passes with zero errors
+- Dev server compiles cleanly
+
+Stage Summary:
+- Data Insights Engine with 6 AI-generated insight cards and custom mini visualizations
+- Data Snapshot Widget with 4 compact metrics and sparkline SVGs
+- AnimatedBorderCard utility component for pre-existing missing file
+- Full bilingual support, command center dark theme maintained
+- Zero breaking changes to existing functionality
+
+---
+Task ID: S3
+Agent: Subagent (contrast-ranking-skeleton)
+Task: Improve text contrast, add animated state rankings in GeoMap, and add skeleton loading states
+
+Work Log:
+
+### 1. Text Contrast & Readability Improvements
+
+**overview-section.tsx:**
+- Changed hero description `color: '#94a3b8'` → `color: '#b8c5d4'` (brighter slate, opacity 60→80)
+- Changed chart legend labels `color: '#94a3b8'` → `color: '#a0b0c0'` (POP/GDP labels)
+- Changed all chart axis tick `fill` from `#06b6d466`/`#f59e0b66` → `#a0b0c0` (X/Y axes, both left and right Y-axes)
+- Changed chart axis label `fill` from `#06b6d466`/`#f59e0b66` → `#a0b0c0`
+- Changed tooltip item labels `color: '#94a3b8'` → `color: '#b8c5d4'`
+- Changed pie chart percentage `color: '#64748b'` → `color: '#8899aa'`
+
+**analytics-section.tsx:**
+- Changed GDP trend X/Y axis tick `fill` from `#f59e0b66` → `#a0b0c0`
+- Changed radar chart PolarAngleAxis tick `fill` from `#06b6d466` → `#a0b0c0`
+- Changed category distribution X-axis tick `fill` from `#06b6d466` → `#a0b0c0`
+- Changed category distribution Y-axis tick `fill` from `#b0bec5` → `#b8c5d4`
+- Added `color: '#e0f7fa'` to both Tooltip contentStyle objects for readable tooltip text
+- Changed correlation matrix cell text `color: '#94a3b8'` → `color: '#b8c5d4'` (for low-correlation cells)
+
+**geomap-section.tsx:**
+- Changed state detail panel metric labels `color: '#94a3b8'` → `color: '#b8c5d4'`
+- Changed state ranking abbreviations `color: '#94a3b8'` → `color: '#b8c5d4'`
+- Changed state comparison losing values `color: '#94a3b8'` → `color: '#8899aa'` (both A and B sides)
+
+**datasets-section.tsx:**
+- Changed drawer description text `color: '#94a3b8'` → `color: '#b8c5d4'` (opacity 50→70)
+- Changed table row description `color: '#94a3b8'` → `color: '#b8c5d4'` (opacity 50→70)
+- Changed table geography column `color: '#94a3b8'` → `color: '#b8c5d4'`
+- Changed table years column `color: '#94a3b8'` → `color: '#b8c5d4'`
+
+**data-engine-pulse.tsx:**
+- Changed REQ/MIN label from `rgba(6,182,212,0.5)` → `#8899aa`
+- Changed LATENCY label from `rgba(16,185,129,0.5)` → `#8899aa`
+- Changed UPTIME label from `rgba(245,158,11,0.5)` → `#8899aa`
+
+**state-mini-cards.tsx:**
+- Changed rank badge color for 4th+ states from `rgba(6,182,212,0.4)` → `#8899aa`
+- Changed separator dot `rgba(6,182,212,0.3)` → `#8899aa`
+
+### 2. Animated State Ranking in GeoMap
+
+Updated `/src/components/dashboard/geomap-section.tsx`:
+- Changed ranking items from `motion.button` to `motion.div` with `layout` prop
+- Added `layoutId={`ranking-${s.id}`}` to each ranking item for smooth reordering when layer changes
+- Added `transition={{ type: 'spring', damping: 25, stiffness: 300 }}` for smooth spring animation
+- Rank number badge wrapped in `motion.span` with `layout` and `layoutId={`rank-badge-${s.id}`}`
+- Top 3 rank badges now have `background: 'rgba(6,182,212,0.1)'` for visual distinction
+- State abbreviation wrapped in `motion.span` with `layout` prop
+- Value bar wrapped in `motion.div` with `layout` and `layoutId={`rank-bar-${s.id}`}` for smooth width animation
+- Added highlight effect for selected state: `motion.div` with `layoutId="ranking-highlight"` that follows the selected item with glow border and shadow
+- Rank number color for 4th+ changed from `rgba(6,182,212,0.3)` → `#8899aa` for better readability
+
+### 3. Skeleton Loading Components
+
+Created `/src/components/dashboard/skeleton-loader.tsx`:
+- **SkeletonCard**: Configurable width/height, shimmer effect (linear-gradient sweep), rounded corners matching existing cards, subtle cyan-tinted border
+- **SkeletonText**: Configurable width and lines count, each line has slight width variation for realism (last line is shorter)
+- **SkeletonChart**: Placeholder bars at different heights (8 bars), header row with icon and title placeholders, x-axis line
+- **SkeletonMap**: Peninsular blob shape (rounded div), East Malaysia blob shape, sidebar ranking placeholders, South China Sea label placeholder
+- All skeletons use `linear-gradient(90deg, rgba(15,20,40,1) 25%, rgba(20,30,55,1) 50%, rgba(15,20,40,1) 75%)` with `background-size: 200% 100%` and `animation: shimmer 1.5s infinite`
+- Shimmer keyframes injected once via `document.getElementById` check
+
+### 4. Skeleton Loading Integration
+
+Updated `/src/app/page.tsx`:
+- Added import for `SkeletonCard`, `SkeletonChart`, `SkeletonMap`
+- Added skeleton layout rendered when `!booted` (before boot completes)
+- Skeleton layout matches the Overview section structure:
+  - Hero banner skeleton (140px)
+  - 6 KPI card skeletons (100px each)
+  - 3-column row: Data Engine + State Cards + Health Index (180px each)
+  - Charts row: SkeletonChart (2-col) + card skeleton (1-col)
+  - 3-column row: Category + Sources + Timeline (200px each)
+- Skeleton has `opacity-40` and `pointer-events: none` for "loading preview" effect beneath the boot overlay
+- When boot completes, the real content fades in (already had motion opacity transition)
+
+- Lint check passes with zero errors
+- Dev server compiles and serves all pages cleanly
+- Page loads with 200 status code
+
+Stage Summary:
+- Text contrast improved across 6 component files (#94a3b8→#b8c5d4, #64748b→#8899aa, chart axes→#a0b0c0)
+- Animated state ranking with Framer Motion layout animations for smooth reordering when layers change
+- Skeleton loading components (SkeletonCard, SkeletonText, SkeletonChart, SkeletonMap) with shimmer effect
+- Skeleton layout integrated into boot sequence for "loading preview" effect
+- Zero breaking changes to existing functionality
+- All existing imports, components, and features preserved
+
+---
+Task ID: S4
+Agent: Subagent (micro-interaction-polisher)
+Task: Add premium micro-interactions, navigation polish, and UX enhancements
+
+Work Log:
+
+1. **Enhanced Navigation Bar Styling** — Updated `/src/app/page.tsx` navigation bar:
+   - Replaced simple `border-b` with a subtle cyan glow line at the bottom of the nav using a CSS gradient: `linear-gradient(90deg, transparent 5%, rgba(6,182,212,0.3) 30%, rgba(6,182,212,0.5) 50%, rgba(6,182,212,0.3) 70%, transparent 95%)` with `boxShadow: 0 0 8px rgba(6,182,212,0.2)`
+   - Each nav tab button now has hover glow effect: on non-active hover, color shifts to `rgba(6,182,212,0.7)` with `textShadow: 0 0 6px rgba(6,182,212,0.25)` and `boxShadow: 0 2px 12px rgba(6,182,212,0.1)`
+   - Active tab text now has `textShadow: 0 0 8px rgba(6,182,212,0.5)` glow effect
+   - Active tab also has `boxShadow: 0 2px 12px rgba(6,182,212,0.15)` for depth
+   - Added `transition-all duration-200` on all nav button state changes
+   - Changed nav button height from `py-2.5` to `py-3` for better touch targets (44px+)
+
+2. **Button Consistency & Micro-Interactions** — Updated all toolbar buttons in `/src/app/page.tsx`:
+   - Language Toggle, Export, Infographic, Info, and Help buttons all have consistent hover effect
+   - Added `transition-all duration-200` to all buttons
+   - On hover: `background: rgba(6,182,212,0.08)`, `borderColor: rgba(6,182,212,0.3)`, `boxShadow: 0 0 12px rgba(6,182,212,0.15)`
+   - On leave: reverts to default styles
+   - Changed button text from `text-[10px]` to `text-[11px]` for better readability
+   - Info button has conditional hover (only when not active) to avoid style conflict
+
+3. **Enhanced Card Section Headers** — Created `SectionHeaderLine` reusable component in `/src/components/dashboard/particle-background.tsx`:
+   - Framer Motion `motion.div` with `initial={{ width: 0 }}` → `animate={{ width: 100% }}`
+   - Configurable `color` and `delay` props
+   - Creates a "drawing line" animation effect under section titles
+   - Gradient from accent color → transparent (2px height)
+   - Applied to 4 component headers:
+     - `/src/components/dashboard/overview-section.tsx` — Hero banner "NATIONAL DATA INTELLIGENCE" title, "DATA ANALYSIS" section header, "CATALOG & UPDATES" section header
+     - `/src/components/dashboard/data-insights-engine.tsx` — "DATA INSIGHTS ENGINE" panel title
+     - `/src/components/dashboard/data-snapshot-widget.tsx` — Added new "DATA SNAPSHOT" widget title with drawing line
+     - `/src/components/dashboard/data-activity-feed.tsx` — "LIVE DATA ACTIVITY FEED" feed title
+   - Replaced existing `motion.div scaleX` animations with the new `SectionHeaderLine` component in both overview-section.tsx and analytics-section.tsx for consistency
+
+4. **Improved Footer Visual Weight** — Updated footer in `/src/app/page.tsx`:
+   - Added top border gradient line: `linear-gradient(90deg, #06b6d4, transparent 30%, transparent 70%, #06b6d4)` at 0.4 opacity — creates a cyan → transparent → cyan gradient effect
+   - Preserved animated accent line beneath the gradient
+   - Increased FooterCounter numbers font size from default to `fontSize: 12px` for more prominent display
+   - Enhanced Heart icon with `filter: drop-shadow(0 0 4px rgba(16,185,129,0.5))` for subtle glow effect on the heartbeat animation
+   - Added "MADE WITH ❤️ IN MALAYSIA" text at bottom center — `text-[8px]`, `color: rgba(6,182,212,0.2)`, `letterSpacing: 0.15em` — very subtle and small
+
+5. **Smooth Section Transitions** — Updated main content area in `/src/app/page.tsx`:
+   - Changed `initial={{ opacity: 0, y: 10 }}` to `initial={{ opacity: 0, y: 10, scale: 0.99 }}`
+   - Changed `animate={{ opacity: 1, y: 0 }}` to `animate={{ opacity: 1, y: 0, scale: 1 }}`
+   - Creates a subtle "zoom in" effect when switching tabs
+   - Exit animation preserved as `exit={{ opacity: 0, y: -10 }}`
+
+6. **Enhanced Tooltip Styling for Charts** — Updated chart tooltips across the dashboard:
+   - `/src/components/dashboard/overview-section.tsx`:
+     - Bar chart (Population & GDP) custom tooltip: `background: rgba(10,14,26,0.97)`, `border: 1px solid rgba(6,182,212,0.25)`, `borderRadius: 8px`, `boxShadow: 0 4px 20px rgba(0,0,0,0.5), 0 0 15px rgba(6,182,212,0.1)`, `fontFamily: monospace`, label style `color: #06b6d4`, `fontWeight: bold`, `fontSize: 12px`, item style `color: #b8c5d4`, `padding: 2px 0`
+     - Pie chart (Data Frequency) tooltip: same premium styling with `itemStyle`, `labelStyle`
+   - `/src/components/dashboard/analytics-section.tsx`:
+     - GDP Trend tooltip: amber accent border (`rgba(245,158,11,0.25)`), `labelStyle: color: #f59e0b`
+     - Category Distribution tooltip: cyan accent border, full premium styling
+     - All tooltips now have consistent premium feel with monospace font, dark backgrounds, and subtle glow shadows
+
+- Lint check passes with zero errors
+- Dev server compiles and serves all pages cleanly
+
+Stage Summary:
+- 6 premium micro-interaction and polish enhancements applied across the dashboard
+- Navigation bar has cyan glow line, hover effects on tabs with text-shadow glow, and better touch targets
+- All toolbar buttons have consistent hover micro-interactions with cyan glow
+- Section headers have animated "drawing line" effect using SectionHeaderLine component
+- Footer has gradient border, larger counter numbers, heart glow, and "MADE WITH ❤️ IN MALAYSIA" text
+- Tab switching has subtle scale animation for smooth transitions
+- Chart tooltips have premium dark styling with glow shadows, monospace fonts, and consistent styling
+- Zero breaking changes to existing functionality
+- All existing imports, components, and features preserved
+
+
+---
+Task ID: Session-Review
+Agent: Main Orchestrator
+Task: QA assessment, bug review, feature development, and styling improvements
+
+Work Log:
+- Reviewed worklog.md — 18 previous task entries, extensive project history
+- Performed comprehensive QA testing with agent-browser across all 4 tabs
+- Verified lint passes with zero errors
+- Verified dev server compiles and serves all pages cleanly (HTTP 200)
+- Checked browser console — only Framer Motion AnimatePresence warnings (cosmetic, not breaking)
+- Used VLM to analyze screenshots for visual quality issues
+- Initial VLM rating: 7/10
+
+### Fixes & Improvements Made This Session:
+
+1. **Animated Gradient Borders** (Task S2)
+   - Created AnimatedBorderCard component with rotating conic gradient border
+   - Applied to Data Engine Pulse, National Performance Index, Population & GDP bar chart panels
+   - CSS @property gradient-angle, @keyframes gradient-rotation animations
+
+2. **Sparkline Mini-Charts on KPI Cards** (Task S2)
+   - Added sparkline data (7-point trend arrays) to all 6 KPI cards
+   - Trend arrows and color coding (green for up, red for down)
+   - Animated glow pulse on bottom accent line
+   - Shimmer overlay effect on hover
+
+3. **Data Insights Engine Panel** (Task F2)
+   - 6 auto-generated insight cards with mini data visualizations
+   - Economic Powerhouse, Population Density Gap, Employment Divide
+   - Growth Leaders, Data Coverage (mini donut), Demographic Trend
+   - Bilingual labels, Framer Motion staggered entrance animations
+
+4. **Data Snapshot Widget** (Task F2)
+   - Compact 4-metric overview (Population, GDP, Births, Density)
+   - Tiny sparkline SVGs with colored trend indicators
+   - Positioned between Hero Banner and KPI Grid
+
+5. **Text Contrast Improvements** (Task S3)
+   - Upgraded #94a3b8 → #b8c5d4 across all sections
+   - Upgraded #64748b → #8899aa for muted text
+   - Chart axes improved to #a0b0c0
+   - Tooltip text improved to #e0f7fa
+
+6. **Animated State Ranking** (Task S3)
+   - Framer Motion `layout` + `layoutId` for smooth reordering on layer change
+   - Spring animations (damping: 25, stiffness: 300)
+   - Animated rank badges and value bars
+
+7. **Skeleton Loading States** (Task S3)
+   - SkeletonCard, SkeletonText, SkeletonChart, SkeletonMap components
+   - Shimmer animation with command-center dark theme
+   - Shown during boot sequence behind overlay
+
+8. **Premium Micro-Interactions** (Task S4)
+   - Enhanced navigation bar with cyan glow line, hover effects
+   - Active tab text-shadow glow
+   - Consistent button hover effects (cyan background tint, glow shadow)
+   - SectionHeaderLine "drawing line" animation under headers
+   - Improved footer visual weight with gradient border
+   - "MADE WITH ❤️ IN MALAYSIA" text
+   - Smooth tab transitions with subtle scale animation
+   - Enhanced chart tooltip styling with premium dark backgrounds and glow shadows
+
+### Final QA Results:
+- ✅ Lint: zero errors
+- ✅ All 4 tabs render correctly
+- ✅ Language toggle works (EN/MS)
+- ✅ Infographic modal opens and renders
+- ✅ Info section toggles properly
+- ✅ Notification center opens
+- ✅ Settings panel opens
+- ✅ No page errors
+- ✅ VLM quality rating: 8/10 (up from 7/10)
+
+Stage Summary:
+- Comprehensive QA performed with agent-browser and VLM analysis
+- 8 major enhancements implemented across styling and features
+- Data Insights Engine adds AI-powered analytical capability
+- Sparkline mini-charts add trend context to KPI cards
+- Animated gradient borders and micro-interactions add premium feel
+- Text contrast significantly improved for accessibility
+- Skeleton loading states improve perceived performance
+- Animated state ranking provides smooth layer transitions
+- Dashboard elevated from VLM rating 7/10 → 8/10
+- Zero breaking changes to existing functionality
+
+---
+## Current Project Status
+
+### Completed Features (Full List):
+1. **Boot Sequence** — Cinematic terminal-style typing animation (~3.5s)
+2. **Header** — Live MYT clock, scrolling data ticker, system status indicators
+3. **Overview Section** — Hero banner, 6 KPI cards with sparklines, Data Snapshot widget, Data Engine Pulse, State Mini-Cards, National Performance Index, Population & GDP bar chart, Data Frequency pie chart (with center label), Data Insights Engine, Category Heat Blocks, Data Source Agencies, Data Update Timeline, Data Activity Feed
+4. **GeoMap Section** — Interactive SVG map (16 states + 3 FT), 6 switchable data layers, choropleth coloring, hover tooltips, click-to-select detail panel, animated state ranking, state comparison tool
+5. **Datasets Section** — 287 datasets, search/filter/paginate, category/frequency filters, clickable detail drawer with full metadata
+6. **Analytics Section** — GDP Trend, Radar Chart, Category Distribution, State Matrix, GDP Forecast & Projections (3 sub-charts), Demographic Deep-Dive (4 sub-charts), Correlation Matrix, Population Pyramid, Economic Sector Treemap, Key Insights Panel, Data Quality Score
+7. **Infographic Export** — Layer selection, font size (S/M/L), live preview, PNG 2x export
+8. **Data Export Hub** — CSV/JSON data download
+9. **Command Palette** (Ctrl+K) — Searchable commands, dataset search, arrow key navigation
+10. **Keyboard Shortcuts** — 9 shortcuts with help modal
+11. **Notification Center** — 8 notifications, 3 categories, read/unread, filter tabs
+12. **Settings Panel** — Toggle particles, scan lines, animations
+13. **Info Section** — FAQ (6 items), Disclaimers (5), Citations (6)
+14. **Enhanced Footer** — 4-column layout, animated gradient lines, branding, stats
+15. **Visual Effects** — Particle background, HUD brackets, glassmorphism, scan lines, vignette, animated gradient borders, sparklines, skeleton loading
+
+### Bilingual Support: Full EN/MS throughout all sections
+
+### Unresolved Issues / Risks:
+- Framer Motion AnimatePresence "wait" mode warnings in console (cosmetic only)
+- Map SVG paths are simplified representations, not geographically accurate boundaries
+- All data is static/simulated — no live API integration
+- Some text may be small on mobile screens
+
+### Priority Recommendations for Next Phase:
+1. Mobile responsiveness improvements (touch targets, text sizing, responsive charts)
+2. Live API integration with data.gov.my for real-time data
+3. More accurate Malaysia SVG map with proper geographic boundaries
+4. Performance optimization (lazy loading, code splitting for heavy chart components)
+5. User preferences persistence (localStorage for settings, language, etc.)

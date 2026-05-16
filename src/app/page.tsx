@@ -24,6 +24,7 @@ import { NotificationCenter, NotificationBell } from '@/components/dashboard/not
 import { DataExportHub } from '@/components/dashboard/data-export-hub';
 import { SettingsPanel, SettingsGearButton } from '@/components/dashboard/settings-panel';
 import { useSettings } from '@/hooks/use-settings';
+import { SkeletonCard, SkeletonChart, SkeletonMap } from '@/components/dashboard/skeleton-loader';
 import type { TabId, Lang } from '@/lib/dashboard-types';
 
 // ─── Footer Animated Counter ────────────────────────────────────
@@ -48,7 +49,7 @@ function FooterCounter({ target, color }: { target: number; color: string }) {
   }, [target]);
 
   return (
-    <span style={{ color, textShadow: `0 0 8px ${color}50, 0 0 16px ${color}20` }} className="font-bold">{count}</span>
+    <span style={{ color, textShadow: `0 0 8px ${color}50, 0 0 16px ${color}20`, fontSize: '12px' }} className="font-bold">{count}</span>
   );
 }
 
@@ -171,6 +172,39 @@ export default function Home() {
         {!booted && <BootSequence onComplete={() => setBooted(true)} />}
       </AnimatePresence>
 
+      {/* Skeleton Loading — shown beneath boot overlay */}
+      {!booted && (
+        <div className="relative z-0 flex-1 px-4 py-6 max-w-[1400px] mx-auto w-full space-y-6 opacity-40" style={{ pointerEvents: 'none' }}>
+          {/* Hero banner skeleton */}
+          <SkeletonCard height="140px" />
+          {/* KPI cards row */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <SkeletonCard key={i} height="100px" />
+            ))}
+          </div>
+          {/* Data Engine + State Cards + Health Index row */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <SkeletonCard height="180px" />
+            <SkeletonCard height="180px" />
+            <SkeletonCard height="180px" />
+          </div>
+          {/* Charts row */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2">
+              <SkeletonChart />
+            </div>
+            <SkeletonCard height="240px" />
+          </div>
+          {/* Category + Sources + Timeline row */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <SkeletonCard height="200px" />
+            <SkeletonCard height="200px" />
+            <SkeletonCard height="200px" />
+          </div>
+        </div>
+      )}
+
       {booted && (
         <motion.div
           initial={{ opacity: 0 }}
@@ -182,46 +216,79 @@ export default function Home() {
           <Header />
 
           {/* Navigation Bar */}
-          <nav className="flex-shrink-0 border-b px-4" style={{
+          <nav className="flex-shrink-0 px-4" style={{
             background: 'rgba(10,14,26,0.95)',
-            borderColor: 'rgba(6,182,212,0.1)',
           }}>
+            {/* Subtle cyan glow line at the bottom of nav */}
+            <div className="h-px w-full" style={{
+              background: 'linear-gradient(90deg, transparent 5%, rgba(6,182,212,0.3) 30%, rgba(6,182,212,0.5) 50%, rgba(6,182,212,0.3) 70%, transparent 95%)',
+              boxShadow: '0 0 8px rgba(6,182,212,0.2), 0 1px 4px rgba(6,182,212,0.15)',
+            }} />
             <div className="flex items-center justify-between max-w-[1400px] mx-auto">
               <div className="flex items-center gap-1">
-                {tabs.map(tab => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className="relative flex items-center gap-1.5 px-3 py-2.5 text-xs font-mono tracking-wider transition-all"
-                    style={{
-                      color: activeTab === tab.id ? '#06b6d4' : 'rgba(6,182,212,0.4)',
-                    }}
-                  >
-                    <tab.icon size={14} />
-                    <span className="hidden sm:inline">{lang === 'ms' ? tab.label_ms : tab.label_en}</span>
-                    {activeTab === tab.id && (
-                      <motion.div
-                        layoutId="activeTab"
-                        className="absolute bottom-0 left-0 right-0 h-0.5"
-                        style={{
-                          background: 'linear-gradient(90deg, transparent, #06b6d4, transparent)',
-                          boxShadow: '0 0 10px rgba(6,182,212,0.5)',
-                        }}
-                      />
-                    )}
-                  </button>
-                ))}
+                {tabs.map(tab => {
+                  const isActive = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className="relative flex items-center gap-1.5 px-3 py-3 text-xs font-mono tracking-wider transition-all duration-200"
+                      style={{
+                        color: isActive ? '#06b6d4' : 'rgba(6,182,212,0.4)',
+                        textShadow: isActive ? '0 0 8px rgba(6,182,212,0.5)' : 'none',
+                        boxShadow: isActive ? '0 2px 12px rgba(6,182,212,0.15)' : 'none',
+                      }}
+                      onMouseEnter={e => {
+                        if (!isActive) {
+                          e.currentTarget.style.color = 'rgba(6,182,212,0.7)';
+                          e.currentTarget.style.textShadow = '0 0 6px rgba(6,182,212,0.25)';
+                          e.currentTarget.style.boxShadow = '0 2px 12px rgba(6,182,212,0.1)';
+                        }
+                      }}
+                      onMouseLeave={e => {
+                        if (!isActive) {
+                          e.currentTarget.style.color = 'rgba(6,182,212,0.4)';
+                          e.currentTarget.style.textShadow = 'none';
+                          e.currentTarget.style.boxShadow = 'none';
+                        }
+                      }}
+                    >
+                      <tab.icon size={14} />
+                      <span className="hidden sm:inline">{lang === 'ms' ? tab.label_ms : tab.label_en}</span>
+                      {isActive && (
+                        <motion.div
+                          layoutId="activeTab"
+                          className="absolute bottom-0 left-0 right-0 h-0.5"
+                          style={{
+                            background: 'linear-gradient(90deg, transparent, #06b6d4, transparent)',
+                            boxShadow: '0 0 10px rgba(6,182,212,0.5)',
+                          }}
+                        />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
 
               <div className="flex items-center gap-2">
                 {/* Language Toggle */}
                 <button
                   onClick={() => setLang(l => l === 'en' ? 'ms' : 'en')}
-                  className="flex items-center gap-1 px-2 py-1.5 rounded border text-[10px] font-mono tracking-wider"
+                  className="flex items-center gap-1 px-2 py-1.5 rounded border text-[11px] font-mono tracking-wider transition-all duration-200"
                   style={{
                     background: 'rgba(10,14,26,0.8)',
                     borderColor: 'rgba(6,182,212,0.15)',
                     color: '#06b6d4',
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = 'rgba(6,182,212,0.08)';
+                    e.currentTarget.style.borderColor = 'rgba(6,182,212,0.3)';
+                    e.currentTarget.style.boxShadow = '0 0 12px rgba(6,182,212,0.15)';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = 'rgba(10,14,26,0.8)';
+                    e.currentTarget.style.borderColor = 'rgba(6,182,212,0.15)';
+                    e.currentTarget.style.boxShadow = 'none';
                   }}
                 >
                   <Languages size={10} />
@@ -231,11 +298,21 @@ export default function Home() {
                 {/* Data Export Hub */}
                 <button
                   onClick={() => setShowExportHub(true)}
-                  className="flex items-center gap-1 px-2 py-1.5 rounded border text-[10px] font-mono tracking-wider"
+                  className="flex items-center gap-1 px-2 py-1.5 rounded border text-[11px] font-mono tracking-wider transition-all duration-200"
                   style={{
                     background: 'rgba(10,14,26,0.8)',
                     borderColor: 'rgba(6,182,212,0.15)',
                     color: '#06b6d4',
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = 'rgba(6,182,212,0.08)';
+                    e.currentTarget.style.borderColor = 'rgba(6,182,212,0.3)';
+                    e.currentTarget.style.boxShadow = '0 0 12px rgba(6,182,212,0.15)';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = 'rgba(10,14,26,0.8)';
+                    e.currentTarget.style.borderColor = 'rgba(6,182,212,0.15)';
+                    e.currentTarget.style.boxShadow = 'none';
                   }}
                 >
                   <Download size={10} />
@@ -245,11 +322,21 @@ export default function Home() {
                 {/* Infographic Export */}
                 <button
                   onClick={() => setShowInfographic(true)}
-                  className="flex items-center gap-1 px-2 py-1.5 rounded border text-[10px] font-mono tracking-wider"
+                  className="flex items-center gap-1 px-2 py-1.5 rounded border text-[11px] font-mono tracking-wider transition-all duration-200"
                   style={{
                     background: 'rgba(10,14,26,0.8)',
                     borderColor: 'rgba(6,182,212,0.15)',
                     color: '#06b6d4',
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = 'rgba(6,182,212,0.08)';
+                    e.currentTarget.style.borderColor = 'rgba(6,182,212,0.3)';
+                    e.currentTarget.style.boxShadow = '0 0 12px rgba(6,182,212,0.15)';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = 'rgba(10,14,26,0.8)';
+                    e.currentTarget.style.borderColor = 'rgba(6,182,212,0.15)';
+                    e.currentTarget.style.boxShadow = 'none';
                   }}
                 >
                   <Printer size={10} />
@@ -259,11 +346,25 @@ export default function Home() {
                 {/* Info */}
                 <button
                   onClick={() => setShowInfo(!showInfo)}
-                  className="flex items-center gap-1 px-2 py-1.5 rounded border text-[10px] font-mono tracking-wider"
+                  className="flex items-center gap-1 px-2 py-1.5 rounded border text-[11px] font-mono tracking-wider transition-all duration-200"
                   style={{
                     background: showInfo ? 'rgba(6,182,212,0.1)' : 'rgba(10,14,26,0.8)',
                     borderColor: showInfo ? 'rgba(6,182,212,0.3)' : 'rgba(6,182,212,0.15)',
                     color: '#06b6d4',
+                  }}
+                  onMouseEnter={e => {
+                    if (!showInfo) {
+                      e.currentTarget.style.background = 'rgba(6,182,212,0.08)';
+                      e.currentTarget.style.borderColor = 'rgba(6,182,212,0.3)';
+                      e.currentTarget.style.boxShadow = '0 0 12px rgba(6,182,212,0.15)';
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (!showInfo) {
+                      e.currentTarget.style.background = 'rgba(10,14,26,0.8)';
+                      e.currentTarget.style.borderColor = 'rgba(6,182,212,0.15)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }
                   }}
                 >
                   <Info size={10} />
@@ -287,13 +388,23 @@ export default function Home() {
                 {/* Keyboard Shortcuts Help */}
                 <button
                   onClick={() => setShowShortcutsModal(true)}
-                  className="flex items-center gap-1 px-2 py-1.5 rounded border text-[10px] font-mono tracking-wider"
+                  className="flex items-center gap-1 px-2 py-1.5 rounded border text-[11px] font-mono tracking-wider transition-all duration-200"
                   style={{
                     background: 'rgba(10,14,26,0.8)',
                     borderColor: 'rgba(6,182,212,0.15)',
                     color: '#06b6d4',
                   }}
                   title={lang === 'ms' ? 'Pintasan Papan Kekunci (?)' : 'Keyboard Shortcuts (?)'}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = 'rgba(6,182,212,0.08)';
+                    e.currentTarget.style.borderColor = 'rgba(6,182,212,0.3)';
+                    e.currentTarget.style.boxShadow = '0 0 12px rgba(6,182,212,0.15)';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = 'rgba(10,14,26,0.8)';
+                    e.currentTarget.style.borderColor = 'rgba(6,182,212,0.15)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
                 >
                   <HelpCircle size={10} />
                   <span className="hidden sm:inline">?</span>
@@ -307,8 +418,8 @@ export default function Home() {
             <AnimatePresence mode="wait">
               <motion.div
                 key={activeTab}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0, y: 10, scale: 0.99 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
               >
@@ -336,8 +447,13 @@ export default function Home() {
 
           {/* Enhanced Footer */}
           <footer className="mt-auto flex-shrink-0" style={{ background: 'rgba(10,14,26,0.98)' }}>
-            {/* Top decorative gradient line */}
-            <div className="h-px w-full overflow-hidden" style={{ background: 'rgba(6,182,212,0.1)' }}>
+            {/* Top border gradient (cyan → transparent → cyan) */}
+            <div className="h-px w-full" style={{
+              background: 'linear-gradient(90deg, #06b6d4, transparent 30%, transparent 70%, #06b6d4)',
+              opacity: 0.4,
+            }} />
+            {/* Animated accent line */}
+            <div className="h-px w-full overflow-hidden" style={{ background: 'rgba(6,182,212,0.05)' }}>
               <motion.div
                 className="h-full w-1/3"
                 style={{ background: 'linear-gradient(90deg, transparent, #06b6d4, transparent)' }}
@@ -359,7 +475,7 @@ export default function Home() {
                       MALAYSIA DATA COMMAND CENTER
                       <Heart
                         size={10}
-                        style={{ color: '#10b981', animation: 'heartbeat 1.5s ease-in-out infinite' }}
+                        style={{ color: '#10b981', animation: 'heartbeat 1.5s ease-in-out infinite', filter: 'drop-shadow(0 0 4px rgba(16,185,129,0.5))' }}
                       />
                     </div>
                     <div className="text-[10px] font-mono mb-2" style={{ color: 'rgba(6,182,212,0.4)' }}>
@@ -457,6 +573,12 @@ export default function Home() {
                   <div className="text-[9px] font-mono" style={{ color: 'rgba(6,182,212,0.3)' }}>
                     Built with Next.js
                   </div>
+                </div>
+                {/* Made with love text */}
+                <div className="text-center mt-1 mb-1">
+                  <span className="text-[8px] font-mono" style={{ color: 'rgba(6,182,212,0.2)', letterSpacing: '0.15em' }}>
+                    MADE WITH ❤️ IN MALAYSIA
+                  </span>
                 </div>
 
                 {/* Animated bottom scan line */}

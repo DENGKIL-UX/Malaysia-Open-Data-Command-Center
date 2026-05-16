@@ -7,7 +7,7 @@ import {
   Activity, Filter,
 } from 'lucide-react';
 import type { Lang } from '@/lib/dashboard-types';
-import { HUDBracket } from '@/components/dashboard/particle-background';
+import { HUDBracket, SectionHeaderLine } from '@/components/dashboard/particle-background';
 
 // ─── Types ────────────────────────────────────────────────────────
 type ActivityType = 'SYNC' | 'UPDATE' | 'NEW' | 'ALERT' | 'QUERY';
@@ -141,9 +141,12 @@ export function DataActivityFeed({ lang }: DataActivityFeedProps) {
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Activity size={14} style={{ color: '#06b6d4' }} />
-          <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
-            {lang === 'ms' ? 'SUAPAN AKTIVITI DATA LANGSUNG' : 'LIVE DATA ACTIVITY FEED'}
-          </span>
+          <div>
+            <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+              {lang === 'ms' ? 'SUAPAN AKTIVITI DATA LANGSUNG' : 'LIVE DATA ACTIVITY FEED'}
+            </span>
+            <SectionHeaderLine color="#06b6d4" delay={0.3} />
+          </div>
           <motion.div
             className="w-1.5 h-1.5 rounded-full"
             style={{ background: '#10b981' }}

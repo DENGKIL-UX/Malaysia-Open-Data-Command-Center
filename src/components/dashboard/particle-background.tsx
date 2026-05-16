@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { motion } from 'framer-motion';
 
 // ─── Particle Background ─────────────────────────────────────────
 export function ParticleBackground() {
@@ -56,6 +57,22 @@ export function HUDBracket() {
       <div className="absolute bottom-1 left-1 w-2 h-2 border-b border-l border-cyan-500/20 group-hover:border-cyan-500/40 transition-colors duration-300 pointer-events-none" />
       <div className="absolute bottom-1 right-1 w-2 h-2 border-b border-r border-cyan-500/20 group-hover:border-cyan-500/40 transition-colors duration-300 pointer-events-none" />
     </>
+  );
+}
+
+// ─── Section Header Drawing Line ──────────────────────────────────
+export function SectionHeaderLine({ color = '#06b6d4', delay = 0.5 }: { color?: string; delay?: number }) {
+  return (
+    <motion.div
+      initial={{ width: 0 }}
+      animate={{ width: '100%' }}
+      transition={{ duration: 0.8, delay, ease: 'easeOut' }}
+      className="mt-0.5"
+      style={{
+        height: 2,
+        background: `linear-gradient(90deg, ${color}, transparent)`,
+      }}
+    />
   );
 }
 

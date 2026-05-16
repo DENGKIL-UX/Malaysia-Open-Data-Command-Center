@@ -59,7 +59,7 @@ function StateDetailPanel({ state, lang, onClose, onViewProfile }: { state: type
               background: 'rgba(6,182,212,0.03)',
             }}>
               <m.icon size={12} style={{ color: m.color }} />
-              <span className="text-[10px] font-mono flex-1" style={{ color: '#94a3b8' }}>
+              <span className="text-[10px] font-mono flex-1" style={{ color: '#b8c5d4' }}>
                 {lang === 'ms' ? m.label_ms : m.label_en}
               </span>
               <span className="text-xs font-mono font-bold" style={{ color: '#e0f7fa' }}>
@@ -249,7 +249,7 @@ function StateComparisonModal({ lang, stateA, stateB, setStateA, setStateB, onCl
                     {/* State A value */}
                     <div className="text-right">
                       <span className={`text-sm font-mono font-bold ${winner === 'A' ? '' : ''}`} style={{
-                        color: winner === 'A' ? '#10b981' : winner === 'B' ? '#94a3b8' : '#e0f7fa',
+                        color: winner === 'A' ? '#10b981' : winner === 'B' ? '#8899aa' : '#e0f7fa',
                         textShadow: winner === 'A' ? '0 0 10px rgba(16,185,129,0.4)' : 'none',
                       }}>
                         {formatVal(valA)}
@@ -280,7 +280,7 @@ function StateComparisonModal({ lang, stateA, stateB, setStateA, setStateB, onCl
                     {/* State B value */}
                     <div className="text-left">
                       <span className="text-sm font-mono font-bold" style={{
-                        color: winner === 'B' ? '#10b981' : winner === 'A' ? '#94a3b8' : '#e0f7fa',
+                        color: winner === 'B' ? '#10b981' : winner === 'A' ? '#8899aa' : '#e0f7fa',
                         textShadow: winner === 'B' ? '0 0 10px rgba(16,185,129,0.4)' : 'none',
                       }}>
                         {formatVal(valB)}
@@ -429,7 +429,7 @@ export function GeoMapSection({ lang, onViewProfile }: { lang: Lang; onViewProfi
             </div>
           )}
 
-          {/* Mini state ranking */}
+          {/* Mini state ranking with layout animations */}
           <div className="rounded-lg border p-3" style={{
             background: 'rgba(10,14,26,0.95)',
             borderColor: 'rgba(6,182,212,0.12)',
@@ -437,7 +437,7 @@ export function GeoMapSection({ lang, onViewProfile }: { lang: Lang; onViewProfi
             <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: '#06b6d4' }}>
               {lang === 'ms' ? 'KEDUDUKAN NEGERI' : 'STATE RANKING'} — {MAP_LAYERS.find(l => l.id === activeLayer)?.label_en?.toUpperCase()}
             </div>
-            <div className="space-y-0.5 max-h-64 overflow-y-auto custom-scrollbar">
+            <div className="max-h-64 overflow-y-auto custom-scrollbar">
               {STATES.slice()
                 .sort((a, b) => (b[activeLayer as keyof typeof b] as number) - (a[activeLayer as keyof typeof a] as number))
                 .map((s, i) => {
@@ -445,10 +445,13 @@ export function GeoMapSection({ lang, onViewProfile }: { lang: Lang; onViewProfi
                   const maxVal = Math.max(...STATES.map(st => st[activeLayer as keyof typeof st] as number));
                   const isSelected = selectedState === s.id;
                   return (
-                    <motion.button
+                    <motion.div
                       key={s.id}
+                      layout
+                      layoutId={`ranking-${s.id}`}
+                      transition={{ type: 'spring', damping: 25, stiffness: 300 }}
                       onClick={() => setSelectedState(s.id)}
-                      className="w-full flex items-center gap-2 py-1.5 px-2 rounded text-left transition-all duration-200 group relative"
+                      className="w-full flex items-center gap-2 py-1.5 px-2 rounded text-left cursor-pointer group relative mb-0.5"
                       style={{
                         background: isSelected ? 'rgba(6,182,212,0.12)' : 'transparent',
                         borderLeft: isSelected ? '2px solid #06b6d4' : '2px solid transparent',
@@ -458,24 +461,57 @@ export function GeoMapSection({ lang, onViewProfile }: { lang: Lang; onViewProfi
                         borderLeftColor: 'rgba(6,182,212,0.4)',
                       }}
                     >
-                      <span className="text-[9px] font-mono w-4 text-right" style={{ color: i < 3 ? '#06b6d4' : 'rgba(6,182,212,0.3)' }}>
+                      <motion.span
+                        layout
+                        layoutId={`rank-badge-${s.id}`}
+                        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                        className="text-[9px] font-mono w-4 text-right flex-shrink-0"
+                        style={{
+                          color: i < 3 ? '#06b6d4' : '#8899aa',
+                          background: i < 3 ? 'rgba(6,182,212,0.1)' : 'transparent',
+                          borderRadius: 2,
+                          padding: '0 2px',
+                        }}
+                      >
                         {i + 1}
-                      </span>
-                      <span className="text-[10px] font-mono flex-1 truncate transition-colors duration-200 group-hover:text-white" style={{ color: isSelected ? '#06b6d4' : '#94a3b8' }}>
+                      </motion.span>
+                      <motion.span
+                        layout
+                        className="text-[10px] font-mono flex-1 truncate transition-colors duration-200 group-hover:text-white"
+                        style={{ color: isSelected ? '#06b6d4' : '#b8c5d4' }}
+                      >
                         {s.abbr}
-                      </span>
+                      </motion.span>
                       <div className="flex-1 h-1 rounded-full" style={{ background: 'rgba(6,182,212,0.1)' }}>
-                        <div className="h-full rounded-full transition-all duration-300 group-hover:shadow-[0_0_6px_rgba(6,182,212,0.4)]" style={{
-                          width: `${(val / maxVal) * 100}%`,
-                          background: i < 3 ? '#06b6d4' : 'rgba(6,182,212,0.4)',
-                          boxShadow: i < 3 ? '0 0 4px rgba(6,182,212,0.3)' : 'none',
-                        }} />
+                        <motion.div
+                          layout
+                          layoutId={`rank-bar-${s.id}`}
+                          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                          className="h-full rounded-full group-hover:shadow-[0_0_6px_rgba(6,182,212,0.4)]"
+                          style={{
+                            width: `${(val / maxVal) * 100}%`,
+                            background: i < 3 ? '#06b6d4' : 'rgba(6,182,212,0.4)',
+                            boxShadow: i < 3 ? '0 0 4px rgba(6,182,212,0.3)' : 'none',
+                          }}
+                        />
                       </div>
-                      <span className="text-[9px] font-mono transition-colors duration-200 group-hover:text-white" style={{ color: '#e0f7fa' }}>
+                      <span className="text-[9px] font-mono transition-colors duration-200 group-hover:text-white flex-shrink-0" style={{ color: '#e0f7fa' }}>
                         {typeof val === 'number' ? (activeLayer === 'unemployment' ? `${val}%` : activeLayer === 'gdp' ? `${(val/1000).toFixed(1)}B` : val.toLocaleString()) : val}
                       </span>
                       <ArrowRight size={10} className="opacity-0 group-hover:opacity-60 transition-opacity duration-200 flex-shrink-0" style={{ color: '#06b6d4' }} />
-                    </motion.button>
+                      {/* Highlight effect for selected state */}
+                      {isSelected && (
+                        <motion.div
+                          layoutId="ranking-highlight"
+                          className="absolute inset-0 rounded pointer-events-none"
+                          style={{
+                            boxShadow: 'inset 0 0 12px rgba(6,182,212,0.08), 0 0 8px rgba(6,182,212,0.1)',
+                            border: '1px solid rgba(6,182,212,0.15)',
+                          }}
+                          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                        />
+                      )}
+                    </motion.div>
                   );
                 })}
             </div>

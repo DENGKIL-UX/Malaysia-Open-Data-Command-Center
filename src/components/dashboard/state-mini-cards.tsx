@@ -39,7 +39,7 @@ export function StateMiniCards({ lang }: { lang: Lang }) {
             {/* Rank badge */}
             <div className="absolute top-1.5 right-1.5 text-[8px] font-mono px-1 py-0.5 rounded" style={{
               background: i < 3 ? 'rgba(6,182,212,0.15)' : 'rgba(6,182,212,0.05)',
-              color: i < 3 ? '#06b6d4' : 'rgba(6,182,212,0.4)',
+              color: i < 3 ? '#06b6d4' : '#8899aa',
             }}>
               #{i + 1}
             </div>
@@ -51,7 +51,7 @@ export function StateMiniCards({ lang }: { lang: Lang }) {
               <span className="text-[8px] font-mono" style={{ color: '#10b981' }}>
                 GDP {(s.gdp / 1000).toFixed(1)}B
               </span>
-              <span className="text-[8px]" style={{ color: 'rgba(6,182,212,0.3)' }}>•</span>
+              <span className="text-[8px]" style={{ color: '#8899aa' }}>•</span>
               <span className="text-[8px] font-mono" style={{ color: s.gdpGrowth >= 4 ? '#10b981' : '#f59e0b' }}>
                 {s.gdpGrowth}%
               </span>

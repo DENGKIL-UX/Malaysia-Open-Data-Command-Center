@@ -96,7 +96,7 @@ function DatasetDetailDrawer({ dataset, lang, onClose }: {
                 {lang === 'ms' ? 'PENERANGAN' : 'DESCRIPTION'}
               </span>
             </div>
-            <p className="text-xs leading-relaxed" style={{ color: '#94a3b8' }}>
+            <p className="text-xs leading-relaxed" style={{ color: '#b8c5d4' }}>
               {lang === 'ms' ? dataset.description_ms : dataset.description_en}
             </p>
           </div>
@@ -452,7 +452,7 @@ export function DatasetsSection({ lang }: { lang: Lang }) {
                       <div className="font-medium group-hover:text-cyan-300 transition-colors" style={{ color: '#e0f7fa' }}>
                         {lang === 'ms' ? d.title_ms : d.title_en}
                       </div>
-                      <div className="text-[9px] opacity-50 mt-0.5 truncate max-w-xs" style={{ color: '#94a3b8' }}>
+                      <div className="text-[9px] opacity-70 mt-0.5 truncate max-w-xs" style={{ color: '#b8c5d4' }}>
                         {lang === 'ms' ? d.description_ms : d.description_en}
                       </div>
                     </td>
@@ -474,11 +474,11 @@ export function DatasetsSection({ lang }: { lang: Lang }) {
                       </span>
                     </td>
                     <td className="px-3 py-2 hidden lg:table-cell">
-                      <span className="text-[9px] font-mono" style={{ color: '#94a3b8' }}>
+                      <span className="text-[9px] font-mono" style={{ color: '#b8c5d4' }}>
                         {d.geography.join(', ') || '—'}
                       </span>
                     </td>
-                    <td className="px-3 py-2 hidden lg:table-cell font-mono" style={{ color: '#94a3b8' }}>
+                    <td className="px-3 py-2 hidden lg:table-cell font-mono" style={{ color: '#b8c5d4' }}>
                       {d.dataset_begin}–{d.dataset_end}
                     </td>
                     <td className="px-3 py-2">

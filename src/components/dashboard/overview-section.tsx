@@ -15,23 +15,26 @@ import {
 } from '@/lib/data/malaysia-data';
 import { DATASETS } from '@/lib/data/datasets';
 import type { Lang } from '@/lib/dashboard-types';
-import { HUDBracket } from '@/components/dashboard/particle-background';
+import { HUDBracket, SectionHeaderLine } from '@/components/dashboard/particle-background';
 import { KPICard } from '@/components/dashboard/kpi-card';
 import { DataEnginePulse } from '@/components/dashboard/data-engine-pulse';
 import { StateMiniCards } from '@/components/dashboard/state-mini-cards';
 import { HealthIndexWidget } from '@/components/dashboard/health-index';
 import { DataSourceStats } from '@/components/dashboard/data-source-stats';
 import { DataActivityFeed } from '@/components/dashboard/data-activity-feed';
+import { DataInsightsEngine } from '@/components/dashboard/data-insights-engine';
+import { DataSnapshotWidget } from '@/components/dashboard/data-snapshot-widget';
+import { AnimatedBorderCard } from '@/components/dashboard/animated-border-card';
 
 // ─── Overview Section ─────────────────────────────────────────────
 export function OverviewSection({ lang }: { lang: Lang }) {
   const kpis = [
-    { icon: Users, label: lang === 'ms' ? 'Penduduk' : 'Population', value: '34.3M', unit: lang === 'ms' ? 'orang' : 'people', change: 1.1, color: '#06b6d4' },
-    { icon: TrendingUp, label: lang === 'ms' ? 'KDNK' : 'GDP', value: 'RM 1.68T', unit: '', change: 4.5, color: '#f59e0b' },
-    { icon: Baby, label: lang === 'ms' ? 'Kelahiran' : 'Births', value: '602.9K', unit: '', change: -2.3, color: '#10b981' },
-    { icon: Heart, label: lang === 'ms' ? 'Kematian' : 'Deaths', value: '159.7K', unit: '', change: 1.8, color: '#ef4444' },
-    { icon: Briefcase, label: lang === 'ms' ? 'Pengangguran' : 'Unemployment', value: '3.4', unit: '%', change: -0.3, color: '#8b5cf6' },
-    { icon: Database, label: lang === 'ms' ? 'Set Data' : 'Datasets', value: '287', unit: '', change: 12, color: '#ec4899' },
+    { icon: Users, label: lang === 'ms' ? 'Penduduk' : 'Population', value: '34.3M', unit: lang === 'ms' ? 'orang' : 'people', change: 1.1, color: '#06b6d4', sparkline: [32.4, 32.7, 33.0, 33.2, 33.4, 33.6, 33.8], trendValue: '+2.3%' },
+    { icon: TrendingUp, label: lang === 'ms' ? 'KDNK' : 'GDP', value: 'RM 1.68T', unit: '', change: 4.5, color: '#f59e0b', sparkline: [1.42, 1.49, 1.56, 1.61, 1.65, 1.68, 1.72], trendValue: '+2.5%' },
+    { icon: Baby, label: lang === 'ms' ? 'Kelahiran' : 'Births', value: '602.9K', unit: '', change: -2.3, color: '#10b981', sparkline: [488, 492, 478, 468, 462, 458, 455], trendValue: '-1.2%' },
+    { icon: Heart, label: lang === 'ms' ? 'Kematian' : 'Deaths', value: '159.7K', unit: '', change: 1.8, color: '#ef4444', sparkline: [155, 157, 159, 160, 158, 159, 160], trendValue: '+1.8%' },
+    { icon: Briefcase, label: lang === 'ms' ? 'Pengangguran' : 'Unemployment', value: '3.4', unit: '%', change: -0.3, color: '#8b5cf6', sparkline: [3.3, 3.4, 4.6, 4.7, 3.8, 3.6, 3.4], trendValue: '-3.4%' },
+    { icon: Database, label: lang === 'ms' ? 'Set Data' : 'Datasets', value: '287', unit: '', change: 12, color: '#ec4899', sparkline: [245, 252, 261, 270, 278, 283, 287], trendValue: '+1.4%' },
   ];
 
   // Top states bar chart data
@@ -88,9 +91,12 @@ export function OverviewSection({ lang }: { lang: Lang }) {
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-2">
             <Zap size={16} style={{ color: '#06b6d4' }} />
-            <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
-              {lang === 'ms' ? 'PENGANALISIS DATA NASIONAL' : 'NATIONAL DATA INTELLIGENCE'}
-            </span>
+            <div>
+              <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+                {lang === 'ms' ? 'PENGANALISIS DATA NASIONAL' : 'NATIONAL DATA INTELLIGENCE'}
+              </span>
+              <SectionHeaderLine color="#06b6d4" delay={0.3} />
+            </div>
             <motion.span
               className="text-[8px] font-mono px-1.5 py-0.5 rounded"
               style={{ background: 'rgba(6,182,212,0.12)', color: '#06b6d4', border: '1px solid rgba(6,182,212,0.2)' }}
@@ -106,7 +112,7 @@ export function OverviewSection({ lang }: { lang: Lang }) {
           }}>
             {lang === 'ms' ? 'Pusat Perintah Data Malaysia' : 'Malaysia Data Command Center'}
           </h2>
-          <p className="text-sm opacity-60 max-w-2xl" style={{ color: '#94a3b8' }}>
+          <p className="text-sm opacity-80 max-w-2xl" style={{ color: '#b8c5d4' }}>
             {lang === 'ms'
               ? 'Papan pemuka kecerdasan gred SaaS premium yang dikuasakan sepenuhnya oleh data.gov.my data terbuka. 287+ set data merentasi 18 kategori.'
               : 'A premium SaaS-grade intelligence dashboard powered entirely by data.gov.my open data. 287+ datasets across 18 categories.'
@@ -133,6 +139,9 @@ export function OverviewSection({ lang }: { lang: Lang }) {
         </div>
       </motion.div>
 
+      {/* Data Snapshot Widget */}
+      <DataSnapshotWidget lang={lang} />
+
       {/* KPI Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         {kpis.map((kpi, i) => (
@@ -142,27 +151,30 @@ export function OverviewSection({ lang }: { lang: Lang }) {
 
       {/* Row: Data Engine + State Cards + Health Index */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <DataEnginePulse lang={lang} />
+        <AnimatedBorderCard>
+          <DataEnginePulse lang={lang} />
+        </AnimatedBorderCard>
         <StateMiniCards lang={lang} />
-        <HealthIndexWidget lang={lang} />
+        <AnimatedBorderCard accentColor="#ec4899">
+          <HealthIndexWidget lang={lang} />
+        </AnimatedBorderCard>
       </div>
 
       {/* Charts Row */}
       <div className="space-y-1">
         <div className="flex items-center gap-3">
-          <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
-            {lang === 'ms' ? 'ANALISIS DATA' : 'DATA ANALYSIS'}
-          </span>
-          <motion.div
-            animate={{ scaleX: [0, 1] }}
-            transition={{ duration: 0.8, ease: 'easeOut' }}
-            style={{ height: 2, background: 'linear-gradient(90deg, #06b6d4, transparent)', transformOrigin: 'left', width: 120 }}
-          />
+          <div>
+            <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+              {lang === 'ms' ? 'ANALISIS DATA' : 'DATA ANALYSIS'}
+            </span>
+            <SectionHeaderLine color="#06b6d4" delay={0.2} />
+          </div>
         </div>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Bar Chart - Top States */}
-        <div className="lg:col-span-2 relative group rounded-lg border p-4" style={{
+        <AnimatedBorderCard className="lg:col-span-2">
+          <div className="relative group rounded-lg border p-4" style={{
           background: 'rgba(10,14,26,0.85)',
           borderColor: 'rgba(6,182,212,0.12)',
           backdropFilter: 'blur(12px)',
@@ -179,11 +191,11 @@ export function OverviewSection({ lang }: { lang: Lang }) {
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1">
                 <div className="w-2 h-2 rounded-full" style={{ background: '#06b6d4' }} />
-                <span className="text-[8px] font-mono" style={{ color: '#94a3b8' }}>POP</span>
+                <span className="text-[8px] font-mono" style={{ color: '#a0b0c0' }}>POP</span>
               </div>
               <div className="flex items-center gap-1">
                 <div className="w-2 h-2 rounded-full" style={{ background: '#f59e0b' }} />
-                <span className="text-[8px] font-mono" style={{ color: '#94a3b8' }}>GDP</span>
+                <span className="text-[8px] font-mono" style={{ color: '#a0b0c0' }}>GDP</span>
               </div>
             </div>
           </div>
@@ -199,23 +211,24 @@ export function OverviewSection({ lang }: { lang: Lang }) {
                   <stop offset="100%" stopColor="#f59e0b" stopOpacity={0.4} />
                 </linearGradient>
               </defs>
-              <XAxis dataKey="name" tick={{ fill: '#06b6d466', fontSize: 10 }} axisLine={false} tickLine={false} />
-              <YAxis yAxisId="left" tick={{ fill: '#06b6d466', fontSize: 9 }} axisLine={false} tickLine={false} width={50} label={{ value: lang === 'ms' ? "Penduduk ('000)" : "Population ('000)", angle: -90, position: 'insideLeft', style: { fill: '#06b6d466', fontSize: 9 } }} />
-              <YAxis yAxisId="right" orientation="right" tick={{ fill: '#f59e0b66', fontSize: 9 }} axisLine={false} tickLine={false} width={50} label={{ value: lang === 'ms' ? 'KDNK (RM B)' : 'GDP (RM B)', angle: 90, position: 'insideRight', style: { fill: '#f59e0b66', fontSize: 9 } }} />
+              <XAxis dataKey="name" tick={{ fill: '#a0b0c0', fontSize: 10 }} axisLine={false} tickLine={false} />
+              <YAxis yAxisId="left" tick={{ fill: '#a0b0c0', fontSize: 9 }} axisLine={false} tickLine={false} width={50} label={{ value: lang === 'ms' ? "Penduduk ('000)" : "Population ('000)", angle: -90, position: 'insideLeft', style: { fill: '#a0b0c0', fontSize: 9 } }} />
+              <YAxis yAxisId="right" orientation="right" tick={{ fill: '#a0b0c0', fontSize: 9 }} axisLine={false} tickLine={false} width={50} label={{ value: lang === 'ms' ? 'KDNK (RM B)' : 'GDP (RM B)', angle: 90, position: 'insideRight', style: { fill: '#a0b0c0', fontSize: 9 } }} />
               <Tooltip
                 content={({ active, payload, label }) => {
                   if (!active || !payload?.length) return null;
                   const data = payload[0]?.payload as { fullName?: string; population?: number; gdp?: number; name?: string };
                   return (
                     <div style={{
-                      background: '#0a0e1a',
-                      border: '1px solid #06b6d430',
-                      borderRadius: 8,
+                      background: 'rgba(10,14,26,0.97)',
+                      border: '1px solid rgba(6,182,212,0.25)',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 20px rgba(0,0,0,0.5), 0 0 15px rgba(6,182,212,0.1)',
                       padding: '8px 12px',
-                      fontSize: 11,
-                      boxShadow: '0 0 20px rgba(6,182,212,0.1)',
+                      fontSize: '11px',
+                      fontFamily: 'monospace',
                     }}>
-                      <div style={{ color: '#06b6d4', fontWeight: 700, marginBottom: 4, fontSize: 12 }}>
+                      <div style={{ color: '#06b6d4', fontWeight: 'bold', marginBottom: '4px', fontSize: '12px' }}>
                         {data?.fullName || label}
                       </div>
                       {payload.map((item, idx) => {
@@ -225,9 +238,9 @@ export function OverviewSection({ lang }: { lang: Lang }) {
                           ? (lang === 'ms' ? 'Penduduk' : 'Population')
                           : (lang === 'ms' ? 'KDNK (RM B)' : 'GDP (RM B)');
                         return (
-                          <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                          <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0' }}>
                             <div style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
-                            <span style={{ color: '#94a3b8', fontSize: 10 }}>{itemLabel}:</span>
+                            <span style={{ color: '#b8c5d4', fontSize: '11px' }}>{itemLabel}:</span>
                             <span style={{ color: '#e0f7fa', fontWeight: 600 }}>{Number(item.value).toLocaleString()}</span>
                           </div>
                         );
@@ -241,6 +254,7 @@ export function OverviewSection({ lang }: { lang: Lang }) {
             </BarChart>
           </ResponsiveContainer>
         </div>
+        </AnimatedBorderCard>
 
         {/* Pie Chart - Frequency */}
         <div className="relative group rounded-lg border p-4" style={{
@@ -262,7 +276,15 @@ export function OverviewSection({ lang }: { lang: Lang }) {
                 <Pie data={freqDist} cx="50%" cy="50%" innerRadius={45} outerRadius={75} dataKey="value" paddingAngle={2} stroke="none">
                   {freqDist.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                 </Pie>
-                <Tooltip contentStyle={{ background: '#0a0e1a', border: '1px solid #06b6d430', borderRadius: 8, fontSize: 11, boxShadow: '0 0 20px rgba(6,182,212,0.1)' }} />
+                <Tooltip contentStyle={{
+                  background: 'rgba(10,14,26,0.97)',
+                  border: '1px solid rgba(6,182,212,0.25)',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.5), 0 0 15px rgba(6,182,212,0.1)',
+                  padding: '8px 12px',
+                  fontSize: '11px',
+                  fontFamily: 'monospace',
+                }} itemStyle={{ color: '#b8c5d4', padding: '2px 0' }} labelStyle={{ color: '#06b6d4', fontWeight: 'bold', marginBottom: '4px', fontSize: '12px' }} />
               </PieChart>
             </ResponsiveContainer>
             {/* Center label */}
@@ -282,7 +304,7 @@ export function OverviewSection({ lang }: { lang: Lang }) {
                   <div className="w-2.5 h-2.5 rounded-full transition-all duration-200" style={{ background: PIE_COLORS[i % PIE_COLORS.length], boxShadow: `0 0 4px ${PIE_COLORS[i % PIE_COLORS.length]}40` }} />
                   <span className="text-[9px] font-mono" style={{ color: '#b0bec5' }}>{d.name}</span>
                   <span className="text-[9px] font-mono font-bold" style={{ color: PIE_COLORS[i % PIE_COLORS.length] }}>{d.value}</span>
-                  <span className="text-[8px] font-mono" style={{ color: '#64748b' }}>({pct}%)</span>
+                  <span className="text-[8px] font-mono" style={{ color: '#8899aa' }}>({pct}%)</span>
                 </div>
               );
             })}
@@ -290,17 +312,18 @@ export function OverviewSection({ lang }: { lang: Lang }) {
         </div>
       </div>
 
+      {/* Data Insights Engine */}
+      <DataInsightsEngine lang={lang} />
+
       {/* Row: Category Heat Blocks + Data Sources + Timeline */}
       <div className="space-y-1">
         <div className="flex items-center gap-3">
-          <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
-            {lang === 'ms' ? 'KATALOG & KEMAS KINI' : 'CATALOG & UPDATES'}
-          </span>
-          <motion.div
-            animate={{ scaleX: [0, 1] }}
-            transition={{ duration: 0.8, ease: 'easeOut' }}
-            style={{ height: 2, background: 'linear-gradient(90deg, #06b6d4, transparent)', transformOrigin: 'left', width: 120 }}
-          />
+          <div>
+            <span className="text-xs font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+              {lang === 'ms' ? 'KATALOG & KEMAS KINI' : 'CATALOG & UPDATES'}
+            </span>
+            <SectionHeaderLine color="#06b6d4" delay={0.2} />
+          </div>
         </div>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
