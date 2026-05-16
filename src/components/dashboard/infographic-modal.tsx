@@ -308,19 +308,28 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
         return;
       }
 
-      // Use actual rendered dimensions of the preview element rather than
-      // forcing fixed pixel dimensions that may not match what's on screen.
-      // The scale: 2 factor will produce a crisp 2× image.
-      const rect = target.getBoundingClientRect();
-      const exportWidth = Math.round(rect.width);
-      const exportHeight = Math.round(rect.height);
+      // Target export dimensions based on aspect ratio selection
+      let targetW: number;
+      let targetH: number;
+      if (aspectRatio === '16:9') {
+        targetW = 1920;
+        targetH = 1080;
+      } else if (aspectRatio === '9:16') {
+        targetW = 1080;
+        targetH = 1920;
+      } else {
+        // Auto: use the actual rendered dimensions
+        const rect = target.getBoundingClientRect();
+        targetW = Math.round(rect.width);
+        targetH = Math.round(rect.height);
+      }
 
       const canvas = await html2canvasFn(target, {
         scale: 2,
         backgroundColor: '#0a0e1a',
         useCORS: true,
-        width: exportWidth,
-        height: exportHeight,
+        width: targetW,
+        height: targetH,
         logging: false,
         onclone: (clonedDoc, clonedEl) => {
           // Patch cloned document's stylesheets for modern CSS color functions
@@ -350,12 +359,24 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
           `;
           clonedDoc.head.appendChild(cloneStyle);
 
-          // Set the cloned element dimensions for export
-          clonedEl.style.width = `${exportWidth}px`;
-          clonedEl.style.minHeight = `${exportHeight}px`;
+          // ─── Strip visual chrome from the export element ───
+          // Remove border, border-radius, box-shadow (preview-only decorations)
+          clonedEl.style.border = 'none';
+          clonedEl.style.borderRadius = '0';
+          clonedEl.style.boxShadow = 'none';
+          clonedEl.style.overflow = 'hidden';
+
+          // Set the export element to the exact target dimensions
+          // and remove aspect-ratio / max-height constraints
+          clonedEl.style.width = `${targetW}px`;
+          clonedEl.style.height = `${targetH}px`;
+          clonedEl.style.minHeight = '';
           clonedEl.style.aspectRatio = '';
           clonedEl.style.maxHeight = '';
-          clonedEl.style.overflow = 'hidden';
+
+          // Uniform padding for clean margins inside the infographic
+          const pad = Math.round(targetW * 0.032); // ~3.2% of width
+          clonedEl.style.padding = `${pad}px`;
         },
       });
 
@@ -376,11 +397,11 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
 
   const fs = fontSize === 'S' ? '10px' : fontSize === 'M' ? '12px' : '14px';
 
-  // Export dimension label (2× scale of actual rendered size)
+  // Export dimension label (actual output pixel dimensions at 2× scale)
   const exportDimLabel = useMemo(() => {
-    if (aspectRatio === '16:9') return '2× rendered (≈3840×2160)';
-    if (aspectRatio === '9:16') return '2× rendered (≈2160×3840)';
-    return '2× rendered (auto)';
+    if (aspectRatio === '16:9') return '3840×2160';
+    if (aspectRatio === '9:16') return '2160×3840';
+    return 'auto×2';
   }, [aspectRatio]);
 
   // Filter INFOGRAPHIC_SOURCES that match actual sources in data
@@ -458,7 +479,7 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
               </div>
               {/* Dimension indicator */}
               <div className="text-[8px] font-mono mt-1.5" style={{ color: '#64748b' }}>
-                {lang === 'ms' ? 'Eksport' : 'Export'}: {exportDimLabel} (2x)
+                {lang === 'ms' ? 'Eksport' : 'Export'}: {exportDimLabel} px
               </div>
             </div>
 
