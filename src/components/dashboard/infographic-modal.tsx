@@ -176,12 +176,11 @@ function HUDBracket() {
 
 // ─── Infographic Export Modal ────────────────────────────────────
 export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () => void }) {
-  const [selectedLayers, setSelectedLayers] = useState<string[]>(['population', 'gdp', 'births']);
+  const [selectedLayers, setSelectedLayers] = useState<string[]>(['population', 'gdp', 'demography']);
   const [fontSize, setFontSize] = useState<'S' | 'M' | 'L'>('M');
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16' | 'auto'>('16:9');
   const [exporting, setExporting] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
-  const exportContainerRef = useRef<HTMLDivElement>(null);
 
   const layers = [
     { id: 'population', label_en: 'Population', label_ms: 'Penduduk', color: '#06b6d4' },
@@ -220,67 +219,132 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
     return { minBegin, maxEnd, latestUpdate, sources: [...sources], totalDatasets: matching.length };
   }, [selectedLayers]);
 
+  /**
+   * Fix html2canvas v1.x incompatibility with modern CSS color functions.
+   * html2canvas cannot parse oklab(), oklch(), lab(), lch(), or color-mix(in oklab, ...).
+   * Tailwind CSS 4 generates these in base styles for opacity variants.
+   *
+   * Strategy: Temporarily disable stylesheet rules containing 'oklab' by
+   * removing them before export, then restoring after. Also inject CSS
+   * overrides for outline-color and caret-color defaults.
+   */
+  const patchStylesheetsForExport = (): Array<{ sheet: CSSStyleSheet; rule: string; index: number }> => {
+    const removed: Array<{ sheet: CSSStyleSheet; rule: string; index: number }> = [];
+
+    for (let si = 0; si < document.styleSheets.length; si++) {
+      try {
+        const sheet = document.styleSheets[si];
+        const rules = sheet.cssRules;
+        // Iterate backwards to preserve indices when removing
+        for (let ri = rules.length - 1; ri >= 0; ri--) {
+          const ruleText = rules[ri].cssText;
+          if (ruleText && ruleText.includes('oklab')) {
+            removed.push({ sheet, rule: ruleText, index: ri });
+            try {
+              sheet.deleteRule(ri);
+            } catch {
+              // Can't delete this rule
+            }
+          }
+        }
+      } catch {
+        // CORS on external stylesheets
+      }
+    }
+
+    // Inject global overrides for default oklab-based properties
+    const fixStyle = document.createElement('style');
+    fixStyle.id = 'html2canvas-oklab-fix';
+    fixStyle.textContent = `
+      *, *::before, *::after, ::backdrop {
+        outline-color: transparent !important;
+        caret-color: auto !important;
+        border-color: rgba(6,182,212,0.12) !important;
+      }
+    `;
+    document.head.appendChild(fixStyle);
+
+    return removed;
+  };
+
+  const restoreStylesheets = (removed: Array<{ sheet: CSSStyleSheet; rule: string; index: number }>) => {
+    // Remove the injected fix style
+    const fixStyle = document.getElementById('html2canvas-oklab-fix');
+    if (fixStyle) fixStyle.remove();
+
+    // Restore removed rules (in reverse order to maintain indices)
+    for (const { sheet, rule, index } of removed.reverse()) {
+      try {
+        sheet.insertRule(rule, index);
+      } catch {
+        // Can't re-insert this rule
+      }
+    }
+  };
+
   const handleExport = async () => {
     setExporting(true);
+    const patches = patchStylesheetsForExport();
     try {
       const html2canvas = (await import('html2canvas')).default;
-      const target = exportContainerRef.current || previewRef.current;
-      if (target) {
-        // Determine export dimensions based on aspect ratio
-        let exportWidth: number;
-        let exportHeight: number;
-        if (aspectRatio === '16:9') {
-          exportWidth = 1920;
-          exportHeight = 1080;
-        } else if (aspectRatio === '9:16') {
-          exportWidth = 1080;
-          exportHeight = 1920;
-        } else {
-          exportWidth = 1920;
-          exportHeight = 1080;
-        }
-
-        // Create off-screen container for clean export
-        const offscreen = document.createElement('div');
-        offscreen.style.position = 'fixed';
-        offscreen.style.left = '-9999px';
-        offscreen.style.top = '0';
-        offscreen.style.width = `${exportWidth}px`;
-        offscreen.style.minHeight = `${exportHeight}px`;
-        offscreen.style.background = '#0a0e1a';
-        offscreen.style.fontFamily = 'monospace';
-        offscreen.style.color = '#e0f7fa';
-        offscreen.style.overflow = 'hidden';
-
-        // Clone the preview content into the offscreen container
-        const clone = previewRef.current!.cloneNode(true) as HTMLElement;
-        clone.style.width = `${exportWidth}px`;
-        clone.style.minHeight = `${exportHeight}px`;
-        clone.style.aspectRatio = '';
-        clone.style.maxHeight = '';
-        clone.style.overflow = 'hidden';
-        offscreen.appendChild(clone);
-        document.body.appendChild(offscreen);
-
-        const canvas = await html2canvas(offscreen, {
-          scale: 2,
-          backgroundColor: '#0a0e1a',
-          useCORS: true,
-          width: exportWidth,
-          height: exportHeight,
-        });
-
-        document.body.removeChild(offscreen);
-
-        const link = document.createElement('a');
-        const ratioStr = aspectRatio === '16:9' ? '16x9' : aspectRatio === '9:16' ? '9x16' : 'auto';
-        link.download = `malaysia-data-infographic-${ratioStr}-${Date.now()}.png`;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
+      const target = previewRef.current;
+      if (!target) {
+        restoreStylesheets(patches);
+        setExporting(false);
+        return;
       }
+
+      // Determine export dimensions based on aspect ratio
+      let exportWidth: number;
+      let exportHeight: number;
+      if (aspectRatio === '16:9') {
+        exportWidth = 1920;
+        exportHeight = 1080;
+      } else if (aspectRatio === '9:16') {
+        exportWidth = 1080;
+        exportHeight = 1920;
+      } else {
+        exportWidth = 1920;
+        exportHeight = 1080;
+      }
+
+      const canvas = await html2canvas(target, {
+        scale: 2,
+        backgroundColor: '#0a0e1a',
+        useCORS: true,
+        width: exportWidth,
+        height: exportHeight,
+        logging: false,
+        onclone: (clonedDoc, clonedEl) => {
+          // Also patch the cloned document's stylesheets
+          const cloneStyle = clonedDoc.createElement('style');
+          cloneStyle.textContent = `
+            *, *::before, *::after {
+              outline-color: transparent !important;
+              caret-color: auto !important;
+            }
+          `;
+          clonedDoc.head.appendChild(cloneStyle);
+
+          // Set the cloned element dimensions for export
+          clonedEl.style.width = `${exportWidth}px`;
+          clonedEl.style.minHeight = `${exportHeight}px`;
+          clonedEl.style.aspectRatio = '';
+          clonedEl.style.maxHeight = '';
+          clonedEl.style.overflow = 'hidden';
+        },
+      });
+
+      const link = document.createElement('a');
+      const ratioStr = aspectRatio === '16:9' ? '16x9' : aspectRatio === '9:16' ? '9x16' : 'auto';
+      link.download = `malaysia-open-data-infographic-${ratioStr}-${Date.now()}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
     } catch (e) {
       console.error('Export failed:', e);
+      alert('Export failed. Please try again or use a different browser.');
     }
+    restoreStylesheets(patches);
     setExporting(false);
   };
 
