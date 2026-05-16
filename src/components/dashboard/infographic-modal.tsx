@@ -308,6 +308,10 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
         return;
       }
 
+      // Get the natural dimensions of the preview element before any export overrides
+      const naturalW = target.offsetWidth;
+      const naturalH = target.offsetHeight;
+
       // Target export dimensions based on aspect ratio selection
       let targetW: number;
       let targetH: number;
@@ -318,18 +322,25 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
         targetW = 1080;
         targetH = 1920;
       } else {
-        // Auto: use the actual rendered dimensions
-        const rect = target.getBoundingClientRect();
-        targetW = Math.round(rect.width);
-        targetH = Math.round(rect.height);
+        // Auto: use the actual rendered dimensions at 2× for retina quality
+        targetW = naturalW;
+        targetH = naturalH;
       }
 
+      // Calculate zoom factor to proportionally scale content to target dimensions.
+      // CSS zoom scales ALL content (text, padding, borders, grid gaps) proportionally,
+      // preventing the "tiny text in a big canvas" margin problem.
+      const isAutoMode = aspectRatio === 'auto';
+      const zoomFactor = isAutoMode ? 1 : targetW / naturalW;
+
+      // For auto mode, use scale:2 for retina quality.
+      // For fixed ratios, zoom handles the resolution, so use scale:1 to avoid over-scaling.
+      const h2cScale = isAutoMode ? 2 : 1;
+
       const canvas = await html2canvasFn(target, {
-        scale: 2,
+        scale: h2cScale,
         backgroundColor: '#0a0e1a',
         useCORS: true,
-        width: targetW,
-        height: targetH,
         logging: false,
         onclone: (clonedDoc, clonedEl) => {
           // Patch cloned document's stylesheets for modern CSS color functions
@@ -359,31 +370,47 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
           `;
           clonedDoc.head.appendChild(cloneStyle);
 
-          // ─── Strip visual chrome from the export element ───
-          // Remove border, border-radius, box-shadow (preview-only decorations)
+          // ─── Strip preview chrome ───
           clonedEl.style.border = 'none';
           clonedEl.style.borderRadius = '0';
           clonedEl.style.boxShadow = 'none';
           clonedEl.style.overflow = 'hidden';
+          // Remove max-height constraint (portrait preview clips with overflow)
+          clonedEl.style.maxHeight = 'none';
 
-          // Set the export element to the exact target dimensions
-          // and remove aspect-ratio / max-height constraints
-          clonedEl.style.width = `${targetW}px`;
-          clonedEl.style.height = `${targetH}px`;
-          clonedEl.style.minHeight = '';
-          clonedEl.style.aspectRatio = '';
-          clonedEl.style.maxHeight = '';
-
-          // Uniform padding for clean margins inside the infographic
-          const pad = Math.round(targetW * 0.032); // ~3.2% of width
-          clonedEl.style.padding = `${pad}px`;
+          if (!isAutoMode) {
+            // Apply CSS zoom to proportionally scale the preview content to target dimensions.
+            // This ensures all text, padding, borders, and grid gaps scale together,
+            // producing correct margins at the target resolution.
+            clonedEl.style.zoom = String(zoomFactor);
+          }
         },
       });
+
+      // Crop the canvas to exact target dimensions if needed.
+      // After zoom, the canvas may be slightly larger than target due to sub-pixel rounding.
+      const finalW = isAutoMode ? canvas.width : targetW * h2cScale;
+      const finalH = isAutoMode ? canvas.height : targetH * h2cScale;
+
+      let outputCanvas = canvas;
+      if (canvas.width !== finalW || canvas.height !== finalH) {
+        outputCanvas = document.createElement('canvas');
+        outputCanvas.width = finalW;
+        outputCanvas.height = finalH;
+        const ctx = outputCanvas.getContext('2d');
+        if (ctx) {
+          ctx.fillStyle = '#0a0e1a';
+          ctx.fillRect(0, 0, finalW, finalH);
+          ctx.drawImage(canvas, 0, 0, finalW, finalH);
+        } else {
+          outputCanvas = canvas; // fallback
+        }
+      }
 
       const link = document.createElement('a');
       const ratioStr = aspectRatio === '16:9' ? '16x9' : aspectRatio === '9:16' ? '9x16' : 'auto';
       link.download = `malaysia-open-data-infographic-${ratioStr}-${Date.now()}.png`;
-      link.href = canvas.toDataURL('image/png');
+      link.href = outputCanvas.toDataURL('image/png');
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -397,11 +424,11 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
 
   const fs = fontSize === 'S' ? '10px' : fontSize === 'M' ? '12px' : '14px';
 
-  // Export dimension label (actual output pixel dimensions at 2× scale)
+  // Export dimension label (actual output pixel dimensions)
   const exportDimLabel = useMemo(() => {
-    if (aspectRatio === '16:9') return '3840×2160';
-    if (aspectRatio === '9:16') return '2160×3840';
-    return 'auto×2';
+    if (aspectRatio === '16:9') return '1920×1080';
+    if (aspectRatio === '9:16') return '1080×1920';
+    return 'auto';
   }, [aspectRatio]);
 
   // Filter INFOGRAPHIC_SOURCES that match actual sources in data
