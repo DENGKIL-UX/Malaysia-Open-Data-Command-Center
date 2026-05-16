@@ -1,10 +1,14 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 
 // ─── Particle Background ─────────────────────────────────────────
 export function ParticleBackground() {
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => { setMounted(true); }, []);
+  
   const particles = useMemo(() =>
     Array.from({ length: 60 }, (_, i) => ({
       id: i,
@@ -17,6 +21,8 @@ export function ParticleBackground() {
       driftX: (Math.random() - 0.5) * 20,
       driftY: (Math.random() - 0.5) * 20,
     })), []);
+
+  if (!mounted) return null;
 
   return (
     <div className="fixed inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>

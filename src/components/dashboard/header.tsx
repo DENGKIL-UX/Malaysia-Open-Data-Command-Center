@@ -6,8 +6,8 @@ import { Activity, Radio, Shield, Wifi } from 'lucide-react';
 import { TIMELINE_EVENTS } from '@/lib/data/malaysia-data';
 
 function LiveClock() {
-  const [time, setTime] = useState<string>('');
-  const [date, setDate] = useState<string>('');
+  const [time, setTime] = useState<string>('--:--:--');
+  const [date, setDate] = useState<string>('---, -- --- ----');
 
   useEffect(() => {
     const updateClock = () => {

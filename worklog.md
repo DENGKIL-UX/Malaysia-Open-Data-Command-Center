@@ -2044,3 +2044,26 @@ Stage Summary:
 4. More accurate Malaysia SVG map
 5. User preferences persistence (localStorage)
 6. Accessibility audit with automated testing (axe-core)
+
+---
+Task ID: G1
+Agent: Main Orchestrator
+Task: Refine Geospatial Map with DOSM Malaysia GeoJSON data
+
+Work Log:
+- Downloaded 3 GeoJSON files from DOSM Malaysia GitHub (github.com/dosm-malaysia/data-open/datasets/geodata)
+- Created malaysia-geojson-map.tsx with real geographic boundaries replacing simplified SVG paths
+- Custom equirectangular + Mercator projection for Malaysia position
+- 3 boundary layers: State (16 features), District (160), Parlimen (222)
+- Zoom/Pan with mouse wheel + drag, click-to-zoom into state districts
+- Pre-processed GeoJSON to SVG paths offline for performance (63KB states, 105KB districts, 113KB parlimen)
+- Updated geomap-section.tsx to use new GeoJSON map component
+- Fixed hydration mismatch in LiveClock and ParticleBackground
+- Build passes, Lint passes with zero errors
+
+Stage Summary:
+- Real geographic boundaries from DOSM geodata replace simplified SVG paths
+- 3 boundary layers with zoom-based visibility
+- Full zoom/pan interactivity with district detail on zoom
+- Hydration fixes improve page stability
+- All existing map features preserved

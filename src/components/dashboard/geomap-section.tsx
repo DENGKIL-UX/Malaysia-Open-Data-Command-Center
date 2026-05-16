@@ -11,8 +11,8 @@ import { STATES, MAP_LAYERS } from '@/lib/data/malaysia-data';
 import type { Lang, LayerId } from '@/lib/dashboard-types';
 import { StateSearch } from '@/components/dashboard/state-search';
 
-// Dynamic import for map (avoid SSR issues)
-const MalaysiaMap = dynamic(() => import('@/components/map/malaysia-map'), { ssr: false });
+// Dynamic import for GeoJSON map (avoid SSR issues)
+const MalaysiaGeoJSONMap = dynamic(() => import('@/components/map/malaysia-geojson-map'), { ssr: false });
 
 // ─── State Detail Panel ──────────────────────────────────────────
 function StateDetailPanel({ state, lang, onClose, onViewProfile }: { state: typeof STATES[0]; lang: Lang; onClose: () => void; onViewProfile: () => void }) {
@@ -333,6 +333,17 @@ export function GeoMapSection({ lang, onViewProfile }: { lang: Lang; onViewProfi
           transition={{ duration: 0.8, ease: 'easeOut' }}
           style={{ height: 2, background: 'linear-gradient(90deg, #06b6d4, transparent)', transformOrigin: 'left', width: 120 }}
         />
+        {/* GeoJSON Source Badge */}
+        <span
+          className="text-[8px] font-mono px-2 py-0.5 rounded tracking-wider"
+          style={{
+            background: 'rgba(6,182,212,0.08)',
+            border: '1px solid rgba(6,182,212,0.15)',
+            color: 'rgba(6,182,212,0.5)',
+          }}
+        >
+          {lang === 'ms' ? 'DATA: DOSM GEODATA' : 'SRC: DOSM GEODATA'}
+        </span>
       </div>
       {/* State Search */}
       <StateSearch lang={lang} onSelect={(stateId) => setSelectedState(stateId)} />
@@ -399,13 +410,14 @@ export function GeoMapSection({ lang, onViewProfile }: { lang: Lang; onViewProfi
         <div className="lg:col-span-3 rounded-lg border overflow-hidden" style={{
           background: '#0a0e1a',
           borderColor: 'rgba(6,182,212,0.12)',
-          minHeight: '450px',
-        }} role="img" aria-label="Interactive map showing Malaysia states colored by selected data layer">
-          <MalaysiaMap
+          minHeight: '520px',
+        }} role="img" aria-label="Interactive map showing Malaysia states colored by selected data layer — powered by DOSM geodata">
+          <MalaysiaGeoJSONMap
             activeLayer={activeLayer}
             selectedState={selectedState}
             onSelectState={setSelectedState}
             onHoverState={setHoveredState}
+            lang={lang}
           />
         </div>
 
