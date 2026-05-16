@@ -1,10 +1,136 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Printer, X, Download } from 'lucide-react';
-import { STATES } from '@/lib/data/malaysia-data';
+import { Printer, X, Download, Calendar, Database, Building2 } from 'lucide-react';
+import { STATES, DATASET_CATEGORIES, MALAYSIA_TOTALS } from '@/lib/data/malaysia-data';
+import { DATASETS } from '@/lib/data/datasets';
 import type { Lang } from '@/lib/dashboard-types';
+
+// ─── Infographic Source & Date Data ────────────────────────────────
+const INFOGRAPHIC_SOURCES = [
+  { abbr: 'DOSM', full_en: 'Dept. of Statistics Malaysia', full_ms: 'Jabatan Perangkaan Malaysia', url: 'https://open.dosm.gov.my' },
+  { abbr: 'BNM', full_en: 'Bank Negara Malaysia', full_ms: 'Bank Negara Malaysia', url: 'https://www.bnm.gov.my' },
+  { abbr: 'KKM', full_en: 'Ministry of Health Malaysia', full_ms: 'Kementerian Kesihatan Malaysia', url: 'https://www.moh.gov.my' },
+  { abbr: 'JPN', full_en: 'National Registration Dept.', full_ms: 'Jabatan Pendaftaran Negara', url: 'https://www.jpn.gov.my' },
+  { abbr: 'MOT', full_en: 'Ministry of Transport', full_ms: 'Kementerian Pengangkutan', url: 'https://www.mot.gov.my' },
+  { abbr: 'KD', full_en: 'Ministry of Digital', full_ms: 'Kementerian Digital', url: 'https://data.gov.my' },
+  { abbr: 'JDN', full_en: 'National Data Dept.', full_ms: 'Jabatan Data Negara', url: 'https://data.gov.my' },
+  { abbr: 'KPM', full_en: 'Ministry of Education', full_ms: 'Kementerian Pendidikan', url: 'https://www.moe.gov.my' },
+  { abbr: 'KASA', full_en: 'Ministry of Environment', full_ms: 'Kementerian Alam Sekitar', url: 'https://www.kasa.gov.my' },
+  { abbr: 'data.gov.my', full_en: 'Malaysia Open Data Portal', full_ms: 'Portal Data Terbuka Malaysia', url: 'https://data.gov.my' },
+];
+
+// Map layer IDs to the dataset categories they correspond to
+const LAYER_CATEGORY_MAP: Record<string, string[]> = {
+  population: ['Demography'],
+  gdp: ['National Accounts'],
+  demography: ['Demography'],
+  healthcare: ['Healthcare'],
+  environment: ['Environment'],
+  education: ['Education'],
+};
+
+function LayerSourcesAndDates({ layerId, lang, fontSize }: { layerId: string; lang: Lang; fontSize: string }) {
+  const categories = LAYER_CATEGORY_MAP[layerId] || [];
+  const layerData = useMemo(() => {
+    const matching = DATASETS.filter(d => categories.includes(d.category_en));
+    if (matching.length === 0) return null;
+
+    let minBegin = 9999, maxEnd = 0, latestUpdate = '';
+    const sources = new Set<string>();
+    const frequencies = new Set<string>();
+    let totalDatasets = matching.length;
+
+    for (const d of matching) {
+      if (d.dataset_begin < minBegin) minBegin = d.dataset_begin;
+      if (d.dataset_end > maxEnd) maxEnd = d.dataset_end;
+      if (d.last_updated > latestUpdate) latestUpdate = d.last_updated;
+      d.data_source.forEach(s => sources.add(s));
+      frequencies.add(d.frequency);
+    }
+
+    return { minBegin, maxEnd, latestUpdate, sources: [...sources], frequencies: [...frequencies], totalDatasets };
+  }, [categories]);
+
+  if (!layerData) return null;
+
+  const layerLabels: Record<string, { en: string; ms: string; color: string }> = {
+    population: { en: 'Population', ms: 'Penduduk', color: '#06b6d4' },
+    gdp: { en: 'GDP & Economy', ms: 'KDNK & Ekonomi', color: '#f59e0b' },
+    demography: { en: 'Demography', ms: 'Demografi', color: '#10b981' },
+    healthcare: { en: 'Healthcare', ms: 'Kesihatan', color: '#ec4899' },
+    environment: { en: 'Environment', ms: 'Alam Sekitar', color: '#22c55e' },
+    education: { en: 'Education', ms: 'Pendidikan', color: '#3b82f6' },
+  };
+
+  const label = layerLabels[layerId] || { en: layerId, ms: layerId, color: '#06b6d4' };
+  const fs = fontSize;
+
+  return (
+    <div className="mb-3 p-2.5 rounded border" style={{ background: `${label.color}05`, borderColor: `${label.color}15` }}>
+      {/* Layer header */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-1.5">
+          <div className="w-1.5 h-1.5 rounded-full" style={{ background: label.color }} />
+          <span className="font-mono font-bold" style={{ color: label.color, fontSize: fs === '10px' ? '9px' : fs === '12px' ? '10px' : '11px' }}>
+            {lang === 'ms' ? label.ms : label.en}
+          </span>
+        </div>
+        <span className="font-mono" style={{ color: `${label.color}80`, fontSize: fs === '10px' ? '7px' : fs === '12px' ? '8px' : '9px' }}>
+          {layerData.totalDatasets} {lang === 'ms' ? 'set data' : 'datasets'}
+        </span>
+      </div>
+
+      {/* Date range */}
+      <div className="flex items-center gap-3 mb-1.5">
+        <div className="flex items-center gap-1">
+          <Calendar size={fs === '10px' ? 8 : fs === '12px' ? 9 : 10} style={{ color: label.color }} />
+          <span className="font-mono" style={{ color: '#e0f7fa', fontSize: fs === '10px' ? '8px' : fs === '12px' ? '9px' : '10px' }}>
+            {layerData.minBegin} – {layerData.maxEnd}
+          </span>
+        </div>
+        <div className="flex items-center gap-1">
+          <Database size={fs === '10px' ? 8 : fs === '12px' ? 9 : 10} style={{ color: `${label.color}80` }} />
+          <span className="font-mono" style={{ color: '#94a3b8', fontSize: fs === '10px' ? '7px' : fs === '12px' ? '8px' : '9px' }}>
+            {lang === 'ms' ? 'Dikemas kini' : 'Updated'}: {layerData.latestUpdate.split(' ')[0]}
+          </span>
+        </div>
+      </div>
+
+      {/* Source badges */}
+      <div className="flex flex-wrap gap-1">
+        {layerData.sources.map(src => {
+          const knownSource = INFOGRAPHIC_SOURCES.find(s => s.abbr === src);
+          return (
+            <span
+              key={src}
+              className="font-mono px-1.5 py-0.5 rounded border"
+              title={knownSource ? (lang === 'ms' ? knownSource.full_ms : knownSource.full_en) : src}
+              style={{
+                fontSize: fs === '10px' ? '7px' : fs === '12px' ? '8px' : '9px',
+                background: `${label.color}08`,
+                borderColor: `${label.color}20`,
+                color: `${label.color}cc`,
+              }}
+            >
+              {src}
+            </span>
+          );
+        })}
+      </div>
+
+      {/* Frequency indicators */}
+      <div className="flex items-center gap-1.5 mt-1.5">
+        {layerData.frequencies.map(freq => (
+          <span key={freq} className="font-mono" style={{ fontSize: fs === '10px' ? '6px' : fs === '12px' ? '7px' : '8px', color: '#64748b' }}>
+            ● {freq}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // ─── Infographic Export Modal ────────────────────────────────────
 export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () => void }) {
@@ -50,6 +176,22 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
   };
 
   const fs = fontSize === 'S' ? '10px' : fontSize === 'M' ? '12px' : '14px';
+
+  // Compute global date range across all selected layers
+  const globalDateInfo = useMemo(() => {
+    const allCategories = selectedLayers.flatMap(l => LAYER_CATEGORY_MAP[l] || []);
+    const matching = DATASETS.filter(d => allCategories.includes(d.category_en));
+    if (matching.length === 0) return { minBegin: 2020, maxEnd: 2024, latestUpdate: '', sources: new Set<string>(), totalDatasets: 0 };
+    let minBegin = 9999, maxEnd = 0, latestUpdate = '';
+    const sources = new Set<string>();
+    for (const d of matching) {
+      if (d.dataset_begin < minBegin) minBegin = d.dataset_begin;
+      if (d.dataset_end > maxEnd) maxEnd = d.dataset_end;
+      if (d.last_updated > latestUpdate) latestUpdate = d.last_updated;
+      d.data_source.forEach(s => sources.add(s));
+    }
+    return { minBegin, maxEnd, latestUpdate, sources: [...sources], totalDatasets: matching.length };
+  }, [selectedLayers]);
 
   return (
     <motion.div
@@ -291,8 +433,93 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
                 </div>
               )}
 
+              {/* ─── DATA SOURCES & DATE RANGES SECTION ───────────────────────── */}
+              {selectedLayers.length > 0 && (
+                <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(6,182,212,0.12)' }}>
+                  <div className="flex items-center gap-1.5 mb-3">
+                    <Building2 size={fs === '10px' ? 9 : fs === '12px' ? 10 : 11} style={{ color: '#06b6d4' }} />
+                    <span className="font-mono font-bold tracking-wider" style={{ color: '#06b6d4', fontSize: fs === '10px' ? '9px' : fs === '12px' ? '10px' : '11px' }}>
+                      {lang === 'ms' ? 'SUMBER DATA & JULAT TARIIKH' : 'DATA SOURCES & DATE RANGES'}
+                    </span>
+                  </div>
+
+                  {/* Per-layer source & date cards */}
+                  {selectedLayers.map(layerId => (
+                    <LayerSourcesAndDates key={layerId} layerId={layerId} lang={lang} fontSize={fs} />
+                  ))}
+
+                  {/* Global date coverage summary */}
+                  <div className="mt-3 p-2.5 rounded border" style={{ background: 'rgba(6,182,212,0.03)', borderColor: 'rgba(6,182,212,0.1)' }}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="font-mono font-bold" style={{ color: '#06b6d4', fontSize: fs === '10px' ? '8px' : fs === '12px' ? '9px' : '10px' }}>
+                        {lang === 'ms' ? 'JULAT KESELURUHAN' : 'OVERALL COVERAGE'}
+                      </span>
+                      <span className="font-mono" style={{ color: '#e0f7fa', fontSize: fs === '10px' ? '9px' : fs === '12px' ? '10px' : '11px' }}>
+                        {globalDateInfo.minBegin} – {globalDateInfo.maxEnd}
+                      </span>
+                    </div>
+
+                    {/* Visual timeline bar */}
+                    <div className="relative h-3 rounded-full overflow-hidden mb-1.5" style={{ background: 'rgba(6,182,212,0.08)' }}>
+                      <div className="absolute top-0 bottom-0 rounded-full" style={{
+                        left: `${((globalDateInfo.minBegin - 1990) / (2030 - 1990)) * 100}%`,
+                        right: `${100 - ((globalDateInfo.maxEnd - 1990) / (2030 - 1990)) * 100}%`,
+                        background: 'linear-gradient(90deg, #06b6d4, #10b981)',
+                        opacity: 0.6,
+                      }} />
+                      {/* Tick marks */}
+                      {[2000, 2005, 2010, 2015, 2020, 2025].map(year => (
+                        <div key={year} className="absolute top-0 bottom-0" style={{
+                          left: `${((year - 1990) / (2030 - 1990)) * 100}%`,
+                          width: 1,
+                          background: 'rgba(6,182,212,0.15)',
+                        }} />
+                      ))}
+                    </div>
+
+                    {/* Timeline year labels */}
+                    <div className="flex justify-between font-mono" style={{ fontSize: fs === '10px' ? '6px' : fs === '12px' ? '7px' : '8px', color: '#64748b' }}>
+                      <span>2000</span><span>2005</span><span>2010</span><span>2015</span><span>2020</span><span>2025</span>
+                    </div>
+
+                    {/* Total sources across all selected layers */}
+                    <div className="flex items-center gap-1.5 mt-2">
+                      <span className="font-mono" style={{ color: '#94a3b8', fontSize: fs === '10px' ? '7px' : fs === '12px' ? '8px' : '9px' }}>
+                        {globalDateInfo.totalDatasets} {lang === 'ms' ? 'set data daripada' : 'datasets from'} {globalDateInfo.sources.length} {lang === 'ms' ? 'sumber' : 'sources'}
+                      </span>
+                      <span className="font-mono" style={{ color: '#64748b', fontSize: fs === '10px' ? '7px' : fs === '12px' ? '8px' : '9px' }}>
+                        • {lang === 'ms' ? 'Terakhir dikemas kini' : 'Last updated'}: {globalDateInfo.latestUpdate ? globalDateInfo.latestUpdate.split(' ')[0] : '—'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ─── FULL SOURCE REFERENCE TABLE ───────────────────────── */}
+              {selectedLayers.length > 0 && (
+                <div className="mt-3 pt-3" style={{ borderTop: '1px solid rgba(6,182,212,0.08)' }}>
+                  <div className="text-[8px] font-mono tracking-wider mb-2" style={{ color: 'rgba(6,182,212,0.6)' }}>
+                    {lang === 'ms' ? 'RUJUKAN SUMBER' : 'SOURCE REFERENCES'}
+                  </div>
+                  <div className="grid grid-cols-2 gap-1">
+                    {INFOGRAPHIC_SOURCES.filter(s => globalDateInfo.sources.includes(s.abbr)).map(src => (
+                      <div key={src.abbr} className="flex items-start gap-1.5 p-1" style={{ fontSize: fs === '10px' ? '7px' : fs === '12px' ? '8px' : '9px' }}>
+                        <span className="font-mono font-bold flex-shrink-0" style={{ color: '#06b6d4', minWidth: '36px' }}>{src.abbr}</span>
+                        <span className="font-mono" style={{ color: '#94a3b8' }}>{lang === 'ms' ? src.full_ms : src.full_en}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Footer attribution */}
-              <div className="mt-6 pt-4 text-center" style={{ borderTop: '1px solid rgba(6,182,212,0.1)' }}>
+              <div className="mt-4 pt-3 text-center" style={{ borderTop: '1px solid rgba(6,182,212,0.1)' }}>
+                <div className="text-[8px] font-mono mb-1" style={{ color: 'rgba(6,182,212,0.5)' }}>
+                  {lang === 'ms'
+                    ? `Dijana pada ${new Date().toLocaleDateString('ms-MY', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kuala_Lumpur' })} ${new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kuala_Lumpur' })} MYT`
+                    : `Generated on ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kuala_Lumpur' })} ${new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kuala_Lumpur' })} MYT`
+                  }
+                </div>
                 <div className="text-[8px] font-mono" style={{ color: 'rgba(6,182,212,0.4)' }}>
                   {lang === 'ms'
                     ? 'Data diperoleh daripada data.gov.my • Lesen CC BY 4.0 • Pusat Perintah Data Terbuka Malaysia v3.0'
