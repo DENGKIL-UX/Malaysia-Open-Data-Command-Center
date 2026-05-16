@@ -10,15 +10,26 @@ export function KPICard({ icon: Icon, label, value, unit, change, color, lang }:
   icon: React.ElementType; label: string; value: string; unit: string;
   change?: number; color: string; lang: Lang;
 }) {
+  const [hovered, setHovered] = useState(false);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="relative overflow-hidden rounded-lg p-4 border backdrop-blur-sm"
+      className="relative overflow-hidden rounded-lg p-4 border"
       style={{
-        background: `linear-gradient(135deg, rgba(10,14,26,0.95), rgba(10,14,26,0.8))`,
-        borderColor: `${color}25`,
+        background: hovered
+          ? `linear-gradient(135deg, rgba(10,14,26,0.75), rgba(10,14,26,0.6))`
+          : `linear-gradient(135deg, rgba(10,14,26,0.95), rgba(10,14,26,0.8))`,
+        borderColor: hovered ? `${color}50` : `${color}25`,
+        transform: hovered ? 'scale(1.03)' : 'scale(1)',
+        boxShadow: hovered ? `0 0 20px ${color}20, 0 0 40px ${color}10` : 'none',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
       }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
       <div className="absolute top-0 right-0 w-24 h-24 opacity-5" style={{
         background: `radial-gradient(circle at top right, ${color}, transparent)`,
@@ -41,7 +52,11 @@ export function KPICard({ icon: Icon, label, value, unit, change, color, lang }:
       </div>
       {/* Bottom accent line */}
       <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{
-        background: `linear-gradient(90deg, transparent, ${color}40, transparent)`,
+        background: hovered
+          ? `linear-gradient(90deg, transparent, ${color}, transparent)`
+          : `linear-gradient(90deg, transparent, ${color}40, transparent)`,
+        boxShadow: hovered ? `0 0 8px ${color}60` : 'none',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
       }} />
     </motion.div>
   );

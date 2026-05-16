@@ -6,7 +6,7 @@ import {
   Users, TrendingUp, Database, Briefcase, Activity,
   BarChart3, Map, LayoutDashboard, Printer, Info,
   HelpCircle, Languages, ArrowUp, Bell, Copyright,
-  ExternalLink,
+  ExternalLink, Heart,
 } from 'lucide-react';
 
 import BootSequence from '@/components/dashboard/boot-sequence';
@@ -19,7 +19,38 @@ import { AnalyticsSection } from '@/components/dashboard/analytics-section';
 import { InfographicModal } from '@/components/dashboard/infographic-modal';
 import { InfoSection } from '@/components/dashboard/info-section';
 import { CommandPalette, KeyboardShortcutsModal } from '@/components/dashboard/command-palette';
+import { StateProfileModal } from '@/components/dashboard/state-profile-modal';
+import { NotificationCenter, NotificationBell } from '@/components/dashboard/notification-center';
 import type { TabId, Lang } from '@/lib/dashboard-types';
+
+// ─── Footer Animated Counter ────────────────────────────────────
+function FooterCounter({ target, color }: { target: number; color: string }) {
+  const [count, setCount] = useState(0);
+  const [hasAnimated, setHasAnimated] = useState(false);
+
+  useEffect(() => {
+    if (hasAnimated) return;
+    // Delay to let footer mount visually
+    const timer = setTimeout(() => {
+      setHasAnimated(true);
+      const duration = 1200;
+      const startTime = performance.now();
+      const animate = (now: number) => {
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        setCount(Math.round(target * eased));
+        if (progress < 1) requestAnimationFrame(animate);
+      };
+      requestAnimationFrame(animate);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [target, hasAnimated]);
+
+  return (
+    <span style={{ color }} className="font-bold">{count}</span>
+  );
+}
 
 // ─── Main Dashboard ──────────────────────────────────────────────
 export default function Home() {
@@ -32,6 +63,9 @@ export default function Home() {
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [currentAlert, setCurrentAlert] = useState<number | null>(null);
+  const [profileStateId, setProfileStateId] = useState<string | null>(null);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(5);
 
   // Scroll listener for scroll-to-top button
   useEffect(() => {
@@ -94,6 +128,8 @@ export default function Home() {
         if (showCommandPalette) { setShowCommandPalette(false); return; }
         if (showShortcutsModal) { setShowShortcutsModal(false); return; }
         if (showInfographic) { setShowInfographic(false); return; }
+        if (showNotifications) { setShowNotifications(false); return; }
+        if (profileStateId) { setProfileStateId(null); return; }
         return;
       }
 
@@ -113,7 +149,7 @@ export default function Home() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showCommandPalette, showShortcutsModal, showInfographic]);
+  }, [showCommandPalette, showShortcutsModal, showInfographic, showNotifications, profileStateId]);
 
   const tabs: { id: TabId; icon: React.ElementType; label_en: string; label_ms: string }[] = [
     { id: 'overview', icon: LayoutDashboard, label_en: 'Overview', label_ms: 'Gambaran' },
@@ -215,6 +251,13 @@ export default function Home() {
                   <span className="hidden sm:inline">{lang === 'ms' ? 'Maklumat' : 'Info'}</span>
                 </button>
 
+                {/* Notification Bell */}
+                <NotificationBell
+                  lang={lang}
+                  unreadCount={unreadCount}
+                  onClick={() => setShowNotifications(true)}
+                />
+
                 {/* Keyboard Shortcuts Help */}
                 <button
                   onClick={() => setShowShortcutsModal(true)}
@@ -244,7 +287,7 @@ export default function Home() {
                 transition={{ duration: 0.2 }}
               >
                 {activeTab === 'overview' && <OverviewSection lang={lang} />}
-                {activeTab === 'geomap' && <GeoMapSection lang={lang} />}
+                {activeTab === 'geomap' && <GeoMapSection lang={lang} onViewProfile={(id) => setProfileStateId(id)} />}
                 {activeTab === 'datasets' && <DatasetsSection lang={lang} />}
                 {activeTab === 'analytics' && <AnalyticsSection lang={lang} />}
               </motion.div>
@@ -283,11 +326,15 @@ export default function Home() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                   {/* Column 1: Branding */}
                   <div>
-                    <div className="text-xs font-mono font-bold tracking-wider mb-1" style={{
+                    <div className="text-xs font-mono font-bold tracking-wider mb-1 flex items-center gap-1.5" style={{
                       color: '#06b6d4',
                       textShadow: '0 0 10px rgba(6,182,212,0.4)',
                     }}>
                       MALAYSIA DATA COMMAND CENTER
+                      <Heart
+                        size={10}
+                        style={{ color: '#10b981', animation: 'heartbeat 1.5s ease-in-out infinite' }}
+                      />
                     </div>
                     <div className="text-[10px] font-mono mb-2" style={{ color: 'rgba(6,182,212,0.4)' }}>
                       Powered by data.gov.my
@@ -307,10 +354,10 @@ export default function Home() {
                       QUICK STATS
                     </div>
                     <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] font-mono">
-                      <span style={{ color: '#06b6d4' }}>287 <span style={{ color: 'rgba(6,182,212,0.4)' }}>Datasets</span></span>
-                      <span style={{ color: '#f59e0b' }}>18 <span style={{ color: 'rgba(245,158,11,0.4)' }}>Categories</span></span>
-                      <span style={{ color: '#10b981' }}>19 <span style={{ color: 'rgba(16,185,129,0.4)' }}>States/FT</span></span>
-                      <span style={{ color: '#8b5cf6' }}>6 <span style={{ color: 'rgba(139,92,246,0.4)' }}>Data Layers</span></span>
+                      <span style={{ color: '#06b6d4' }}><FooterCounter target={287} color="#06b6d4" /> <span style={{ color: 'rgba(6,182,212,0.4)' }}>Datasets</span></span>
+                      <span style={{ color: '#f59e0b' }}><FooterCounter target={18} color="#f59e0b" /> <span style={{ color: 'rgba(245,158,11,0.4)' }}>Categories</span></span>
+                      <span style={{ color: '#10b981' }}><FooterCounter target={19} color="#10b981" /> <span style={{ color: 'rgba(16,185,129,0.4)' }}>States/FT</span></span>
+                      <span style={{ color: '#8b5cf6' }}><FooterCounter target={6} color="#8b5cf6" /> <span style={{ color: 'rgba(139,92,246,0.4)' }}>Data Layers</span></span>
                     </div>
                   </div>
 
@@ -326,11 +373,27 @@ export default function Home() {
                         { name: 'KKM', color: '#ec4899' },
                         { name: 'JDN', color: '#8b5cf6' },
                       ].map(src => (
-                        <span key={src.name} className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{
-                          background: `${src.color}10`,
-                          border: `1px solid ${src.color}20`,
-                          color: src.color,
-                        }}>
+                        <span
+                          key={src.name}
+                          className="text-[9px] font-mono px-1.5 py-0.5 rounded transition-all duration-200 cursor-default hover:scale-110 hover:shadow-[0_0_12px_rgba(6,182,212,0.2)]"
+                          style={{
+                            background: `${src.color}10`,
+                            border: `1px solid ${src.color}20`,
+                            color: src.color,
+                          }}
+                          onMouseEnter={e => {
+                            const el = e.currentTarget;
+                            el.style.background = `${src.color}20`;
+                            el.style.borderColor = `${src.color}40`;
+                            el.style.boxShadow = `0 0 12px ${src.color}20`;
+                          }}
+                          onMouseLeave={e => {
+                            const el = e.currentTarget;
+                            el.style.background = `${src.color}10`;
+                            el.style.borderColor = `${src.color}20`;
+                            el.style.boxShadow = 'none';
+                          }}
+                        >
                           <Database size={8} className="inline mr-1" style={{ color: src.color }} />
                           {src.name}
                         </span>
@@ -433,6 +496,25 @@ export default function Home() {
           >
             <ArrowUp size={16} style={{ color: '#06b6d4' }} />
           </motion.button>
+        )}
+      </AnimatePresence>
+
+      {/* Notification Center */}
+      <NotificationCenter
+        lang={lang}
+        isOpen={showNotifications}
+        onClose={() => setShowNotifications(false)}
+        onUnreadChange={setUnreadCount}
+      />
+
+      {/* State Profile Modal */}
+      <AnimatePresence>
+        {profileStateId && (
+          <StateProfileModal
+            stateId={profileStateId}
+            lang={lang}
+            onClose={() => setProfileStateId(null)}
+          />
         )}
       </AnimatePresence>
 

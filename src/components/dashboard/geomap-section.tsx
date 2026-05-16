@@ -14,7 +14,7 @@ import type { Lang, LayerId } from '@/lib/dashboard-types';
 const MalaysiaMap = dynamic(() => import('@/components/map/malaysia-map'), { ssr: false });
 
 // ─── State Detail Panel ──────────────────────────────────────────
-function StateDetailPanel({ state, lang, onClose }: { state: typeof STATES[0]; lang: Lang; onClose: () => void }) {
+function StateDetailPanel({ state, lang, onClose, onViewProfile }: { state: typeof STATES[0]; lang: Lang; onClose: () => void; onViewProfile: () => void }) {
   const metrics = [
     { key: 'population', label_en: 'Population', label_ms: 'Penduduk', unit: "'000", icon: Users, color: '#06b6d4' },
     { key: 'gdp', label_en: 'GDP', label_ms: 'KDNK', unit: 'RM M', icon: TrendingUp, color: '#f59e0b' },
@@ -70,6 +70,20 @@ function StateDetailPanel({ state, lang, onClose }: { state: typeof STATES[0]; l
           );
         })}
       </div>
+
+      {/* View Profile Button */}
+      <button
+        onClick={onViewProfile}
+        className="w-full mt-3 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border text-[10px] font-mono tracking-wider transition-all hover:shadow-[0_0_12px_rgba(6,182,212,0.2)]"
+        style={{
+          background: 'rgba(6,182,212,0.1)',
+          borderColor: 'rgba(6,182,212,0.3)',
+          color: '#06b6d4',
+        }}
+      >
+        <ArrowUpRight size={11} />
+        {lang === 'ms' ? 'Lihat Profil Penuh' : 'View Full Profile'}
+      </button>
     </motion.div>
   );
 }
@@ -295,7 +309,7 @@ function StateComparisonModal({ lang, stateA, stateB, setStateA, setStateB, onCl
 }
 
 // ─── GeoMap Section ──────────────────────────────────────────────
-export function GeoMapSection({ lang }: { lang: Lang }) {
+export function GeoMapSection({ lang, onViewProfile }: { lang: Lang; onViewProfile?: (stateId: string) => void }) {
   const [activeLayer, setActiveLayer] = useState<LayerId>('population');
   const [selectedState, setSelectedState] = useState<string | null>(null);
   const [hoveredState, setHoveredState] = useState<string | null>(null);
@@ -310,24 +324,46 @@ export function GeoMapSection({ lang }: { lang: Lang }) {
     <div className="space-y-4">
       {/* Layer Controls */}
       <div className="flex flex-wrap items-center gap-2">
-        {MAP_LAYERS.map(layer => (
-          <button
-            key={layer.id}
-            onClick={() => setActiveLayer(layer.id as LayerId)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-mono tracking-wider transition-all border"
-            style={{
-              background: activeLayer === layer.id ? 'rgba(6,182,212,0.15)' : 'rgba(10,14,26,0.8)',
-              borderColor: activeLayer === layer.id ? 'rgba(6,182,212,0.4)' : 'rgba(6,182,212,0.1)',
-              color: activeLayer === layer.id ? '#06b6d4' : 'rgba(6,182,212,0.5)',
-              boxShadow: activeLayer === layer.id ? '0 0 15px rgba(6,182,212,0.1)' : 'none',
-            }}
-          >
-            {layer.label_en}
-            {activeLayer === layer.id && (
-              <motion.div layoutId="layer-indicator" className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-            )}
-          </button>
-        ))}
+        {/* LIVE Badge */}
+        <div className="flex items-center gap-1.5 px-2 py-1 rounded border mr-1" style={{
+          background: 'rgba(16, 185, 129, 0.08)',
+          borderColor: 'rgba(16, 185, 129, 0.25)',
+        }}>
+          <motion.div
+            className="w-1.5 h-1.5 rounded-full"
+            style={{ backgroundColor: '#10b981' }}
+            animate={{ opacity: [1, 0.3, 1] }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+          />
+          <span className="text-[9px] font-mono font-bold tracking-widest" style={{ color: '#10b981' }}>LIVE</span>
+        </div>
+
+        <AnimatePresence mode="wait">
+          {MAP_LAYERS.map(layer => (
+            <motion.button
+              key={layer.id}
+              onClick={() => setActiveLayer(layer.id as LayerId)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-mono tracking-wider transition-all border"
+              style={{
+                background: activeLayer === layer.id ? 'rgba(6,182,212,0.15)' : 'rgba(10,14,26,0.8)',
+                borderColor: activeLayer === layer.id ? 'rgba(6,182,212,0.4)' : 'rgba(6,182,212,0.1)',
+                color: activeLayer === layer.id ? '#06b6d4' : 'rgba(6,182,212,0.5)',
+                boxShadow: activeLayer === layer.id
+                  ? '0 0 15px rgba(6,182,212,0.15), 0 0 30px rgba(6,182,212,0.05)'
+                  : 'none',
+                animation: activeLayer === layer.id ? 'pulse-glow 2s ease-in-out infinite' : 'none',
+              }}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.15 }}
+            >
+              {layer.label_en}
+              {activeLayer === layer.id && (
+                <motion.div layoutId="layer-indicator" className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+              )}
+            </motion.button>
+          ))}
+        </AnimatePresence>
         {/* Compare Button */}
         <button
           onClick={() => setShowComparison(true)}
@@ -361,7 +397,15 @@ export function GeoMapSection({ lang }: { lang: Lang }) {
         {/* State Detail Panel */}
         <div className="space-y-3">
           {(selectedData || hoveredData) ? (
-            <StateDetailPanel state={selectedData || hoveredData!} lang={lang} onClose={() => setSelectedState(null)} />
+            <StateDetailPanel 
+              state={selectedData || hoveredData!} 
+              lang={lang} 
+              onClose={() => setSelectedState(null)}
+              onViewProfile={() => {
+                const id = (selectedData || hoveredData!)?.id;
+                if (id && onViewProfile) onViewProfile(id);
+              }}
+            />
           ) : (
             <div className="rounded-lg border p-4 h-full flex flex-col items-center justify-center min-h-[300px]" style={{
               background: 'rgba(10,14,26,0.95)',
@@ -382,34 +426,44 @@ export function GeoMapSection({ lang }: { lang: Lang }) {
             <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: '#06b6d4' }}>
               {lang === 'ms' ? 'KEDUDUKAN NEGERI' : 'STATE RANKING'} — {MAP_LAYERS.find(l => l.id === activeLayer)?.label_en?.toUpperCase()}
             </div>
-            <div className="space-y-1 max-h-64 overflow-y-auto custom-scrollbar">
+            <div className="space-y-0.5 max-h-64 overflow-y-auto custom-scrollbar">
               {STATES.slice()
                 .sort((a, b) => (b[activeLayer as keyof typeof b] as number) - (a[activeLayer as keyof typeof a] as number))
                 .map((s, i) => {
                   const val = s[activeLayer as keyof typeof s] as number;
                   const maxVal = Math.max(...STATES.map(st => st[activeLayer as keyof typeof st] as number));
+                  const isSelected = selectedState === s.id;
                   return (
-                    <button
+                    <motion.button
                       key={s.id}
                       onClick={() => setSelectedState(s.id)}
-                      className="w-full flex items-center gap-2 py-1 px-2 rounded text-left hover:bg-cyan-950/30 transition-colors"
+                      className="w-full flex items-center gap-2 py-1.5 px-2 rounded text-left transition-all duration-200 group"
+                      style={{
+                        background: isSelected ? 'rgba(6,182,212,0.12)' : 'transparent',
+                        borderLeft: isSelected ? '2px solid #06b6d4' : '2px solid transparent',
+                      }}
+                      whileHover={{
+                        backgroundColor: 'rgba(6,182,212,0.08)',
+                        borderLeftColor: 'rgba(6,182,212,0.4)',
+                      }}
                     >
                       <span className="text-[9px] font-mono w-4 text-right" style={{ color: i < 3 ? '#06b6d4' : 'rgba(6,182,212,0.3)' }}>
                         {i + 1}
                       </span>
-                      <span className="text-[10px] font-mono flex-1 truncate" style={{ color: selectedState === s.id ? '#06b6d4' : '#94a3b8' }}>
+                      <span className="text-[10px] font-mono flex-1 truncate group-hover:text-cyan-300 transition-colors" style={{ color: isSelected ? '#06b6d4' : '#94a3b8' }}>
                         {s.abbr}
                       </span>
                       <div className="flex-1 h-1 rounded-full" style={{ background: 'rgba(6,182,212,0.1)' }}>
-                        <div className="h-full rounded-full" style={{
+                        <div className="h-full rounded-full transition-all duration-300" style={{
                           width: `${(val / maxVal) * 100}%`,
                           background: i < 3 ? '#06b6d4' : 'rgba(6,182,212,0.4)',
+                          boxShadow: i < 3 ? '0 0 4px rgba(6,182,212,0.3)' : 'none',
                         }} />
                       </div>
                       <span className="text-[9px] font-mono" style={{ color: '#e0f7fa' }}>
                         {typeof val === 'number' ? (activeLayer === 'unemployment' ? `${val}%` : activeLayer === 'gdp' ? `${(val/1000).toFixed(1)}B` : val.toLocaleString()) : val}
                       </span>
-                    </button>
+                    </motion.button>
                   );
                 })}
             </div>

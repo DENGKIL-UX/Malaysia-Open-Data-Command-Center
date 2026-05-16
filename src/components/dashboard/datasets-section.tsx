@@ -1,15 +1,41 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FileText, Download, Search, ChevronLeft, ChevronRight,
   Globe, X, ExternalLink, Clock, Calendar, Tag, FileDown, Database, Users,
-  ArrowRight,
+  ArrowRight, Filter, Hash,
 } from 'lucide-react';
 import { DATASET_CATEGORIES, FREQUENCY_COLORS } from '@/lib/data/malaysia-data';
 import { DATASETS } from '@/lib/data/datasets';
 import type { Lang } from '@/lib/dashboard-types';
+
+// ─── Animated Counter Hook ──────────────────────────────────────
+function useAnimatedCounter(target: number, duration = 600) {
+  const [count, setCount] = useState(0);
+  const prevTarget = useRef(target);
+
+  useEffect(() => {
+    if (prevTarget.current === target) return;
+    prevTarget.current = target;
+    const start = count;
+    const diff = target - start;
+    const startTime = performance.now();
+
+    const animate = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      // easeOutCubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setCount(Math.round(start + diff * eased));
+      if (progress < 1) requestAnimationFrame(animate);
+    };
+    requestAnimationFrame(animate);
+  }, [target, duration, count]);
+
+  return count;
+}
 
 // ─── Dataset Detail Drawer ───────────────────────────────────────
 function DatasetDetailDrawer({ dataset, lang, onClose }: {
@@ -249,6 +275,7 @@ export function DatasetsSection({ lang }: { lang: Lang }) {
   const [freqFilter, setFreqFilter] = useState('ALL');
   const [page, setPage] = useState(1);
   const [selectedDataset, setSelectedDataset] = useState<typeof DATASETS[0] | null>(null);
+  const [searchFocused, setSearchFocused] = useState(false);
   const perPage = 20;
 
   const filtered = useMemo(() => {
@@ -264,6 +291,8 @@ export function DatasetsSection({ lang }: { lang: Lang }) {
     if (freqFilter !== 'ALL') result = result.filter(d => d.frequency === freqFilter);
     return result;
   }, [search, categoryFilter, freqFilter]);
+
+  const animatedCount = useAnimatedCounter(filtered.length);
 
   const totalPages = Math.ceil(filtered.length / perPage);
   const paginated = filtered.slice((page - 1) * perPage, page * perPage);
@@ -287,37 +316,70 @@ export function DatasetsSection({ lang }: { lang: Lang }) {
             placeholder={lang === 'ms' ? 'Cari set data...' : 'Search datasets...'}
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }}
-            className="w-full pl-9 pr-4 py-2 rounded-md border text-xs font-mono"
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
+            className="w-full pl-9 pr-4 py-2 rounded-md border text-xs font-mono transition-all duration-300"
             style={{
               background: 'rgba(10,14,26,0.9)',
-              borderColor: 'rgba(6,182,212,0.15)',
+              borderColor: searchFocused ? 'rgba(6,182,212,0.5)' : 'rgba(6,182,212,0.15)',
               color: '#e0f7fa',
+              boxShadow: searchFocused ? '0 0 12px rgba(6,182,212,0.15), 0 0 4px rgba(6,182,212,0.1)' : 'none',
             }}
           />
         </div>
-        <select
-          value={categoryFilter}
-          onChange={e => { setCategoryFilter(e.target.value); setPage(1); }}
-          className="px-3 py-2 rounded-md border text-xs font-mono"
-          style={{ background: 'rgba(10,14,26,0.9)', borderColor: 'rgba(6,182,212,0.15)', color: '#06b6d4' }}
-        >
-          {categories.map(c => <option key={c} value={c}>{c === 'ALL' ? (lang === 'ms' ? 'Semua Kategori' : 'All Categories') : c}</option>)}
-        </select>
-        <select
-          value={freqFilter}
-          onChange={e => { setFreqFilter(e.target.value); setPage(1); }}
-          className="px-3 py-2 rounded-md border text-xs font-mono"
-          style={{ background: 'rgba(10,14,26,0.9)', borderColor: 'rgba(6,182,212,0.15)', color: '#06b6d4' }}
-        >
-          {frequencies.map(f => <option key={f} value={f}>{f === 'ALL' ? (lang === 'ms' ? 'Semua Frekuensi' : 'All Frequencies') : f}</option>)}
-        </select>
+        <div className="relative">
+          <select
+            value={categoryFilter}
+            onChange={e => { setCategoryFilter(e.target.value); setPage(1); }}
+            className="px-3 py-2 rounded-md border text-xs font-mono transition-all duration-200 appearance-none pr-8"
+            style={{
+              background: categoryFilter !== 'ALL' ? 'rgba(6,182,212,0.1)' : 'rgba(10,14,26,0.9)',
+              borderColor: categoryFilter !== 'ALL' ? 'rgba(6,182,212,0.4)' : 'rgba(6,182,212,0.15)',
+              color: '#06b6d4',
+              boxShadow: categoryFilter !== 'ALL' ? '0 0 8px rgba(6,182,212,0.1)' : 'none',
+            }}
+          >
+            {categories.map(c => <option key={c} value={c}>{c === 'ALL' ? (lang === 'ms' ? 'Semua Kategori' : 'All Categories') : c}</option>)}
+          </select>
+          <Filter size={10} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'rgba(6,182,212,0.4)' }} />
+        </div>
+        <div className="relative">
+          <select
+            value={freqFilter}
+            onChange={e => { setFreqFilter(e.target.value); setPage(1); }}
+            className="px-3 py-2 rounded-md border text-xs font-mono transition-all duration-200 appearance-none pr-8"
+            style={{
+              background: freqFilter !== 'ALL' ? 'rgba(6,182,212,0.1)' : 'rgba(10,14,26,0.9)',
+              borderColor: freqFilter !== 'ALL' ? 'rgba(6,182,212,0.4)' : 'rgba(6,182,212,0.15)',
+              color: '#06b6d4',
+              boxShadow: freqFilter !== 'ALL' ? '0 0 8px rgba(6,182,212,0.1)' : 'none',
+            }}
+          >
+            {frequencies.map(f => <option key={f} value={f}>{f === 'ALL' ? (lang === 'ms' ? 'Semua Frekuensi' : 'All Frequencies') : f}</option>)}
+          </select>
+          <Filter size={10} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'rgba(6,182,212,0.4)' }} />
+        </div>
       </div>
 
-      {/* Results count */}
+      {/* Results count with animated badge */}
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-mono" style={{ color: 'rgba(6,182,212,0.5)' }}>
-          {filtered.length} {lang === 'ms' ? 'set data dijumpai' : 'datasets found'}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-mono" style={{ color: 'rgba(6,182,212,0.5)' }}>
+            {lang === 'ms' ? 'set data dijumpai' : 'datasets found'}
+          </span>
+          <span
+            className="flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full"
+            style={{
+              background: 'rgba(6,182,212,0.1)',
+              color: '#06b6d4',
+              border: '1px solid rgba(6,182,212,0.2)',
+              boxShadow: '0 0 8px rgba(6,182,212,0.08)',
+            }}
+          >
+            <Hash size={9} />
+            {animatedCount}
+          </span>
+        </div>
       </div>
 
       {/* Table */}
@@ -352,14 +414,28 @@ export function DatasetsSection({ lang }: { lang: Lang }) {
             </thead>
             <tbody>
               {paginated.map((d, i) => (
-                <tr key={d.id} className="hover:bg-cyan-950/20 transition-colors cursor-pointer" style={{
-                  borderBottom: '1px solid rgba(6,182,212,0.05)',
-                }} onClick={() => setSelectedDataset(d)}>
+                <tr
+                  key={d.id}
+                  className="transition-all duration-200 cursor-pointer group"
+                  style={{
+                    borderBottom: '1px solid rgba(6,182,212,0.05)',
+                    background: i % 2 === 0 ? 'transparent' : 'rgba(6,182,212,0.015)',
+                  }}
+                  onClick={() => setSelectedDataset(d)}
+                  onMouseEnter={e => {
+                    (e.currentTarget as HTMLElement).style.background = 'rgba(6,182,212,0.06)';
+                    (e.currentTarget as HTMLElement).style.borderLeft = '2px solid rgba(6,182,212,0.4)';
+                  }}
+                  onMouseLeave={e => {
+                    (e.currentTarget as HTMLElement).style.background = i % 2 === 0 ? 'transparent' : 'rgba(6,182,212,0.015)';
+                    (e.currentTarget as HTMLElement).style.borderLeft = 'none';
+                  }}
+                >
                   <td className="px-3 py-2 font-mono" style={{ color: 'rgba(6,182,212,0.3)' }}>
                     {(page - 1) * perPage + i + 1}
                   </td>
                   <td className="px-3 py-2">
-                    <div className="font-medium" style={{ color: '#e0f7fa' }}>
+                    <div className="font-medium group-hover:text-cyan-300 transition-colors" style={{ color: '#e0f7fa' }}>
                       {lang === 'ms' ? d.title_ms : d.title_en}
                     </div>
                     <div className="text-[9px] opacity-50 mt-0.5 truncate max-w-xs" style={{ color: '#94a3b8' }}>

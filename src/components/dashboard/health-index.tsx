@@ -18,8 +18,10 @@ export function HealthIndexWidget({ lang }: { lang: Lang }) {
 
   return (
     <div className="relative group rounded-lg border p-4" style={{
-      background: 'rgba(10,14,26,0.95)',
+      background: 'rgba(10,14,26,0.85)',
       borderColor: 'rgba(6,182,212,0.12)',
+      backdropFilter: 'blur(12px)',
+      WebkitBackdropFilter: 'blur(12px)',
     }}>
       <HUDBracket />
       <div className="flex items-center gap-2 mb-3">
@@ -32,7 +34,7 @@ export function HealthIndexWidget({ lang }: { lang: Lang }) {
         {indices.map((idx) => (
           <div key={idx.label_en}>
             <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] font-mono flex items-center gap-1.5" style={{ color: '#94a3b8' }}>
+              <span className="text-[10px] font-mono flex items-center gap-1.5" style={{ color: '#b0bec5' }}>
                 <span className="text-xs">{idx.icon}</span>
                 {lang === 'ms' ? idx.label_ms : idx.label_en}
               </span>

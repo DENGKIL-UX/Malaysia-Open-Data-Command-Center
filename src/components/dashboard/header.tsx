@@ -56,40 +56,65 @@ function LiveClock() {
 function StatusIndicators() {
   return (
     <div className="flex items-center gap-4">
-      {/* System Online */}
+      {/* System Online — enhanced pulse */}
       <div className="flex items-center gap-2">
-        <motion.div
-          className="w-2 h-2 rounded-full"
-          style={{ backgroundColor: '#10b981', boxShadow: '0 0 6px rgba(16, 185, 129, 0.6)' }}
-          animate={{ scale: [1, 1.4, 1], opacity: [1, 0.7, 1] }}
-          transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-        />
+        <div className="relative">
+          <motion.div
+            className="w-2 h-2 rounded-full"
+            style={{ backgroundColor: '#10b981', boxShadow: '0 0 8px rgba(16, 185, 129, 0.7)' }}
+            animate={{ scale: [1, 1.5, 1], opacity: [1, 0.6, 1] }}
+            transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+          />
+          {/* Outer pulse ring */}
+          <motion.div
+            className="absolute inset-0 w-2 h-2 rounded-full"
+            style={{ border: '1px solid rgba(16, 185, 129, 0.4)' }}
+            animate={{ scale: [1, 2.2, 1], opacity: [0.6, 0, 0.6] }}
+            transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+          />
+        </div>
         <span className="text-[10px] font-mono tracking-wider" style={{ color: '#10b981' }}>
           SYSTEM ONLINE
         </span>
       </div>
 
-      {/* API Status */}
+      {/* API Status — enhanced pulse */}
       <div className="hidden md:flex items-center gap-2">
-        <motion.div
-          className="w-2 h-2 rounded-full"
-          style={{ backgroundColor: '#10b981', boxShadow: '0 0 6px rgba(16, 185, 129, 0.6)' }}
-          animate={{ scale: [1, 1.3, 1], opacity: [1, 0.8, 1] }}
-          transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut', delay: 0.3 }}
-        />
+        <div className="relative">
+          <motion.div
+            className="w-2 h-2 rounded-full"
+            style={{ backgroundColor: '#10b981', boxShadow: '0 0 8px rgba(16, 185, 129, 0.7)' }}
+            animate={{ scale: [1, 1.4, 1], opacity: [1, 0.7, 1] }}
+            transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut', delay: 0.3 }}
+          />
+          <motion.div
+            className="absolute inset-0 w-2 h-2 rounded-full"
+            style={{ border: '1px solid rgba(16, 185, 129, 0.3)' }}
+            animate={{ scale: [1, 2, 1], opacity: [0.5, 0, 0.5] }}
+            transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut', delay: 0.3 }}
+          />
+        </div>
         <span className="text-[10px] font-mono tracking-wider" style={{ color: 'rgba(6, 182, 212, 0.6)' }}>
           API CONNECTED
         </span>
       </div>
 
-      {/* Data Sync */}
+      {/* Data Sync — enhanced pulse */}
       <div className="hidden lg:flex items-center gap-2">
-        <motion.div
-          className="w-2 h-2 rounded-full"
-          style={{ backgroundColor: '#f59e0b', boxShadow: '0 0 6px rgba(245, 158, 11, 0.6)' }}
-          animate={{ scale: [1, 1.3, 1], opacity: [1, 0.7, 1] }}
-          transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut', delay: 0.6 }}
-        />
+        <div className="relative">
+          <motion.div
+            className="w-2 h-2 rounded-full"
+            style={{ backgroundColor: '#f59e0b', boxShadow: '0 0 8px rgba(245, 158, 11, 0.7)' }}
+            animate={{ scale: [1, 1.4, 1], opacity: [1, 0.6, 1] }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut', delay: 0.6 }}
+          />
+          <motion.div
+            className="absolute inset-0 w-2 h-2 rounded-full"
+            style={{ border: '1px solid rgba(245, 158, 11, 0.3)' }}
+            animate={{ scale: [1, 2, 1], opacity: [0.5, 0, 0.5] }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut', delay: 0.6 }}
+          />
+        </div>
         <span className="text-[10px] font-mono tracking-wider" style={{ color: 'rgba(6, 182, 212, 0.6)' }}>
           SYNC 287 DATASETS
         </span>
@@ -224,7 +249,7 @@ export default function Header() {
         {/* Left: Title section */}
         <div className="flex flex-col items-center md:items-start">
           <h1
-            className="text-lg md:text-xl lg:text-2xl font-bold tracking-[0.15em]"
+            className="text-lg md:text-xl lg:text-2xl font-bold tracking-[0.15em] glow-text"
             style={{
               color: '#06b6d4',
               textShadow: '0 0 20px rgba(6, 182, 212, 0.4), 0 0 40px rgba(6, 182, 212, 0.15)',
@@ -232,6 +257,17 @@ export default function Header() {
           >
             MALAYSIA DATA COMMAND CENTER
           </h1>
+          {/* Gradient underline animation */}
+          <div className="w-full h-0.5 mt-1 rounded-full overflow-hidden" style={{ maxWidth: '320px' }}>
+            <div
+              className="h-full w-full rounded-full"
+              style={{
+                background: 'linear-gradient(90deg, transparent, #06b6d4, #10b981, #06b6d4, transparent)',
+                backgroundSize: '200% 100%',
+                animation: 'gradient-underline 3s ease-in-out infinite',
+              }}
+            />
+          </div>
           <div className="flex items-center gap-2 mt-0.5">
             <div
               className="h-px w-8"
@@ -265,6 +301,36 @@ export default function Header() {
         style={{ borderBottom: '1px solid rgba(6, 182, 212, 0.1)' }}
       >
         <StatusIndicators />
+      </div>
+
+      {/* Data stream animation — dots moving across bottom */}
+      <div className="w-full h-3 overflow-hidden relative" style={{ background: 'rgba(6, 182, 212, 0.02)' }}>
+        {/* Dots line 1 */}
+        <div className="absolute top-1/2 -translate-y-1/2 flex items-center gap-3" style={{ animation: 'data-stream 20s linear infinite' }}>
+          {Array.from({ length: 30 }).map((_, i) => (
+            <div
+              key={`d1-${i}`}
+              className="w-1 h-1 rounded-full"
+              style={{
+                backgroundColor: i % 5 === 0 ? 'rgba(6, 182, 212, 0.5)' : 'rgba(6, 182, 212, 0.2)',
+                boxShadow: i % 5 === 0 ? '0 0 4px rgba(6, 182, 212, 0.4)' : 'none',
+              }}
+            />
+          ))}
+        </div>
+        {/* Dots line 2 (slower, offset) */}
+        <div className="absolute top-1/2 -translate-y-1/2 flex items-center gap-5" style={{ animation: 'data-stream 30s linear infinite', animationDelay: '-10s' }}>
+          {Array.from({ length: 20 }).map((_, i) => (
+            <div
+              key={`d2-${i}`}
+              className="w-0.5 h-0.5 rounded-full"
+              style={{
+                backgroundColor: 'rgba(16, 185, 129, 0.3)',
+                boxShadow: i % 4 === 0 ? '0 0 3px rgba(16, 185, 129, 0.3)' : 'none',
+              }}
+            />
+          ))}
+        </div>
       </div>
 
       {/* Bottom decorative line */}

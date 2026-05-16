@@ -11,8 +11,10 @@ export function StateMiniCards({ lang }: { lang: Lang }) {
   const topStates = STATES.slice().sort((a, b) => b.population - a.population).slice(0, 6);
   return (
     <div className="relative group rounded-lg border p-4" style={{
-      background: 'rgba(10,14,26,0.95)',
+      background: 'rgba(10,14,26,0.85)',
       borderColor: 'rgba(6,182,212,0.12)',
+      backdropFilter: 'blur(12px)',
+      WebkitBackdropFilter: 'blur(12px)',
     }}>
       <HUDBracket />
       <div className="flex items-center gap-2 mb-3">
@@ -30,7 +32,7 @@ export function StateMiniCards({ lang }: { lang: Lang }) {
             transition={{ delay: i * 0.08 }}
             className="relative rounded-md border p-3 overflow-hidden"
             style={{
-              background: `linear-gradient(135deg, rgba(6,182,212,${0.03 + i * 0.01}), rgba(10,14,26,0.95))`,
+              background: `linear-gradient(135deg, rgba(6,182,212,${0.03 + i * 0.01}), rgba(10,14,26,0.85))`,
               borderColor: i === 0 ? 'rgba(6,182,212,0.25)' : 'rgba(6,182,212,0.08)',
             }}
           >

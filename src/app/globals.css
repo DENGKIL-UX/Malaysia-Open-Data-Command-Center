@@ -222,3 +222,144 @@ body {
 * {
   scroll-behavior: smooth;
 }
+
+/* ── Global Custom Scrollbar (thin, cyan-tinted) ── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(6, 182, 212, 0.02);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(6, 182, 212, 0.15);
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(6, 182, 212, 0.3);
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(6, 182, 212, 0.15) rgba(6, 182, 212, 0.02);
+}
+
+/* ── Glow Text Utility ── */
+.glow-text {
+  text-shadow: 0 0 8px rgba(6, 182, 212, 0.5), 0 0 20px rgba(6, 182, 212, 0.2);
+}
+
+.glow-text-amber {
+  text-shadow: 0 0 8px rgba(245, 158, 11, 0.5), 0 0 20px rgba(245, 158, 11, 0.2);
+}
+
+.glow-text-green {
+  text-shadow: 0 0 8px rgba(16, 185, 129, 0.5), 0 0 20px rgba(16, 185, 129, 0.2);
+}
+
+.glow-text-purple {
+  text-shadow: 0 0 8px rgba(139, 92, 246, 0.5), 0 0 20px rgba(139, 92, 246, 0.2);
+}
+
+/* ── Cyber Border Utility (animated gradient border) ── */
+.cyber-border {
+  position: relative;
+}
+
+.cyber-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(6, 182, 212, 0.3),
+    transparent 40%,
+    transparent 60%,
+    rgba(6, 182, 212, 0.2)
+  );
+  background-size: 200% 200%;
+  animation: cyber-border-shift 4s ease-in-out infinite;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+@keyframes cyber-border-shift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+/* ── fadeInUp Animation ── */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── pulse-glow Animation ── */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 4px rgba(6, 182, 212, 0.1), 0 0 8px rgba(6, 182, 212, 0.05);
+  }
+  50% {
+    box-shadow: 0 0 10px rgba(6, 182, 212, 0.25), 0 0 20px rgba(6, 182, 212, 0.1);
+  }
+}
+
+/* ── Heartbeat Animation ── */
+@keyframes heartbeat {
+  0%, 100% {
+    transform: scale(1);
+  }
+  14% {
+    transform: scale(1.1);
+  }
+  28% {
+    transform: scale(1);
+  }
+  42% {
+    transform: scale(1.05);
+  }
+  56% {
+    transform: scale(1);
+  }
+}
+
+/* ── Data Stream Dots ── */
+@keyframes data-stream {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100vw);
+  }
+}
+
+/* ── Gradient Underline Animation ── */
+@keyframes gradient-underline {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}

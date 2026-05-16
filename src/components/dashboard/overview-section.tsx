@@ -21,12 +21,13 @@ import { DataEnginePulse } from '@/components/dashboard/data-engine-pulse';
 import { StateMiniCards } from '@/components/dashboard/state-mini-cards';
 import { HealthIndexWidget } from '@/components/dashboard/health-index';
 import { DataSourceStats } from '@/components/dashboard/data-source-stats';
+import { DataActivityFeed } from '@/components/dashboard/data-activity-feed';
 
 // ─── Overview Section ─────────────────────────────────────────────
 export function OverviewSection({ lang }: { lang: Lang }) {
   const kpis = [
     { icon: Users, label: lang === 'ms' ? 'Penduduk' : 'Population', value: '34.3M', unit: "('000)", change: 1.1, color: '#06b6d4' },
-    { icon: TrendingUp, label: lang === 'ms' ? 'KDNK' : 'GDP', value: '1.68T', unit: 'RM M', change: 4.5, color: '#f59e0b' },
+    { icon: TrendingUp, label: lang === 'ms' ? 'KDNK' : 'GDP', value: 'RM 1.68T', unit: '', change: 4.5, color: '#f59e0b' },
     { icon: Baby, label: lang === 'ms' ? 'Kelahiran' : 'Births', value: '602.9', unit: "('000)", change: -2.3, color: '#10b981' },
     { icon: Heart, label: lang === 'ms' ? 'Kematian' : 'Deaths', value: '159.7', unit: "('000)", change: 1.8, color: '#ef4444' },
     { icon: Briefcase, label: lang === 'ms' ? 'Pengangguran' : 'Unemployment', value: '3.4', unit: '%', change: -0.3, color: '#8b5cf6' },
@@ -37,7 +38,7 @@ export function OverviewSection({ lang }: { lang: Lang }) {
   const topStatesData = STATES.slice()
     .sort((a, b) => b.population - a.population)
     .slice(0, 8)
-    .map(s => ({ name: s.abbr, population: s.population, gdp: Math.round(s.gdp / 1000) }));
+    .map(s => ({ name: s.abbr, fullName: s.name, population: s.population, gdp: Math.round(s.gdp / 1000) }));
 
   // Frequency distribution for pie
   const freqDist = useMemo(() => {
@@ -149,8 +150,10 @@ export function OverviewSection({ lang }: { lang: Lang }) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Bar Chart - Top States */}
         <div className="lg:col-span-2 relative group rounded-lg border p-4" style={{
-          background: 'rgba(10,14,26,0.95)',
+          background: 'rgba(10,14,26,0.85)',
           borderColor: 'rgba(6,182,212,0.12)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
         }}>
           <HUDBracket />
           <div className="flex items-center justify-between mb-4">
@@ -184,22 +187,30 @@ export function OverviewSection({ lang }: { lang: Lang }) {
                 </linearGradient>
               </defs>
               <XAxis dataKey="name" tick={{ fill: '#06b6d466', fontSize: 10 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#06b6d466', fontSize: 9 }} axisLine={false} tickLine={false} width={40} />
+              <YAxis yAxisId="left" tick={{ fill: '#06b6d466', fontSize: 9 }} axisLine={false} tickLine={false} width={50} label={{ value: lang === 'ms' ? "Penduduk ('000)" : "Population ('000)", angle: -90, position: 'insideLeft', style: { fill: '#06b6d466', fontSize: 9 } }} />
+              <YAxis yAxisId="right" orientation="right" tick={{ fill: '#f59e0b66', fontSize: 9 }} axisLine={false} tickLine={false} width={50} label={{ value: lang === 'ms' ? 'KDNK (RM B)' : 'GDP (RM B)', angle: 90, position: 'insideRight', style: { fill: '#f59e0b66', fontSize: 9 } }} />
               <Tooltip
                 contentStyle={{ background: '#0a0e1a', border: '1px solid #06b6d430', borderRadius: 8, fontSize: 11, boxShadow: '0 0 20px rgba(6,182,212,0.1)' }}
                 labelStyle={{ color: '#06b6d4' }}
                 itemStyle={{ color: '#e0f7fa' }}
+                formatter={(val: number, name: string, props: { payload?: { fullName?: string } }) => {
+                  const label = name === 'population' ? (lang === 'ms' ? 'Penduduk' : 'Population') : (lang === 'ms' ? 'KDNK (RM B)' : 'GDP (RM B)');
+                  return [val.toLocaleString(), label];
+                }}
+                labelFormatter={(_label: string, payload: { payload?: { fullName?: string } }[]) => payload?.[0]?.payload?.fullName || _label}
               />
-              <Bar dataKey="population" fill="url(#popGrad)" radius={[4,4,0,0]} />
-              <Bar dataKey="gdp" fill="url(#gdpBarGrad)" radius={[4,4,0,0]} />
+              <Bar yAxisId="left" dataKey="population" fill="url(#popGrad)" radius={[4,4,0,0]} />
+              <Bar yAxisId="right" dataKey="gdp" fill="url(#gdpBarGrad)" radius={[4,4,0,0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
 
         {/* Pie Chart - Frequency */}
         <div className="relative group rounded-lg border p-4" style={{
-          background: 'rgba(10,14,26,0.95)',
+          background: 'rgba(10,14,26,0.85)',
           borderColor: 'rgba(6,182,212,0.12)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
         }}>
           <HUDBracket />
           <div className="flex items-center gap-2 mb-4">
@@ -208,14 +219,21 @@ export function OverviewSection({ lang }: { lang: Lang }) {
               {lang === 'ms' ? 'FREKUENSI DATA' : 'DATA FREQUENCY'}
             </span>
           </div>
-          <ResponsiveContainer width="100%" height={200}>
-            <PieChart>
-              <Pie data={freqDist} cx="50%" cy="50%" innerRadius={45} outerRadius={75} dataKey="value" paddingAngle={2} stroke="none">
-                {freqDist.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-              </Pie>
-              <Tooltip contentStyle={{ background: '#0a0e1a', border: '1px solid #06b6d430', borderRadius: 8, fontSize: 11, boxShadow: '0 0 20px rgba(6,182,212,0.1)' }} />
-            </PieChart>
-          </ResponsiveContainer>
+          <div className="relative">
+            <ResponsiveContainer width="100%" height={200}>
+              <PieChart>
+                <Pie data={freqDist} cx="50%" cy="50%" innerRadius={45} outerRadius={75} dataKey="value" paddingAngle={2} stroke="none">
+                  {freqDist.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                </Pie>
+                <Tooltip contentStyle={{ background: '#0a0e1a', border: '1px solid #06b6d430', borderRadius: 8, fontSize: 11, boxShadow: '0 0 20px rgba(6,182,212,0.1)' }} />
+              </PieChart>
+            </ResponsiveContainer>
+            {/* Center label */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none" style={{ top: '-4px' }}>
+              <span className="text-2xl font-bold font-mono" style={{ color: '#e0f7fa', textShadow: '0 0 12px rgba(6,182,212,0.4)' }}>287</span>
+              <span className="text-[8px] font-mono tracking-widest" style={{ color: '#06b6d4' }}>DATASETS</span>
+            </div>
+          </div>
           <div className="flex flex-wrap gap-2 mt-2 justify-center">
             {freqDist.map((d, i) => (
               <div key={i} className="flex items-center gap-1">
@@ -231,8 +249,10 @@ export function OverviewSection({ lang }: { lang: Lang }) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Category Heat Blocks */}
         <div className="relative group rounded-lg border p-4" style={{
-          background: 'rgba(10,14,26,0.95)',
+          background: 'rgba(10,14,26,0.85)',
           borderColor: 'rgba(6,182,212,0.12)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
         }}>
           <HUDBracket />
           <div className="flex items-center gap-2 mb-3">
@@ -245,14 +265,16 @@ export function OverviewSection({ lang }: { lang: Lang }) {
             {catStats.slice(0, 18).map((cat) => (
               <div
                 key={cat.name}
-                className="rounded p-1.5 text-center cursor-default transition-transform hover:scale-105"
+                className="rounded p-1.5 text-center cursor-default transition-all duration-200 hover:scale-110"
                 style={{
                   background: `${cat.color}12`,
                   border: `1px solid ${cat.color}20`,
                 }}
+                onMouseEnter={e => { e.currentTarget.style.boxShadow = `0 0 12px ${cat.color}30`; e.currentTarget.style.borderColor = `${cat.color}50`; }}
+                onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = `${cat.color}20`; }}
               >
                 <div className="text-[10px] font-mono font-bold" style={{ color: cat.color }}>{cat.value}</div>
-                <div className="text-[7px] font-mono truncate" style={{ color: '#94a3b8' }}>{cat.name}</div>
+                <div className="text-[7px] font-mono truncate" style={{ color: '#b0bec5' }}>{cat.name}</div>
               </div>
             ))}
           </div>
@@ -263,8 +285,10 @@ export function OverviewSection({ lang }: { lang: Lang }) {
 
         {/* Timeline */}
         <div className="relative group rounded-lg border p-4" style={{
-          background: 'rgba(10,14,26,0.95)',
+          background: 'rgba(10,14,26,0.85)',
           borderColor: 'rgba(6,182,212,0.12)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
         }}>
           <HUDBracket />
           <div className="flex items-center gap-2 mb-4">
@@ -290,9 +314,9 @@ export function OverviewSection({ lang }: { lang: Lang }) {
               };
               const dotColor = typeColors[event.type] || '#06b6d4';
               return (
-                <div key={i} className="flex items-start gap-2.5 py-1.5 px-2 rounded transition-colors hover:bg-cyan-950/20" style={{
+                <div key={i} className="flex items-start gap-2.5 py-1.5 px-2 rounded transition-all duration-200 hover:bg-cyan-950/20" style={{
                   borderLeft: i === 0 ? '2px solid #06b6d4' : '2px solid rgba(6,182,212,0.08)',
-                }}>
+                }} onMouseEnter={e => { e.currentTarget.style.borderLeftColor = '#06b6d460'; e.currentTarget.style.background = 'rgba(6,182,212,0.06)'; }} onMouseLeave={e => { e.currentTarget.style.borderLeftColor = i === 0 ? '#06b6d4' : 'rgba(6,182,212,0.08)'; e.currentTarget.style.background = ''; }}>
                   <div className="w-1.5 h-1.5 rounded-full mt-1 flex-shrink-0" style={{
                     background: dotColor,
                     boxShadow: i === 0 ? `0 0 6px ${dotColor}60` : 'none',
@@ -306,7 +330,7 @@ export function OverviewSection({ lang }: { lang: Lang }) {
                         }}>LATEST</span>
                       )}
                     </div>
-                    <span className="text-[10px] block truncate" style={{ color: '#94a3b8' }}>
+                    <span className="text-[10px] block truncate" style={{ color: '#b0bec5' }}>
                       {lang === 'ms' ? event.ms : event.en}
                     </span>
                   </div>
@@ -316,6 +340,9 @@ export function OverviewSection({ lang }: { lang: Lang }) {
           </div>
         </div>
       </div>
+
+      {/* Live Data Activity Feed */}
+      <DataActivityFeed lang={lang} />
     </div>
   );
 }
