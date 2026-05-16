@@ -38,8 +38,17 @@ interface PreProcessedParlimen {
   centroid: { x: number; y: number };
 }
 
+interface PreProcessedDun {
+  id: string;
+  stateId: string;
+  stateName: string;
+  dunName: string;
+  paths: string[];
+  centroid: { x: number; y: number };
+}
+
 // ─── Zoom Level Type ────────────────────────────────────────────────
-type ZoomLevel = 'states' | 'districts' | 'parlimen';
+type ZoomLevel = 'states' | 'districts' | 'parlimen' | 'dun';
 
 // ─── Choropleth Color Interpolation ─────────────────────────────────
 function getChoroplethColor(
@@ -102,6 +111,7 @@ export default function MalaysiaGeoJSONMap({
   const [stateFeatures, setStateFeatures] = useState<PreProcessedFeature[]>([]);
   const [districtFeatures, setDistrictFeatures] = useState<PreProcessedDistrict[]>([]);
   const [parlimenFeatures, setParlimenFeatures] = useState<PreProcessedParlimen[]>([]);
+  const [dunFeatures, setDunFeatures] = useState<PreProcessedDun[]>([]);
   const [zoomLevel, setZoomLevel] = useState<ZoomLevel>('states');
   const [focusedState, setFocusedState] = useState<string | null>(null);
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
@@ -139,6 +149,14 @@ export default function MalaysiaGeoJSONMap({
             if (!cancelled) setParlimenFeatures(data);
           })
           .catch(e => console.warn('Failed to load parlimen data:', e));
+
+        // Load DUN boundaries (quaternary - lazy)
+        fetch('/geodata/dun-preprocessed.json')
+          .then(res => res.json())
+          .then((data: PreProcessedDun[]) => {
+            if (!cancelled) setDunFeatures(data);
+          })
+          .catch(e => console.warn('Failed to load DUN data:', e));
       } catch (err) {
         console.error('Failed to load geodata:', err);
         setLoading(false);
@@ -231,8 +249,19 @@ export default function MalaysiaGeoJSONMap({
       }
     } else {
       onSelectState(stateId);
+      if (!focusedState) {
+        setFocusedState(stateId);
+        const feature = stateFeatures.find(f => f.id === stateId);
+        if (feature) {
+          setTransform({
+            x: VB_WIDTH / 2 - feature.centroid.x * 2.5,
+            y: VB_HEIGHT / 2 - feature.centroid.y * 2.5,
+            scale: 2.5,
+          });
+        }
+      }
     }
-  }, [zoomLevel, onSelectState, stateFeatures]);
+  }, [zoomLevel, onSelectState, stateFeatures, focusedState]);
 
   // ─── Reset zoom ───────────────────────────────────────────────────
   const resetZoom = useCallback(() => {
@@ -274,6 +303,12 @@ export default function MalaysiaGeoJSONMap({
     if (focusedState) return parlimenFeatures.filter(p => p.stateId === focusedState);
     return parlimenFeatures;
   }, [zoomLevel, focusedState, parlimenFeatures]);
+
+  const visibleDun = useMemo(() => {
+    if (zoomLevel !== 'dun') return [];
+    if (focusedState) return dunFeatures.filter(d => d.stateId === focusedState);
+    return dunFeatures;
+  }, [zoomLevel, focusedState, dunFeatures]);
 
   return (
     <div className="relative w-full h-full overflow-hidden rounded-lg" style={{ background: '#0a0e1a' }}>
@@ -364,6 +399,12 @@ export default function MalaysiaGeoJSONMap({
             <feComposite in="color" in2="blur" operator="in" result="shadow" />
             <feMerge><feMergeNode in="shadow" /><feMergeNode in="SourceGraphic" /></feMerge>
           </filter>
+          <filter id="geo-border-glow-emerald" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="1.5" result="blur" />
+            <feFlood floodColor="#10b981" floodOpacity="0.25" result="color" />
+            <feComposite in="color" in2="blur" operator="in" result="shadow" />
+            <feMerge><feMergeNode in="shadow" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
           <radialGradient id="geo-ambient-light" cx="50%" cy="50%" r="60%">
             <stop offset="0%" stopColor="rgba(6, 182, 212, 0.03)" />
             <stop offset="100%" stopColor="rgba(6, 182, 212, 0)" />
@@ -403,10 +444,10 @@ export default function MalaysiaGeoJSONMap({
             // State borders use a double-stroke technique:
             //   Under-stroke: dark outline for contrast against choropleth fill
             //   Over-stroke: bright gold/white for clear identification
-            const underStroke = isSelected ? 'rgba(0,0,0,0.7)' : isHovered ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.4)';
-            const underWidth = (isSelected ? 3.5 : isHovered ? 3 : 2) / transform.scale;
-            const overStroke = isSelected ? '#fbbf24' : isHovered ? '#fcd34d' : 'rgba(251, 191, 36, 0.7)';
-            const overWidth = (isSelected ? 2 : isHovered ? 1.8 : 1) / transform.scale;
+            const underStroke = isSelected ? 'rgba(0,0,0,0.8)' : isHovered ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.5)';
+            const underWidth = (isSelected ? 4 : isHovered ? 3.5 : 2.5) / transform.scale;
+            const overStroke = isSelected ? '#fbbf24' : isHovered ? '#fcd34d' : 'rgba(251, 191, 36, 0.8)';
+            const overWidth = (isSelected ? 2.5 : isHovered ? 2 : 1.2) / transform.scale;
             const filterId = isSelected ? 'geo-glow-selected' : isHovered ? 'geo-glow-cyan' : 'geo-state-inner-glow';
             const showLabel = !isHovered && !isSelected && transform.scale < 3;
 
@@ -495,8 +536,8 @@ export default function MalaysiaGeoJSONMap({
                     key={`${feature.id}-du-${idx}`}
                     d={pathD}
                     fill="transparent"
-                    stroke="rgba(0,0,0,0.35)"
-                    strokeWidth={1.6 / transform.scale}
+                    stroke="rgba(0,0,0,0.4)"
+                    strokeWidth={2 / transform.scale}
                     strokeLinejoin="round"
                     style={{ pointerEvents: 'none' }}
                   />
@@ -507,8 +548,8 @@ export default function MalaysiaGeoJSONMap({
                     key={`${feature.id}-d-${idx}`}
                     d={pathD}
                     fill="transparent"
-                    stroke={isHoveredDist ? 'rgba(245, 158, 11, 0.8)' : 'rgba(245, 158, 11, 0.45)'}
-                    strokeWidth={0.8 / transform.scale}
+                    stroke={isHoveredDist ? 'rgba(245, 158, 11, 0.9)' : 'rgba(245, 158, 11, 0.55)'}
+                    strokeWidth={1 / transform.scale}
                     strokeLinejoin="round"
                     filter="url(#geo-border-glow-amber)"
                     className="cursor-pointer transition-all duration-200"
@@ -536,8 +577,8 @@ export default function MalaysiaGeoJSONMap({
                   key={`${feature.id}-pru-${idx}`}
                   d={pathD}
                   fill="transparent"
-                  stroke="rgba(0,0,0,0.3)"
-                  strokeWidth={1.4 / transform.scale}
+                  stroke="rgba(0,0,0,0.35)"
+                  strokeWidth={1.6 / transform.scale}
                   strokeLinejoin="round"
                   style={{ pointerEvents: 'none' }}
                 />
@@ -548,14 +589,53 @@ export default function MalaysiaGeoJSONMap({
                   key={`${feature.id}-pr-${idx}`}
                   d={pathD}
                   fill="transparent"
-                  stroke="rgba(167, 139, 250, 0.5)"
-                  strokeWidth={0.7 / transform.scale}
-                  strokeDasharray={`${4 / transform.scale} ${2.5 / transform.scale}`}
+                  stroke="rgba(167, 139, 250, 0.6)"
+                  strokeWidth={0.9 / transform.scale}
+                  strokeDasharray={`${5 / transform.scale} ${3 / transform.scale}`}
                   strokeLinejoin="round"
                   filter="url(#geo-border-glow-violet)"
                   style={{ pointerEvents: 'none' }}
                 />
               ))}
+            </g>
+          ))}
+
+          {/* ── DUN Paths (when zoomed) ── */}
+          {/* DUN boundaries: emerald dot-dash with dark under-stroke for contrast */}
+          {visibleDun.map(feature => (
+            <g key={feature.id}>
+              {/* DUN under-stroke for contrast */}
+              {feature.paths.map((pathD, idx) => (
+                <path
+                  key={`${feature.id}-dunu-${idx}`}
+                  d={pathD}
+                  fill="transparent"
+                  stroke="rgba(0,0,0,0.3)"
+                  strokeWidth={1.4 / transform.scale}
+                  strokeLinejoin="round"
+                  style={{ pointerEvents: 'none' }}
+                />
+              ))}
+              {/* DUN over-stroke: emerald dot-dash pattern */}
+              {feature.paths.map((pathD, idx) => (
+                <path
+                  key={`${feature.id}-dun-${idx}`}
+                  d={pathD}
+                  fill="transparent"
+                  stroke="rgba(16, 185, 129, 0.55)"
+                  strokeWidth={0.8 / transform.scale}
+                  strokeDasharray={`${2 / transform.scale} ${2 / transform.scale} ${6 / transform.scale} ${2 / transform.scale}`}
+                  strokeLinejoin="round"
+                  filter="url(#geo-border-glow-emerald)"
+                  style={{ pointerEvents: 'none' }}
+                />
+              ))}
+              {/* DUN name labels at high zoom */}
+              {transform.scale >= 3 && (
+                <text x={feature.centroid.x} y={feature.centroid.y} fill="rgba(16, 185, 129, 0.6)" fontSize={Math.max(3.5, 6 / transform.scale)} fontFamily="monospace" textAnchor="middle" dominantBaseline="middle" style={{ pointerEvents: 'none', userSelect: 'none' }}>
+                  {feature.dunName}
+                </text>
+              )}
             </g>
           ))}
         </g>
@@ -595,22 +675,26 @@ export default function MalaysiaGeoJSONMap({
         <text x={VB_WIDTH - 28} y={VB_HEIGHT - 12} fill="rgba(6, 182, 212, 0.25)" fontSize="6" fontFamily="monospace" textAnchor="end">{transform.scale.toFixed(1)}x</text>
 
         {/* ── Boundary Legend ── */}
-        <g transform={`translate(${VB_WIDTH - 165}, ${VB_HEIGHT - 42})`}>
-          <rect x="-4" y="-6" width="170" height="32" rx="3" fill="rgba(10,14,26,0.85)" stroke="rgba(6,182,212,0.12)" strokeWidth="0.5" />
+        <g transform={`translate(${VB_WIDTH - 200}, ${VB_HEIGHT - 48})`}>
+          <rect x="-4" y="-6" width="205" height="44" rx="3" fill="rgba(10,14,26,0.85)" stroke="rgba(6,182,212,0.12)" strokeWidth="0.5" />
           {/* State border */}
-          <line x1="0" y1="0" x2="16" y2="0" stroke="rgba(0,0,0,0.4)" strokeWidth="3" strokeLinecap="round" />
-          <line x1="0" y1="0" x2="16" y2="0" stroke="rgba(251, 191, 36, 0.7)" strokeWidth="1.5" strokeLinecap="round" />
-          <text x="20" y="3" fill="rgba(251, 191, 36, 0.6)" fontSize="5.5" fontFamily="monospace">{lang === 'ms' ? 'NEGERI' : 'STATE'}</text>
+          <line x1="0" y1="0" x2="16" y2="0" stroke="rgba(0,0,0,0.5)" strokeWidth="3" strokeLinecap="round" />
+          <line x1="0" y1="0" x2="16" y2="0" stroke="rgba(251, 191, 36, 0.8)" strokeWidth="1.5" strokeLinecap="round" />
+          <text x="20" y="3" fill="rgba(251, 191, 36, 0.7)" fontSize="5.5" fontFamily="monospace">{lang === 'ms' ? 'NEGERI' : 'STATE'}</text>
           {/* District border */}
-          <line x1="52" y1="0" x2="68" y2="0" stroke="rgba(0,0,0,0.35)" strokeWidth="2.5" strokeLinecap="round" />
-          <line x1="52" y1="0" x2="68" y2="0" stroke="rgba(245, 158, 11, 0.45)" strokeWidth="1" strokeLinecap="round" />
-          <text x="72" y="3" fill="rgba(245, 158, 11, 0.6)" fontSize="5.5" fontFamily="monospace">{lang === 'ms' ? 'DAERAH' : 'DIST'}</text>
+          <line x1="62" y1="0" x2="78" y2="0" stroke="rgba(0,0,0,0.4)" strokeWidth="2.5" strokeLinecap="round" />
+          <line x1="62" y1="0" x2="78" y2="0" stroke="rgba(245, 158, 11, 0.55)" strokeWidth="1" strokeLinecap="round" />
+          <text x="82" y="3" fill="rgba(245, 158, 11, 0.7)" fontSize="5.5" fontFamily="monospace">{lang === 'ms' ? 'DAERAH' : 'DIST'}</text>
           {/* Parlimen border */}
-          <line x1="0" y1="14" x2="16" y2="14" stroke="rgba(0,0,0,0.3)" strokeWidth="2" strokeLinecap="round" />
-          <line x1="0" y1="14" x2="16" y2="14" stroke="rgba(167, 139, 250, 0.5)" strokeWidth="0.8" strokeDasharray="3 2" strokeLinecap="round" />
-          <text x="20" y="17" fill="rgba(167, 139, 250, 0.6)" fontSize="5.5" fontFamily="monospace">{lang === 'ms' ? 'PARLIMEN' : 'PARLIMEN'}</text>
-          {/* DUN / MUKIM hint */}
-          <text x="72" y="17" fill="rgba(6, 182, 212, 0.3)" fontSize="5" fontFamily="monospace">SRC: DOSM</text>
+          <line x1="0" y1="14" x2="16" y2="14" stroke="rgba(0,0,0,0.4)" strokeWidth="2" strokeLinecap="round" />
+          <line x1="0" y1="14" x2="16" y2="14" stroke="rgba(167, 139, 250, 0.6)" strokeWidth="0.9" strokeDasharray="4 2.5" strokeLinecap="round" />
+          <text x="20" y="17" fill="rgba(167, 139, 250, 0.7)" fontSize="5.5" fontFamily="monospace">{lang === 'ms' ? 'PARLIMEN' : 'PARLIMEN'}</text>
+          {/* DUN border */}
+          <line x1="62" y1="14" x2="78" y2="14" stroke="rgba(0,0,0,0.35)" strokeWidth="2" strokeLinecap="round" />
+          <line x1="62" y1="14" x2="78" y2="14" stroke="rgba(16, 185, 129, 0.55)" strokeWidth="0.8" strokeDasharray="2 2 5 2" strokeLinecap="round" />
+          <text x="82" y="17" fill="rgba(16, 185, 129, 0.7)" fontSize="5.5" fontFamily="monospace">{lang === 'ms' ? 'DUN' : 'DUN'}</text>
+          {/* Source hint */}
+          <text x="0" y="30" fill="rgba(6, 182, 212, 0.3)" fontSize="5" fontFamily="monospace">SRC: DOSM GEODATA</text>
         </g>
       </svg>
 
@@ -627,17 +711,33 @@ export default function MalaysiaGeoJSONMap({
 
       {/* ── Boundary Layer Switcher ── */}
       <div className="absolute top-3 left-3 z-20 flex flex-col gap-1">
-        {(['states', 'districts', 'parlimen'] as ZoomLevel[]).map(level => {
-          const colors: Record<string, string> = { states: '#fbbf24', districts: '#f59e0b', parlimen: '#a78bfa' };
-          const borderStyles: Record<string, string> = { states: 'solid', districts: 'solid', parlimen: 'dashed' };
-          const labels: Record<string, { en: string; ms: string }> = { states: { en: 'STATE', ms: 'NEGERI' }, districts: { en: 'DISTRICT', ms: 'DAERAH' }, parlimen: { en: 'PARLIMEN', ms: 'PARLIMEN' } };
+        {(['states', 'districts', 'parlimen', 'dun'] as ZoomLevel[]).map(level => {
+          const colors: Record<string, string> = { states: '#fbbf24', districts: '#f59e0b', parlimen: '#a78bfa', dun: '#10b981' };
+          const labels: Record<string, { en: string; ms: string }> = {
+            states: { en: 'STATE', ms: 'NEGERI' },
+            districts: { en: 'DISTRICT', ms: 'DAERAH' },
+            parlimen: { en: 'PARLIMEN', ms: 'PARLIMEN' },
+            dun: { en: 'DUN', ms: 'DUN' },
+          };
+          const dashPatterns: Record<string, string | undefined> = {
+            states: undefined,
+            districts: undefined,
+            parlimen: '3 2',
+            dun: '2 2 5 2',
+          };
           const isActive = zoomLevel === level;
+          const dunCount = level === 'dun' && focusedState ? dunFeatures.filter(d => d.stateId === focusedState).length : 0;
           return (
             <button
               key={level}
               onClick={() => {
                 setZoomLevel(level);
                 if (level === 'states') { setFocusedState(null); setTransform({ x: 0, y: 0, scale: 1 }); }
+                else if (focusedState) {
+                  // Keep the current zoomed-in state view
+                } else if (level !== 'states') {
+                  // Need to select a state first for sub-state layers
+                }
               }}
               className="flex items-center gap-1.5 px-2 py-1 rounded border text-[8px] font-mono tracking-wider transition-all"
               style={{
@@ -649,9 +749,12 @@ export default function MalaysiaGeoJSONMap({
             >
               {/* Line preview matching the actual boundary style */}
               <svg width="12" height="4" viewBox="0 0 12 4">
-                <line x1="0" y1="2" x2="12" y2="2" stroke={colors[level]} strokeWidth={isActive ? 2 : 1.5} strokeDasharray={level === 'parlimen' ? '3 2' : 'none'} opacity={isActive ? 1 : 0.5} />
+                <line x1="0" y1="2" x2="12" y2="2" stroke={colors[level]} strokeWidth={isActive ? 2 : 1.5} strokeDasharray={dashPatterns[level]} opacity={isActive ? 1 : 0.5} />
               </svg>
               {lang === 'ms' ? labels[level].ms : labels[level].en}
+              {level === 'dun' && isActive && dunCount > 0 && (
+                <span className="text-[7px]" style={{ color: `${colors[level]}80` }}>{dunCount}</span>
+              )}
             </button>
           );
         })}
@@ -682,6 +785,11 @@ export default function MalaysiaGeoJSONMap({
                   {districtFeatures.filter(d => d.stateId === hoveredState).length} {lang === 'ms' ? 'Daerah' : 'Districts'}
                 </span>
               )}
+              {zoomLevel === 'dun' && (
+                <span className="text-[8px] px-1.5 py-0.5 rounded font-mono uppercase tracking-wider" style={{ background: 'rgba(16, 185, 129, 0.08)', color: 'rgba(16, 185, 129, 0.5)', border: '1px solid rgba(16, 185, 129, 0.15)' }}>
+                  {dunFeatures.filter(d => d.stateId === hoveredState).length} DUN
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -708,8 +816,16 @@ export default function MalaysiaGeoJSONMap({
           </div>
           {zoomLevel !== 'states' && (
             <div className="mt-1.5 pt-1.5 border-t" style={{ borderColor: 'rgba(6,182,212,0.1)' }}>
-              <div className="text-[8px] font-mono" style={{ color: 'rgba(245,158,11,0.6)' }}>
-                {districtFeatures.filter(d => d.stateId === selectedState).length} {lang === 'ms' ? 'Daerah' : 'Districts'}
+              <div className="flex items-center gap-2">
+                <span className="text-[8px] font-mono" style={{ color: 'rgba(245,158,11,0.6)' }}>
+                  {districtFeatures.filter(d => d.stateId === selectedState).length} {lang === 'ms' ? 'Daerah' : 'Dist'}
+                </span>
+                <span className="text-[8px] font-mono" style={{ color: 'rgba(16,185,129,0.6)' }}>
+                  {dunFeatures.filter(d => d.stateId === selectedState).length} DUN
+                </span>
+                <span className="text-[8px] font-mono" style={{ color: 'rgba(167,139,250,0.6)' }}>
+                  {parlimenFeatures.filter(d => d.stateId === selectedState).length} Parl.
+                </span>
               </div>
             </div>
           )}

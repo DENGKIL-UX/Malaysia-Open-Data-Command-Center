@@ -58,20 +58,21 @@ export function KPICard({ icon: Icon, label, value, unit, change, color, lang, s
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
+      whileHover={{ scale: 1.05 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
       onClick={onClick}
       className={`relative overflow-hidden rounded-lg p-4 border ${onClick ? 'cursor-pointer' : ''}`}
       style={{
         background: hovered
           ? `linear-gradient(135deg, rgba(10,14,26,0.75), rgba(10,14,26,0.6))`
           : `linear-gradient(135deg, rgba(10,14,26,0.95), rgba(10,14,26,0.8))`,
-        borderColor: hovered ? `${color}50` : `${color}25`,
-        transform: hovered ? 'scale(1.03)' : 'scale(1)',
+        borderColor: hovered ? `${color}60` : `${color}25`,
         boxShadow: hovered
-          ? `0 0 20px ${color}20, 0 0 40px ${color}10, 0 0 60px ${color}08`
+          ? `0 0 25px ${color}30, 0 0 50px ${color}15, 0 0 80px ${color}08, inset 0 0 20px ${color}08`
           : 'none',
         backdropFilter: 'blur(8px)',
         WebkitBackdropFilter: 'blur(8px)',
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        transition: 'border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -84,15 +85,27 @@ export function KPICard({ icon: Icon, label, value, unit, change, color, lang, s
       {/* Shimmer overlay on hover */}
       <div className="absolute inset-0 overflow-hidden rounded-lg pointer-events-none">
         {hovered && (
-          <div
+          <motion.div
             className="absolute inset-0"
+            initial={{ x: '-100%' }}
+            animate={{ x: '100%' }}
+            transition={{ duration: 0.8, ease: 'easeInOut' }}
             style={{
-              background: `linear-gradient(90deg, transparent, ${color}08, transparent)`,
-              animation: 'shimmer 1.5s ease-in-out',
+              background: `linear-gradient(90deg, transparent, ${color}12, ${color}08, transparent)`,
             }}
           />
         )}
       </div>
+
+      {/* Glow pulse ring on hover */}
+      {hovered && (
+        <motion.div
+          className="absolute inset-0 rounded-lg pointer-events-none"
+          style={{ border: `1px solid ${color}40` }}
+          animate={{ borderColor: [`${color}40`, `${color}10`, `${color}40`] }}
+          transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+        />
+      )}
 
       <div className="flex items-start justify-between mb-2">
         <Icon size={18} style={{ color }} />
@@ -132,7 +145,7 @@ export function KPICard({ icon: Icon, label, value, unit, change, color, lang, s
           background: hovered
             ? `linear-gradient(90deg, transparent, ${color}, transparent)`
             : `linear-gradient(90deg, transparent, ${color}40, transparent)`,
-          boxShadow: hovered ? `0 0 8px ${color}60` : 'none',
+          boxShadow: hovered ? `0 0 12px ${color}80, 0 0 24px ${color}40` : 'none',
           animation: !hovered ? 'glow-pulse 2s ease-in-out infinite' : 'none',
           transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         }}

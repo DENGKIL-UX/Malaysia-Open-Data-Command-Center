@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   reactStrictMode: false,
+  allowedDevOrigins: ['21.0.5.95'],
 
   // Cloudflare Workers compatibility:
   // - @opennextjs/cloudflare handles the build output format automatically

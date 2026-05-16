@@ -2,8 +2,91 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Activity, Radio, Shield, Wifi } from 'lucide-react';
+import { Activity, Radio, Shield, Wifi, Server, ArrowUpDown } from 'lucide-react';
 import { TIMELINE_EVENTS } from '@/lib/data/malaysia-data';
+
+// ─── Mini UTC+8 Clock (compact, for title area) ────────────────
+function MiniClock() {
+  const [time, setTime] = useState<string>('--:--:--');
+
+  useEffect(() => {
+    const updateClock = () => {
+      const now = new Date();
+      const timeOpts: Intl.DateTimeFormatOptions = {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+        timeZone: 'Asia/Kuala_Lumpur',
+      };
+      setTime(now.toLocaleTimeString('en-GB', timeOpts));
+    };
+
+    updateClock();
+    const interval = setInterval(updateClock, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="flex items-center gap-1 px-2 py-1 rounded border" style={{
+      background: 'rgba(6,182,212,0.06)',
+      borderColor: 'rgba(6,182,212,0.15)',
+    }}>
+      <span className="text-[10px] font-mono font-bold tracking-wider" style={{
+        color: '#06b6d4',
+        textShadow: '0 0 6px rgba(6,182,212,0.4)',
+      }}>
+        {time}
+      </span>
+      <span className="text-[7px] font-mono opacity-50" style={{ color: '#06b6d4' }}>UTC+8</span>
+    </div>
+  );
+}
+
+// ─── Data Throughput Counter ──────────────────────────────────────
+function DataThroughputCounter() {
+  const [throughput, setThroughput] = useState(0);
+
+  useEffect(() => {
+    // Animate to a simulated throughput value (MB/s)
+    const target = 247.8;
+    const duration = 2000;
+    const startTime = performance.now();
+    const animate = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setThroughput(parseFloat((target * eased).toFixed(1)));
+      if (progress < 1) requestAnimationFrame(animate);
+    };
+    requestAnimationFrame(animate);
+
+    // Simulate fluctuation after initial animation
+    const interval = setInterval(() => {
+      setThroughput(prev => {
+        const delta = (Math.random() - 0.5) * 8;
+        return parseFloat(Math.max(180, Math.min(320, prev + delta)).toFixed(1));
+      });
+    }, 2000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="flex items-center gap-1.5 px-2 py-1 rounded border" style={{
+      background: 'rgba(16,185,129,0.06)',
+      borderColor: 'rgba(16,185,129,0.15)',
+    }}>
+      <ArrowUpDown size={9} style={{ color: '#10b981' }} />
+      <span className="text-[10px] font-mono font-bold" style={{
+        color: '#10b981',
+        textShadow: '0 0 6px rgba(16,185,129,0.4)',
+      }}>
+        {throughput}
+      </span>
+      <span className="text-[7px] font-mono opacity-50" style={{ color: '#10b981' }}>MB/s</span>
+    </div>
+  );
+}
 
 function LiveClock() {
   const [time, setTime] = useState<string>('--:--:--');
@@ -59,8 +142,11 @@ function LiveClock() {
 function StatusIndicators() {
   return (
     <div className="flex items-center gap-4">
-      {/* System Online — enhanced pulse */}
-      <div className="flex items-center gap-2">
+      {/* System Operational — enhanced pulse with label */}
+      <div className="flex items-center gap-2 px-2 py-1 rounded" style={{
+        background: 'rgba(16,185,129,0.06)',
+        border: '1px solid rgba(16,185,129,0.12)',
+      }}>
         <div className="relative">
           <motion.div
             className="w-2 h-2 rounded-full"
@@ -76,8 +162,8 @@ function StatusIndicators() {
             transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
           />
         </div>
-        <span className="text-[10px] font-mono tracking-wider" style={{ color: '#10b981' }}>
-          SYSTEM ONLINE
+        <span className="text-[10px] font-mono tracking-wider font-bold" style={{ color: '#10b981', textShadow: '0 0 6px rgba(16,185,129,0.3)' }}>
+          SYSTEM STATUS: OPERATIONAL
         </span>
       </div>
 
@@ -251,15 +337,21 @@ export default function Header() {
       >
         {/* Left: Title section */}
         <div className="flex flex-col items-center md:items-start">
-          <h1
-            className="text-lg md:text-xl lg:text-2xl font-bold tracking-[0.15em] glow-text"
-            style={{
-              color: '#06b6d4',
-              textShadow: '0 0 20px rgba(6, 182, 212, 0.4), 0 0 40px rgba(6, 182, 212, 0.15)',
-            }}
-          >
-            MALAYSIA OPEN DATA COMMAND CENTER
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1
+              className="text-lg md:text-xl lg:text-2xl font-bold tracking-[0.15em] glow-text"
+              style={{
+                color: '#06b6d4',
+                textShadow: '0 0 20px rgba(6, 182, 212, 0.4), 0 0 40px rgba(6, 182, 212, 0.15)',
+              }}
+            >
+              MALAYSIA OPEN DATA COMMAND CENTER
+            </h1>
+            {/* Mini UTC+8 clock next to title */}
+            <div className="hidden lg:block">
+              <MiniClock />
+            </div>
+          </div>
           {/* Gradient underline animation */}
           <div className="w-full h-0.5 mt-1 rounded-full overflow-hidden" style={{ maxWidth: '420px' }}>
             <div
@@ -286,6 +378,10 @@ export default function Header() {
               className="h-px w-8"
               style={{ backgroundColor: 'rgba(6, 182, 212, 0.3)' }}
             />
+            {/* Data throughput counter */}
+            <div className="hidden md:flex items-center">
+              <DataThroughputCounter />
+            </div>
           </div>
         </div>
 

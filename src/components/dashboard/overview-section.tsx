@@ -1,10 +1,11 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Users, TrendingUp, Baby, Heart, Briefcase, Database,
   BarChart3, Activity, Zap, MapPin, Layers, Globe, Clock,
+  ShieldCheck, RefreshCw, PieChart as PieChartIcon, CheckCircle2,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -42,6 +43,208 @@ function AnimatedDivider() {
         transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
       />
     </div>
+  );
+}
+
+// ─── Circular Progress Ring ──────────────────────────────────────
+function CircularProgressRing({ percentage, size = 56, strokeWidth = 4, color = '#06b6d4' }: {
+  percentage: number; size?: number; strokeWidth?: number; color?: string;
+}) {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (percentage / 100) * circumference;
+
+  return (
+    <div className="relative" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90">
+        {/* Background track */}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="rgba(6,182,212,0.1)"
+          strokeWidth={strokeWidth}
+        />
+        {/* Progress arc */}
+        <motion.circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          initial={{ strokeDashoffset: circumference }}
+          animate={{ strokeDashoffset: offset }}
+          transition={{ duration: 1.5, ease: 'easeOut', delay: 0.3 }}
+          style={{ filter: `drop-shadow(0 0 4px ${color}60)` }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span className="text-sm font-bold font-mono" style={{ color, textShadow: `0 0 8px ${color}40` }}>
+          {percentage}%
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Data Quality Score Card ─────────────────────────────────────
+function DataQualityCard({ lang }: { lang: Lang }) {
+  const qualityScore = 94.7;
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: 0.1 }}
+      className="relative rounded-xl border p-4 flex items-center gap-4"
+      style={{
+        background: 'linear-gradient(180deg, rgba(16,185,129,0.04) 0%, rgba(10,14,26,0.85) 40%)',
+        borderColor: 'rgba(16,185,129,0.15)',
+        backdropFilter: 'blur(12px)',
+        boxShadow: 'inset 0 1px 0 0 rgba(16,185,129,0.06)',
+      }}
+    >
+      <CircularProgressRing percentage={qualityScore} color="#10b981" />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 mb-1">
+          <ShieldCheck size={12} style={{ color: '#10b981' }} />
+          <span className="text-[11px] font-semibold font-mono tracking-wider" style={{ color: '#10b981' }}>
+            {lang === 'ms' ? 'SKOR KUALITI DATA' : 'DATA QUALITY SCORE'}
+          </span>
+        </div>
+        <div className="text-xl font-bold font-mono" style={{ color: '#e0f7fa', textShadow: '0 0 12px rgba(16,185,129,0.3)' }}>
+          {qualityScore}%
+        </div>
+        <div className="flex items-center gap-1 mt-1">
+          <CheckCircle2 size={8} style={{ color: '#10b981' }} />
+          <span className="text-[9px] font-mono" style={{ color: '#10b98199' }}>
+            {lang === 'ms' ? '272 / 287 set data disahkan' : '272 / 287 datasets verified'}
+          </span>
+        </div>
+      </div>
+      {/* Decorative corner glow */}
+      <div className="absolute top-0 right-0 w-16 h-16 opacity-10" style={{
+        background: 'radial-gradient(circle at top right, #10b981, transparent)',
+      }} />
+    </motion.div>
+  );
+}
+
+// ─── Last Data Update Card ────────────────────────────────────────
+function LastDataUpdateCard({ lang }: { lang: Lang }) {
+  const [timeAgo, setTimeAgo] = useState('');
+  const [lastUpdate, setLastUpdate] = useState('');
+
+  useEffect(() => {
+    const updateTimestamp = () => {
+      const now = new Date();
+      // Simulate last update ~12 minutes ago
+      const lastUpdateTime = new Date(now.getTime() - 12 * 60 * 1000 - 34 * 1000);
+      const timeOpts: Intl.DateTimeFormatOptions = {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+        timeZone: 'Asia/Kuala_Lumpur',
+      };
+      setLastUpdate(lastUpdateTime.toLocaleTimeString('en-GB', timeOpts));
+
+      const diffMs = now.getTime() - lastUpdateTime.getTime();
+      const diffMin = Math.floor(diffMs / 60000);
+      const diffSec = Math.floor((diffMs % 60000) / 1000);
+      setTimeAgo(lang === 'ms' ? `${diffMin}m ${diffSec}s lalu` : `${diffMin}m ${diffSec}s ago`);
+    };
+
+    updateTimestamp();
+    const interval = setInterval(updateTimestamp, 1000);
+    return () => clearInterval(interval);
+  }, [lang]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: 0.2 }}
+      className="relative rounded-xl border p-4 flex items-center gap-3"
+      style={{
+        background: 'linear-gradient(180deg, rgba(6,182,212,0.04) 0%, rgba(10,14,26,0.85) 40%)',
+        borderColor: 'rgba(6,182,212,0.15)',
+        backdropFilter: 'blur(12px)',
+        boxShadow: 'inset 0 1px 0 0 rgba(6,182,212,0.06)',
+      }}
+    >
+      <div className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center" style={{
+        background: 'rgba(6,182,212,0.08)',
+        border: '1px solid rgba(6,182,212,0.15)',
+      }}>
+        <RefreshCw size={16} style={{ color: '#06b6d4' }} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 mb-1">
+          <span className="text-[11px] font-semibold font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+            {lang === 'ms' ? 'KEMAS KINI TERAKHIR' : 'LAST DATA UPDATE'}
+          </span>
+        </div>
+        <div className="text-lg font-bold font-mono" style={{ color: '#e0f7fa', textShadow: '0 0 10px rgba(6,182,212,0.3)' }}>
+          {lastUpdate} <span className="text-[9px] font-normal opacity-50">MYT</span>
+        </div>
+        <div className="flex items-center gap-1.5 mt-0.5">
+          <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#10b981', boxShadow: '0 0 4px rgba(16,185,129,0.6)' }}>
+            <motion.div
+              className="w-1.5 h-1.5 rounded-full"
+              style={{ border: '1px solid rgba(16,185,129,0.4)' }}
+              animate={{ scale: [1, 1.8, 1], opacity: [0.6, 0, 0.6] }}
+              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+            />
+          </div>
+          <span className="text-[9px] font-mono" style={{ color: '#06b6d499' }}>{timeAgo}</span>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── Data Coverage Card ───────────────────────────────────────────
+function DataCoverageCard({ lang }: { lang: Lang }) {
+  const coveragePercent = 78.4;
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: 0.3 }}
+      className="relative rounded-xl border p-4 flex items-center gap-4"
+      style={{
+        background: 'linear-gradient(180deg, rgba(245,158,11,0.04) 0%, rgba(10,14,26,0.85) 40%)',
+        borderColor: 'rgba(245,158,11,0.15)',
+        backdropFilter: 'blur(12px)',
+        boxShadow: 'inset 0 1px 0 0 rgba(245,158,11,0.06)',
+      }}
+    >
+      <CircularProgressRing percentage={coveragePercent} color="#f59e0b" />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 mb-1">
+          <PieChartIcon size={12} style={{ color: '#f59e0b' }} />
+          <span className="text-[11px] font-semibold font-mono tracking-wider" style={{ color: '#f59e0b' }}>
+            {lang === 'ms' ? 'LIPUTAN DATA' : 'DATA COVERAGE'}
+          </span>
+        </div>
+        <div className="text-xl font-bold font-mono" style={{ color: '#e0f7fa', textShadow: '0 0 12px rgba(245,158,11,0.3)' }}>
+          {coveragePercent}%
+        </div>
+        <div className="flex items-center gap-1 mt-1">
+          <span className="text-[9px] font-mono" style={{ color: '#f59e0b99' }}>
+            {lang === 'ms' ? '15 / 19 negeri & WP diliputi' : '15 / 19 states & FT covered'}
+          </span>
+        </div>
+      </div>
+      {/* Decorative corner glow */}
+      <div className="absolute top-0 right-0 w-16 h-16 opacity-10" style={{
+        background: 'radial-gradient(circle at top right, #f59e0b, transparent)',
+      }} />
+    </motion.div>
   );
 }
 
@@ -206,6 +409,15 @@ export function OverviewSection({ lang, onNavigateDatasets }: { lang: Lang; onNa
             }} />
           </div>
         ))}
+      </div>
+
+      <AnimatedDivider />
+
+      {/* Data Quality, Last Update & Coverage Indicators */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <DataQualityCard lang={lang} />
+        <LastDataUpdateCard lang={lang} />
+        <DataCoverageCard lang={lang} />
       </div>
 
       <AnimatedDivider />

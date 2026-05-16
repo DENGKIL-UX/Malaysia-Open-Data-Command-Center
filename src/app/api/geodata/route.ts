@@ -9,6 +9,7 @@ export async function GET(request: Request) {
     states: '/geodata/states.geojson',
     districts: '/geodata/districts.geojson',
     parlimen: '/geodata/parlimen.geojson',
+    dun: '/geodata/dun.geojson',
   };
 
   const filePath = fileMap[layer];

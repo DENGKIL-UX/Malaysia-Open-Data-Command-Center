@@ -7,6 +7,7 @@ import {
   BarChart3, Map, LayoutDashboard, Printer, Info,
   HelpCircle, Languages, ArrowUp, Bell, Copyright,
   ExternalLink, Heart, Download, ChevronRight, Layers,
+  Globe, Github, Twitter, Linkedin, FileText,
 } from 'lucide-react';
 
 import BootSequence from '@/components/dashboard/boot-sequence';
@@ -842,6 +843,56 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
+
+                {/* Built with data.gov.my Open Data line */}
+                <div className="text-center mt-2">
+                  <span className="text-[9px] font-mono flex items-center justify-center gap-1.5" style={{ color: 'rgba(6,182,212,0.35)' }}>
+                    <Database size={8} style={{ color: 'rgba(6,182,212,0.35)' }} />
+                    {lang === 'ms' ? 'Dibina dengan data.gov.my Open Data' : 'Built with data.gov.my Open Data'}
+                    <Database size={8} style={{ color: 'rgba(6,182,212,0.35)' }} />
+                  </span>
+                </div>
+
+                {/* Social / Data Links Row */}
+                <div className="flex flex-wrap items-center justify-center gap-3 mt-2">
+                  {[
+                    { icon: Globe, label: 'data.gov.my', href: 'https://data.gov.my', color: '#06b6d4' },
+                    { icon: Github, label: 'GitHub', href: 'https://github.com', color: '#b0bec5' },
+                    { icon: Twitter, label: 'X / Twitter', href: 'https://twitter.com', color: '#06b6d4' },
+                    { icon: FileText, label: 'API Docs', href: 'https://data.gov.my/api', color: '#f59e0b' },
+                    { icon: Linkedin, label: 'LinkedIn', href: 'https://linkedin.com', color: '#10b981' },
+                  ].map((link) => (
+                    <a
+                      key={link.label}
+                      href={link.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 px-2 py-1 rounded border text-[9px] font-mono transition-all duration-200 hover:scale-105"
+                      style={{
+                        background: `${link.color}08`,
+                        borderColor: `${link.color}15`,
+                        color: `${link.color}80`,
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.background = `${link.color}15`;
+                        e.currentTarget.style.borderColor = `${link.color}30`;
+                        e.currentTarget.style.color = link.color;
+                        e.currentTarget.style.boxShadow = `0 0 8px ${link.color}15`;
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.background = `${link.color}08`;
+                        e.currentTarget.style.borderColor = `${link.color}15`;
+                        e.currentTarget.style.color = `${link.color}80`;
+                        e.currentTarget.style.boxShadow = 'none';
+                      }}
+                    >
+                      <link.icon size={9} />
+                      {link.label}
+                      <ExternalLink size={6} className="opacity-50" />
+                    </a>
+                  ))}
+                </div>
+
                 {/* Made with love text */}
                 <div className="text-center mt-1 mb-1">
                   <span className="text-[8px] font-mono" style={{ color: 'rgba(6,182,212,0.2)', letterSpacing: '0.15em' }}>
