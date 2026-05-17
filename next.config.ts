@@ -15,7 +15,8 @@ const nextConfig: NextConfig = {
   // new Function() to hide it from static analysis.
   // - @opennextjs/cloudflare handles the build output format automatically
   // - No "output: standalone" needed (Node.js-specific, incompatible with CF Workers)
-  // - No explicit edge runtime needed in API routes (handled by adapter)
+  // - IMPORTANT: API routes MUST have `export const runtime = "edge"` at the top
+  //   Without it, Cloudflare Workers returns 404 for the route
 
   // Static asset headers for caching GeoJSON and other large files
   async headers() {

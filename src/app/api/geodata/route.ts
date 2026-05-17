@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 
-// @opennextjs/cloudflare automatically handles edge runtime
+export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const layer = searchParams.get('layer') || 'states';

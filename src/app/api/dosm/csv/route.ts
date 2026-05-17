@@ -2,10 +2,20 @@
 // Server-side CSV proxy for storage.dosm.gov.my
 // Fetches CSV on the server side and returns parsed JSON.
 //
-// v4 CHANGES:
+// v5 CHANGES:
+//   - CRITICAL: Added `export const runtime = "edge"` — without this,
+//     Cloudflare Workers returns 404 for ALL API route requests
+//   - Added `export const dynamic = "force-dynamic"` to prevent static caching
 //   - Use getCsvUrl() from csv-urls.ts for correct per-category URLs
 //   - Remove `next: { revalidate }` (not supported on Cloudflare Workers)
 //   - Fall back to legacy storage.data.gov.my URL when mapping URL fails
+
+// ═══════════════════════════════════════════════════════════════
+// CRITICAL: These two lines MUST be at the top of the file.
+// Without them, Cloudflare Workers returns 404 for this route.
+// ═══════════════════════════════════════════════════════════════
+export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { parseDosmDate } from '@/lib/dosm/yaml-reality';

@@ -6,6 +6,8 @@
 //      and generates a single-dataset infographic with live data tier info
 // On Cloudflare Workers, falls back to SVG output (sharp unavailable)
 
+export const runtime = 'edge';
+
 import React from 'react';
 import { NextRequest, NextResponse } from 'next/server';
 import { render, getExportDimensions } from '@/engine/visual/renderer';
@@ -474,7 +476,7 @@ function DatasetInfographicTemplate({ data }: { data: DatasetInfographicData }) 
 
 // ─── Fetch live data from internal DoSM proxy ───────────────────
 
-async function fetchLiveDatasetData(config: GroundTruthDataset): Promise<{
+async function fetchLiveDatasetData(config: GroundTruthDataset, requestOrigin: string): Promise<{
   records: Record<string, unknown>[];
   tier: 'LIVE' | 'CSV' | 'STATIC';
 }> {
@@ -488,14 +490,8 @@ async function fetchLiveDatasetData(config: GroundTruthDataset): Promise<{
   const url = `/api/dosm?id=${config.apiId}&limit=16${filterParams}`;
 
   try {
-    // Use absolute URL for server-side fetch (Next.js requires it in route handlers)
-    const baseUrl = process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : 'http://localhost:3000';
-
-    const res = await fetch(`${baseUrl}${url}`, {
+    const res = await fetch(`${requestOrigin}${url}`, {
       headers: { Accept: 'application/json' },
-      next: { revalidate: 0 },
       signal: AbortSignal.timeout(15_000),
     });
 
@@ -631,7 +627,8 @@ export async function POST(request: NextRequest) {
       }
 
       // Fetch live data from DoSM API via internal proxy
-      const { records, tier } = await fetchLiveDatasetData(config);
+      const requestOrigin = new URL(request.url).origin;
+      const { records, tier } = await fetchLiveDatasetData(config, requestOrigin);
       const processed = processDatasetRecords(records, config);
 
       // Build the dataset infographic data

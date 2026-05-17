@@ -3,11 +3,21 @@
 // Adds: caching, ID correction, sort syntax fix, field introspection,
 //       CSV fallback headers, diagnostics, CORS, timeout
 //
-// v3 CHANGES:
+// v4 CHANGES:
+//   - CRITICAL: Added `export const runtime = "edge"` — without this,
+//     Cloudflare Workers returns 404 for ALL API route requests
+//   - Added `export const dynamic = "force-dynamic"` to prevent static caching
 //   - Fix sort syntax: "date desc" → "-date" (API uses "-" prefix for desc)
 //   - Add X-CSV-Download header pointing to storage.data.gov.my
 //   - Better error diagnosis with CSV fallback suggestion
 //   - Detailed field logging for debugging
+
+// ═══════════════════════════════════════════════════════════════
+// CRITICAL: These two lines MUST be at the top of the file.
+// Without them, Cloudflare Workers returns 404 for this route.
+// ═══════════════════════════════════════════════════════════════
+export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { ID_CORRECTIONS } from '@/lib/dosm/ground-truth-registry';

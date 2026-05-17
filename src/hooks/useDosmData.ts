@@ -3,9 +3,11 @@
 // Uses three-tier fallback (API → CSV → Static), DoSM-aware date parsing,
 // and status tracking
 //
-// v3 FIXES:
+// v4 FIXES:
+//   - Added retry backoff: stops cascade 404 errors by limiting retries
+//   - After MAX_RETRIES consecutive failures, stops retrying until manual refetch
+//   - Auto-refresh only runs when previous fetch succeeded
 //   - GDP series_type: use 'abs' not 'real' for absolute GDP
-//   - GDP growth rate: use 'growth_yoy' not 'real'
 //   - Correct sort syntax handled by client.ts (uses "-date")
 //   - Exchange rate field: 'rate' (already correct)
 //   - HPI field: 'index' (already correct)
@@ -17,6 +19,10 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { fetchDosmData, fetchMany, type DosmDataResult, type DosmQueryOptions, type DataStatus } from '@/lib/dosm/client';
 import type { DatasetId } from '@/lib/dosm/registry';
 import { DOSM_REGISTRY, COMMAND_CENTER_KPIS, PRIORITY_DATASETS } from '@/lib/dosm/registry';
+
+// ── RETRY BACKOFF CONSTANTS ──
+const MAX_CONSECUTIVE_FAILURES = 2;  // Stop auto-retry after 2 failures
+const RETRY_BACKOFF_BASE_MS = 5000; // 5 seconds base delay
 
 // ── HOOK STATE ──
 interface UseDosmState<T = Record<string, unknown>> {
@@ -41,10 +47,24 @@ export function useDosmData<T = Record<string, unknown>>(
   const [status, setStatus] = useState<DataStatus>('loading');
   const mountedRef = useRef(true);
   const fetchCountRef = useRef(0);
+  const consecutiveFailures = useRef(0);  // Track consecutive failures to stop cascade retries
+  const lastErrorTime = useRef(0);        // Timestamp of last error for backoff
 
   const optionsKey = JSON.stringify(options);
   const load = useCallback(async () => {
     if (!mountedRef.current) return;
+
+    // ── RETRY BACKOFF: Skip if too many consecutive failures ──
+    if (consecutiveFailures.current >= MAX_CONSECUTIVE_FAILURES) {
+      const elapsed = Date.now() - lastErrorTime.current;
+      const backoffMs = RETRY_BACKOFF_BASE_MS * Math.pow(2, consecutiveFailures.current - 1);
+      if (elapsed < backoffMs) {
+        // Still in backoff period — skip this fetch silently
+        return;
+      }
+      // Backoff period passed — allow one more attempt
+    }
+
     const thisFetch = ++fetchCountRef.current;
     setLoading(true);
     setError(null);
@@ -52,6 +72,11 @@ export function useDosmData<T = Record<string, unknown>>(
     try {
       const data = await fetchDosmData<T>(datasetId, options);
       if (!mountedRef.current || thisFetch !== fetchCountRef.current) return;
+
+      // Success — reset failure counter
+      consecutiveFailures.current = 0;
+      lastErrorTime.current = 0;
+
       setResult(data);
       setStale(false);
       setStatus(data.status);
@@ -60,9 +85,21 @@ export function useDosmData<T = Record<string, unknown>>(
       }
     } catch (err: unknown) {
       if (!mountedRef.current || thisFetch !== fetchCountRef.current) return;
+
+      // Increment failure counter
+      consecutiveFailures.current++;
+      lastErrorTime.current = Date.now();
+
       const message = err instanceof Error ? err.message : 'Unknown error';
       setError(message);
       setStatus('error');
+
+      if (consecutiveFailures.current >= MAX_CONSECUTIVE_FAILURES) {
+        console.warn(
+          `[DoSM Hook] ${datasetId}: ${consecutiveFailures.current} consecutive failures — ` +
+          `pausing auto-retry. Use refetch() to retry manually.`
+        );
+      }
     } finally {
       if (mountedRef.current && thisFetch === fetchCountRef.current) {
         setLoading(false);
@@ -77,18 +114,32 @@ export function useDosmData<T = Record<string, unknown>>(
     return () => { mountedRef.current = false; };
   }, [load]);
 
-  // Auto-refresh
+  // Auto-refresh — ONLY if not in backoff state
   useEffect(() => {
     const ms = refreshMs ?? DOSM_REGISTRY[datasetId as DatasetId]?.refreshMs;
     if (!ms) return;
     const timer = setInterval(() => {
+      // Skip refresh if in backoff state
+      if (consecutiveFailures.current >= MAX_CONSECUTIVE_FAILURES) {
+        const elapsed = Date.now() - lastErrorTime.current;
+        const backoffMs = RETRY_BACKOFF_BASE_MS * Math.pow(2, consecutiveFailures.current - 1);
+        if (elapsed < backoffMs) return; // Still in backoff
+        // Backoff expired — allow attempt (counter resets on success)
+      }
       setStale(true);
       load();
     }, ms);
     return () => clearInterval(timer);
   }, [load, refreshMs, datasetId]);
 
-  return { result, loading, error, stale, status, refetch: load };
+  // Manual refetch — always resets failure counter
+  const refetch = useCallback(() => {
+    consecutiveFailures.current = 0;
+    lastErrorTime.current = 0;
+    load();
+  }, [load]);
+
+  return { result, loading, error, stale, status, refetch };
 }
 
 // ── HOOK: Fetch all Command Center KPIs ──
