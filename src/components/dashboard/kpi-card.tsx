@@ -5,6 +5,14 @@ import { motion } from 'framer-motion';
 import { ArrowUpRight, ArrowDownRight, ArrowUp, ArrowDown } from 'lucide-react';
 import type { Lang } from '@/lib/dashboard-types';
 import type { DataStatus } from '@/lib/dosm/client';
+import {
+  BP_COLORS,
+  BP_FONT,
+  BP_SPACE,
+  BP_RADIUS,
+  BP_SHADOW,
+  BP_DATA_VIZ,
+} from '@/design/blueprint-tokens';
 
 // ─── Sparkline SVG Component ───────────────────────────────────────
 function Sparkline({ data, color, width = 40, height = 16 }: {
@@ -43,11 +51,11 @@ function Sparkline({ data, color, width = 40, height = 16 }: {
 
 // ─── Data Tier Indicator ────────────────────────────────────────────
 const TIER_CONFIG: Record<DataStatus, { color: string; label: string; animate: boolean }> = {
-  loading: { color: '#6b7280', label: 'LOAD', animate: true },
-  live:    { color: '#10B981', label: 'LIVE', animate: true },
-  csv:     { color: '#06B6D4', label: 'CSV',  animate: true },
-  fallback:{ color: '#F59E0B', label: 'STATIC', animate: false },
-  error:   { color: '#EF4444', label: 'ERR',  animate: false },
+  loading: { color: BP_COLORS.textMuted, label: 'LOAD', animate: true },
+  live:    { color: BP_DATA_VIZ.positive, label: 'LIVE', animate: true },
+  csv:     { color: BP_COLORS.blue4, label: 'CSV',  animate: true },
+  fallback:{ color: BP_COLORS.warningLight, label: 'STATIC', animate: false },
+  error:   { color: BP_COLORS.dangerLight, label: 'ERR',  animate: false },
 };
 
 function DataTierIndicator({ status }: { status?: DataStatus }) {
@@ -122,7 +130,7 @@ export function KPICard({ icon: Icon, label, value, unit, change, color, lang, s
 
   // Determine trend direction from sparkline data or change value
   const isUpward = trendValue ? trendValue.startsWith('+') : (change !== undefined ? change >= 0 : true);
-  const sparklineColor = isUpward ? '#10b981' : '#ef4444';
+  const sparklineColor = isUpward ? BP_DATA_VIZ.positive : BP_DATA_VIZ.negative;
 
   return (
     <motion.div
@@ -131,17 +139,22 @@ export function KPICard({ icon: Icon, label, value, unit, change, color, lang, s
       whileHover={{ scale: 1.05 }}
       transition={{ type: 'spring', stiffness: 300, damping: 20 }}
       onClick={onClick}
-      className={`relative overflow-hidden rounded-lg p-4 border ${onClick ? 'cursor-pointer' : ''}`}
+      className={`relative overflow-hidden border ${onClick ? 'cursor-pointer' : ''}`}
       style={{
         background: hovered
-          ? `linear-gradient(135deg, rgba(10,14,26,0.75), rgba(10,14,26,0.6))`
-          : `linear-gradient(135deg, rgba(10,14,26,0.95), rgba(10,14,26,0.8))`,
+          ? `linear-gradient(135deg, ${BP_COLORS.appBg}BF, ${BP_COLORS.appBg}99)`
+          : `linear-gradient(135deg, ${BP_COLORS.appBg}F2, ${BP_COLORS.appBg}CC)`,
         borderColor: hovered ? `${color}60` : `${color}25`,
+        borderRadius: BP_RADIUS.lg,
         boxShadow: hovered
           ? `0 0 25px ${color}30, 0 0 50px ${color}15, 0 0 80px ${color}08, inset 0 0 20px ${color}08`
           : 'none',
         backdropFilter: 'blur(8px)',
         WebkitBackdropFilter: 'blur(8px)',
+        padding: BP_SPACE.lg,
+        fontFamily: BP_FONT.family,
+        fontSize: BP_FONT.size,
+        lineHeight: BP_FONT.lineHeight,
         transition: 'border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
       }}
       onMouseEnter={() => setHovered(true)}
@@ -156,7 +169,7 @@ export function KPICard({ icon: Icon, label, value, unit, change, color, lang, s
       }} />
 
       {/* Shimmer overlay on hover */}
-      <div className="absolute inset-0 overflow-hidden rounded-lg pointer-events-none">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ borderRadius: BP_RADIUS.lg }}>
         {hovered && (
           <motion.div
             className="absolute inset-0"
@@ -173,8 +186,8 @@ export function KPICard({ icon: Icon, label, value, unit, change, color, lang, s
       {/* Glow pulse ring on hover */}
       {hovered && (
         <motion.div
-          className="absolute inset-0 rounded-lg pointer-events-none"
-          style={{ border: `1px solid ${color}40` }}
+          className="absolute inset-0 pointer-events-none"
+          style={{ border: `1px solid ${color}40`, borderRadius: BP_RADIUS.lg }}
           animate={{ borderColor: [`${color}40`, `${color}10`, `${color}40`] }}
           transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
         />
@@ -183,15 +196,29 @@ export function KPICard({ icon: Icon, label, value, unit, change, color, lang, s
       <div className="flex items-start justify-between mb-2">
         <Icon size={18} style={{ color }} />
         {change !== undefined && (
-          <div className={`flex items-center gap-0.5 text-xs font-mono ${change >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+          <div
+            className="flex items-center gap-0.5 text-xs font-mono"
+            style={{
+              color: isUpward ? BP_DATA_VIZ.positive : BP_DATA_VIZ.negative,
+              fontSize: BP_FONT.sizeSmall,
+            }}
+          >
             {change >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
             {Math.abs(change)}%
           </div>
         )}
       </div>
-      <div className="text-2xl font-bold font-mono" style={{ color: '#e0f7fa' }}>
+      <div
+        className="text-2xl font-bold font-mono"
+        style={{ color: BP_COLORS.textPrimary }}
+      >
         {value}
-        <span className="text-xs font-normal ml-1 opacity-50">{unit}</span>
+        <span
+          className="text-xs font-normal ml-1"
+          style={{ color: BP_COLORS.textDisabled }}
+        >
+          {unit}
+        </span>
       </div>
 
       {/* Sparkline + Trend row */}
@@ -199,7 +226,13 @@ export function KPICard({ icon: Icon, label, value, unit, change, color, lang, s
         <div className="flex items-center gap-1.5 mt-1.5">
           <Sparkline data={sparkline} color={sparklineColor} />
           {trendValue && (
-            <div className={`flex items-center gap-0.5 text-[10px] font-mono font-bold ${isUpward ? 'text-emerald-400' : 'text-red-400'}`}>
+            <div
+              className="flex items-center gap-0.5 font-mono font-bold"
+              style={{
+                color: isUpward ? BP_DATA_VIZ.positive : BP_DATA_VIZ.negative,
+                fontSize: 10,
+              }}
+            >
               {isUpward ? <ArrowUp size={8} /> : <ArrowDown size={8} />}
               {trendValue}
             </div>
@@ -207,7 +240,10 @@ export function KPICard({ icon: Icon, label, value, unit, change, color, lang, s
         </div>
       )}
 
-      <div className="text-[10px] font-mono mt-1 tracking-wider uppercase opacity-60" style={{ color }}>
+      <div
+        className="text-[10px] font-mono mt-1 tracking-wider uppercase"
+        style={{ color, opacity: 0.6 }}
+      >
         {label}
       </div>
 

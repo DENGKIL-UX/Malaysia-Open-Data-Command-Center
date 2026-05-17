@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, useCallback, useMemo } from "react"
 import * as d3 from "d3"
 import { useIntelBus } from "@/engine/intelligence/bus"
 import { buildOntologyFromRegistry } from "@/engine/ontology/classifier"
-import { GROUND_TRUTH_REGISTRY } from "@/lib/dosm/ground-truth-registry"
 import { CATEGORY_COLORS } from "@/design/blueprint-tokens"
 import type { OntologyNode, OntologyEdge, OntologyGraph, RelationshipType } from "@/engine/ontology/types"
 
@@ -815,7 +814,7 @@ export function EnhancedOntologyGraph({
 
   // ── A. Build graph data (once) ────────────────────────────────────────
   const ontologyGraph: OntologyGraph = useMemo(
-    () => buildOntologyFromRegistry(GROUND_TRUTH_REGISTRY),
+    () => buildOntologyFromRegistry(),
     []
   )
 

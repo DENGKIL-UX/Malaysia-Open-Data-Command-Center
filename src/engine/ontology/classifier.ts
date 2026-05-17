@@ -1,7 +1,7 @@
 /**
  * Auto-Classification Engine — Ontology Graph Builder
  *
- * Reads the GROUND_TRUTH_REGISTRY and produces a complete OntologyGraph
+ * Reads the DOSM_REGISTRY and produces a complete OntologyGraph
  * with category nodes, dataset nodes, and multiple edge types:
  *
  *   - CONTAINS:        dataset → category membership
@@ -15,6 +15,8 @@
 
 import type { OntologyNode, OntologyEdge, OntologyGraph, RelationshipType } from "@/engine/ontology/types";
 import { MALAYSIA_DOMAIN_EDGES } from "@/engine/ontology/domain-knowledge";
+import { DOSM_REGISTRY } from "@/lib/dosm/registry";
+import type { DatasetConfig, DatasetGranularity } from "@/lib/dosm/registry";
 import { CATEGORY_COLORS } from "@/design/blueprint-tokens";
 
 // ---------------------------------------------------------------------------
@@ -54,21 +56,26 @@ const DEFAULT_COLOR = "#ABB3BF";
 const MAX_GEO_EDGES_PER_GROUP = 15;
 
 // ---------------------------------------------------------------------------
-// Internal types for registry iteration
+// Derive geography from DatasetConfig
 // ---------------------------------------------------------------------------
 
-interface RegistryEntry {
-  apiId?: string;
-  title_ms?: string;
-  title_en?: string;
-  frequency?: string;
-  geography?: string;
-  category?: string;
-  priority?: string;
-  valueField?: string;
-  dateField?: string;
-  unit?: string;
-  [key: string]: unknown;
+/**
+ * Infer geographic scope from a DatasetConfig.
+ * If groupField contains 'state' or 'district', use that.
+ * Otherwise default to 'national'.
+ */
+function inferGeography(entry: DatasetConfig): string {
+  const gf = entry.groupField ?? "";
+  if (gf === "district" || gf === "parlimen") return "district";
+  if (gf === "state") return "state";
+  return "national";
+}
+
+/** Map granularity to a normalised frequency string for SHARES_FREQUENCY. */
+function normaliseFrequency(g: DatasetGranularity): string {
+  if (g === "daily" || g === "weekly") return "high-frequency";
+  if (g === "monthly" || g === "quarterly") return "medium-frequency";
+  return "low-frequency"; // annual, biennial
 }
 
 // ---------------------------------------------------------------------------
@@ -76,15 +83,13 @@ interface RegistryEntry {
 // ---------------------------------------------------------------------------
 
 /**
- * Build the full OntologyGraph from the GROUND_TRUTH_REGISTRY.
+ * Build the full OntologyGraph from the DOSM_REGISTRY.
  *
- * @param registry  The GROUND_TRUTH_REGISTRY object (keyed by dataset key)
  * @param liveData  Optional live data snapshot (latestValue, trend, etc.)
  *                  keyed by dataset key — merged into dataset nodes.
  */
 export function buildOntologyFromRegistry(
-  registry: Record<string, any>,
-  liveData?: Record<string, any>,
+  liveData?: Record<string, unknown>,
 ): OntologyGraph {
   const nodes: OntologyNode[] = [];
   const edges: OntologyEdge[] = [];
@@ -92,9 +97,9 @@ export function buildOntologyFromRegistry(
 
   // ── Collect registry entries ──────────────────────────────────────────
 
-  const entries: Array<{ key: string; entry: RegistryEntry }> = [];
-  for (const [key, rawEntry] of Object.entries(registry)) {
-    entries.push({ key, entry: rawEntry as RegistryEntry });
+  const entries: Array<{ key: string; entry: DatasetConfig }> = [];
+  for (const [key, entry] of Object.entries(DOSM_REGISTRY)) {
+    entries.push({ key, entry });
   }
 
   // ── 1. Category nodes ────────────────────────────────────────────────
@@ -109,7 +114,7 @@ export function buildOntologyFromRegistry(
         id: `cat:${cat}`,
         type: "category",
         label: cat,
-        labelBM: cat, // categories don't have BM variants
+        labelBM: entry.categoryBM ?? cat,
         category: cat,
         size: CATEGORY_NODE_SIZE,
         color: colorInfo?.color ?? DEFAULT_COLOR,
@@ -123,24 +128,30 @@ export function buildOntologyFromRegistry(
     const cat = entry.category ?? "Unknown";
     const colorInfo = CATEGORY_COLORS[cat];
     const priority = entry.priority ?? "P3";
+    const geography = inferGeography(entry);
 
     const live = liveData?.[key] as Record<string, unknown> | undefined;
 
     const node: OntologyNode = {
       id: `ds:${key}`,
       type: "dataset",
-      label: entry.title_en ?? key,
-      labelBM: entry.title_ms ?? key,
+      label: entry.label ?? key,
+      labelBM: entry.labelBM ?? key,
       category: cat,
-      datasetId: entry.apiId ?? key,
+      datasetId: entry.id ?? key,
       valueField: entry.valueField,
       unit: entry.unit,
-      geography: entry.geography,
-      frequency: entry.frequency,
+      geography,
+      frequency: entry.granularity,
       priority,
       size: PRIORITY_SIZE[priority] ?? 12,
       color: colorInfo?.color ?? DEFAULT_COLOR,
       tier: "api",
+      tags: [
+        entry.granularity,
+        geography,
+        ...(entry.extraFields ?? []),
+      ].filter(Boolean),
     };
 
     // Merge live data if available
@@ -182,9 +193,9 @@ export function buildOntologyFromRegistry(
   // Group datasets by geography, then create edges between pairs.
   // Limit edges per group to avoid combinatorial explosion.
 
-  const byGeo = groupBy(entries, (e) => e.entry.geography ?? "unknown");
+  const byGeo = groupBy(entries, (e) => inferGeography(e.entry));
   for (const [geo, group] of byGeo) {
-    if (group.length < 2) continue;
+    if (group.length < 2 || geo === "national") continue; // skip national — too many
 
     // Sort by priority so P0 comes first, then P1, etc.
     const sorted = [...group].sort((a, b) => {
@@ -225,7 +236,7 @@ export function buildOntologyFromRegistry(
   const highPriority = entries.filter(
     (e) => e.entry.priority === "P0" || e.entry.priority === "P1",
   );
-  const byFreq = groupBy(highPriority, (e) => e.entry.frequency ?? "unknown");
+  const byFreq = groupBy(highPriority, (e) => normaliseFrequency(e.entry.granularity));
   for (const [freq, group] of byFreq) {
     if (group.length < 2) continue;
 
@@ -257,12 +268,20 @@ export function buildOntologyFromRegistry(
   // Each edge from MALAYSIA_DOMAIN_EDGES already has source/target
   // in `ds:{key}` format but lacks an `id`. We generate it as
   // `domain:{sourceKey}-{targetKey}`.
+  // Only add if both source and target nodes exist in the graph.
+
+  const nodeIds = new Set(nodes.map((n) => n.id));
 
   for (const domainEdge of MALAYSIA_DOMAIN_EDGES) {
     // Extract the registry key from the `ds:{key}` format
     const sourceKey = domainEdge.source.replace(/^ds:/, "");
     const targetKey = domainEdge.target.replace(/^ds:/, "");
     const edgeId = `domain:${sourceKey}-${targetKey}`;
+
+    // Only add edge if both nodes exist in the graph
+    if (!nodeIds.has(domainEdge.source) || !nodeIds.has(domainEdge.target)) {
+      continue;
+    }
 
     if (!edgeIdSet.has(edgeId)) {
       edgeIdSet.add(edgeId);

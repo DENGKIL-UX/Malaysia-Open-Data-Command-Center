@@ -17,6 +17,10 @@
     "cf:dev": "wrangler dev"
   },
   "dependencies": {
+    "@blueprintjs/core": "^6.13.0",
+    "@blueprintjs/icons": "^6.10.0",
+    "@blueprintjs/select": "^6.1.11",
+    "@blueprintjs/table": "^6.0.26",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",

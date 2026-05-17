@@ -8,7 +8,7 @@
  * IDs are omitted — they are generated at graph build time by the
  * ontology builder.
  *
- * source/target use the `ds:{key}` format matching GROUND_TRUTH_REGISTRY keys.
+ * source/target use the `ds:{key}` format matching DOSM_REGISTRY keys.
  */
 
 import type { OntologyEdge } from "@/engine/ontology/types";
@@ -37,7 +37,7 @@ export const MALAYSIA_DOMAIN_EDGES: DomainEdge[] = [
 
   // 2. Exchange rate → CPI (imported inflation channel)
   {
-    source: "ds:exchangerates_monthly",
+    source: "ds:exchange_rate",
     target: "ds:cpi_headline",
     type: "DRIVES",
     strength: 0.58,
@@ -52,7 +52,7 @@ export const MALAYSIA_DOMAIN_EDGES: DomainEdge[] = [
   // 3. GDP → Labour force (Okun's Law — inverse relationship)
   {
     source: "ds:gdp_qtr",
-    target: "ds:lfs_month",
+    target: "ds:labour_monthly",
     type: "DRIVES",
     strength: 0.87,
     lagMonths: 2,
@@ -66,7 +66,7 @@ export const MALAYSIA_DOMAIN_EDGES: DomainEdge[] = [
   // 4. Trade → Exchange rate (current account channel)
   {
     source: "ds:trade_monthly",
-    target: "ds:exchangerates_monthly",
+    target: "ds:exchange_rate",
     type: "DRIVES",
     strength: 0.62,
     lagMonths: 1,
@@ -94,7 +94,7 @@ export const MALAYSIA_DOMAIN_EDGES: DomainEdge[] = [
   // 6. CPI → Household income (inflation erosion of real income)
   {
     source: "ds:cpi_headline",
-    target: "ds:hies_state",
+    target: "ds:household_income",
     type: "DRIVES",
     strength: 0.55,
     lagMonths: 6,
@@ -118,24 +118,24 @@ export const MALAYSIA_DOMAIN_EDGES: DomainEdge[] = [
     labelBM: "Penduduk memacu permintaan domestik",
   },
 
-  // 8. House price index → Household income (affordability channel)
+  // 8. House price index → Household debt (affordability channel)
   {
     source: "ds:hpi_malaysia",
-    target: "ds:hies_state",
+    target: "ds:household_income",
     type: "DRIVES",
     strength: 0.65,
     lagMonths: 4,
     direction: "negative",
     isComputed: false,
     confidence: 0.73,
-    label: "Rising house prices reduce disposable income",
-    labelBM: "Harga rumah naik → pendapatan boleh guna susut",
+    label: "Rising house prices increase household debt burden",
+    labelBM: "Harga rumah naik → beban hutang isi rumah meningkat",
   },
 
   // 9. Labour force → Crime (socioeconomic stress channel)
   {
-    source: "ds:lfs_month",
-    target: "ds:crime_index",
+    source: "ds:labour_monthly",
+    target: "ds:crime_district",
     type: "CORRELATES_POSITIVE",
     strength: 0.48,
     lagMonths: 3,
@@ -146,17 +146,18 @@ export const MALAYSIA_DOMAIN_EDGES: DomainEdge[] = [
     labelBM: "Pengangguran berkait dengan kadar jenayah",
   },
 
-  // 10. Births → Population (demographic growth channel)
+  // 10. Births → School enrolment (demographic pipeline channel, ~6 year lag)
   {
     source: "ds:births",
-    target: "ds:population_malaysia",
+    target: "ds:school_enrolment",
     type: "LEADS",
     strength: 0.95,
+    lagMonths: 72,
     direction: "positive",
     isComputed: false,
     confidence: 0.97,
-    label: "Birth cohorts drive population growth",
-    labelBM: "Kohort kelahiran memacu pertumbuhan penduduk",
+    label: "Birth cohorts drive school enrolment (6-year lag)",
+    labelBM: "Kohort kelahiran memacu enrolmen sekolah (6 tahun lag)",
   },
 
   // 11. Trade → GDP (net exports component of GDP)
@@ -172,16 +173,31 @@ export const MALAYSIA_DOMAIN_EDGES: DomainEdge[] = [
     labelBM: "Perdagangan menyumbang kepada KDNK",
   },
 
-  // 12. Fuel price → Trade (input cost channel on trade margins)
+  // 12. Tourism → Trade (visitor spending channel)
+  {
+    source: "ds:tourism_arrivals",
+    target: "ds:trade_monthly",
+    type: "CORRELATES_POSITIVE",
+    strength: 0.52,
+    lagMonths: 1,
+    direction: "positive",
+    isComputed: false,
+    confidence: 0.65,
+    label: "Tourist spending boosts trade activity",
+    labelBM: "Perbelanjaan pelancong meningkatkan aktiviti perdagangan",
+  },
+
+  // 13. Fuel price → Road accidents (mobility-risk channel)
   {
     source: "ds:fuelprice",
-    target: "ds:trade_monthly",
+    target: "ds:road_accidents",
     type: "CORRELATES_NEGATIVE",
     strength: 0.38,
+    lagMonths: 2,
     direction: "negative",
     isComputed: false,
-    confidence: 0.45,
-    label: "Higher fuel costs reduce trade margins",
-    labelBM: "Kos bahan api tinggi kurangkan margin perdagangan",
+    confidence: 0.42,
+    label: "Higher fuel prices reduce driving and accidents",
+    labelBM: "Harga bahan api tinggi mengurangkan pemanduan dan kemalangan",
   },
 ];
