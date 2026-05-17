@@ -1,15 +1,16 @@
 // src/components/dashboard/live-data-provider.tsx
 // Provider component that fetches P0/P1 live data from api.data.gov.my
 // and makes it available to all dashboard components via context
+// Supports: live data, static fallbacks, status tracking
 
 'use client';
 
-import React, { createContext, useContext, useMemo, useCallback } from 'react';
-import { useDosmData, useCommandCenterKPIs } from '@/hooks/useDosmData';
-import type { DosmDataResult } from '@/lib/dosm/client';
+import React, { createContext, useContext, useMemo } from 'react';
+import { useCommandCenterKPIs } from '@/hooks/useDosmData';
+import type { DosmDataResult, DataStatus } from '@/lib/dosm/client';
 import { COMMAND_CENTER_KPIS, type DatasetId } from '@/lib/dosm/registry';
 import { analyze } from '@/engine/intelligence/confidence';
-import { detect, detectSummary } from '@/engine/intelligence/anomaly';
+import { detect } from '@/engine/intelligence/anomaly';
 
 // ── Types ──
 export interface LiveKPI {
@@ -27,6 +28,8 @@ export interface LiveKPI {
   loading: boolean;
   error: string | null;
   lastUpdated: Date | null;
+  status: DataStatus;
+  datasetApiId: string;
 }
 
 export interface LiveAnomaly {
@@ -58,6 +61,7 @@ interface LiveDataContextValue {
   confidenceCounts: { confirmed: number; high: number; moderate: number; unverfied: number };
   anyLoading: boolean;
   isLive: boolean;
+  status: DataStatus;
   rawData: Record<string, DosmDataResult | null>;
 }
 
@@ -69,6 +73,7 @@ const LiveDataContext = createContext<LiveDataContextValue>({
   confidenceCounts: { confirmed: 0, high: 0, moderate: 0, unverfied: 0 },
   anyLoading: true,
   isLive: false,
+  status: 'loading',
   rawData: {},
 });
 
@@ -79,7 +84,7 @@ export function useLiveData() {
 // ── Provider Component ──
 export function LiveDataProvider({ children }: { children: React.ReactNode }) {
   // Fetch all command center KPI datasets
-  const { data: kpiData, loading, error } = useCommandCenterKPIs();
+  const { data: kpiData, loading, error, anyLive } = useCommandCenterKPIs();
 
   const processed = useMemo(() => {
     const kpis: LiveKPI[] = [];
@@ -90,7 +95,10 @@ export function LiveDataProvider({ children }: { children: React.ReactNode }) {
       const result = kpiData[datasetId];
       const config = result?.config;
 
-      if (!result || !config || result.error) {
+      // Determine the data status
+      const dataStatus: DataStatus = result?.status ?? 'loading';
+
+      if (!result || !config) {
         // Create a placeholder KPI
         kpis.push({
           id: datasetId,
@@ -105,8 +113,35 @@ export function LiveDataProvider({ children }: { children: React.ReactNode }) {
           color: config?.color ?? '#06b6d4',
           sparkline: [],
           loading: true,
-          error: result?.error ?? (error ? 'Network error' : null),
+          error: error ? 'Network error' : null,
           lastUpdated: null,
+          status: 'loading',
+          datasetApiId: config?.id ?? datasetId,
+        });
+        continue;
+      }
+
+      // Even with an error, if we have fallback data, show it
+      const hasData = result.latestValue !== 0 || result.raw?.length > 0;
+
+      if (!hasData && result.error) {
+        kpis.push({
+          id: datasetId,
+          label: config.label,
+          labelBM: config.labelBM,
+          value: '—',
+          prevValue: '—',
+          change: 0,
+          changePct: 0,
+          trend: 'flat',
+          unit: config.unit,
+          color: config.color,
+          sparkline: [],
+          loading: false,
+          error: result.error,
+          lastUpdated: null,
+          status: 'error',
+          datasetApiId: config.id,
         });
         continue;
       }
@@ -140,11 +175,13 @@ export function LiveDataProvider({ children }: { children: React.ReactNode }) {
         color: config.color,
         sparkline,
         loading: false,
-        error: null,
+        error: result.error && dataStatus === 'error' ? result.error : null,
         lastUpdated: result.fetchedAt,
+        status: dataStatus,
+        datasetApiId: config.id,
       });
 
-      // Run confidence analysis on the data
+      // Run confidence analysis on the data (only if we have enough points)
       const values = result.raw
         .map((d: Record<string, unknown>) => parseFloat(String(d[config.valueField] ?? 0)))
         .filter((v: number) => !isNaN(v));
@@ -154,7 +191,7 @@ export function LiveDataProvider({ children }: { children: React.ReactNode }) {
         const confidence = analyze(config.label, values, {
           dataDate: latestDate,
           sampleSize: values.length,
-          sources: [{ name: 'DoSM Malaysia', type: 'government' as const, reliability: 0.99, url: 'https://api.data.gov.my' }],
+          sources: [{ name: 'DoSM Malaysia', type: 'government' as const, reliability: dataStatus === 'live' ? 0.99 : 0.70, url: 'https://api.data.gov.my' }],
           category: config.category,
           geographicCoverage: config.groupField === 'state' ? 0.85 : 0.95,
         });
@@ -162,28 +199,30 @@ export function LiveDataProvider({ children }: { children: React.ReactNode }) {
         confidences.push({
           datasetId,
           datasetLabel: config.labelBM,
-          score: confidence.confidence,
+          score: confidence.confidence * (dataStatus === 'live' ? 1 : 0.7), // Reduce confidence for fallback data
           label: confidence.confidenceLabel,
           riskLevel: confidence.riskLevel,
           recommendation: confidence.recommendation,
         });
 
-        // Run anomaly detection
-        const anomalyResults = detect(values);
-        for (const a of anomalyResults.slice(0, 3)) { // Top 3 anomalies per dataset
-          anomalies.push({
-            id: `${datasetId}-anomaly-${a.index}`,
-            datasetId,
-            datasetLabel: config.labelBM,
-            severity: a.severity === 'critical' ? 'critical'
-              : a.severity === 'high' ? 'high'
-              : a.severity === 'medium' ? 'medium' : 'low',
-            value: a.value,
-            expected: result.avg,
-            zScore: a.zScore,
-            description: a.description,
-            timestamp: result.fetchedAt,
-          });
+        // Run anomaly detection (only on live data — fallback data is not reliable for anomaly detection)
+        if (dataStatus === 'live') {
+          const anomalyResults = detect(values);
+          for (const a of anomalyResults.slice(0, 3)) { // Top 3 anomalies per dataset
+            anomalies.push({
+              id: `${datasetId}-anomaly-${a.index}`,
+              datasetId,
+              datasetLabel: config.labelBM,
+              severity: a.severity === 'critical' ? 'critical'
+                : a.severity === 'high' ? 'high'
+                : a.severity === 'medium' ? 'medium' : 'low',
+              value: a.value,
+              expected: result.avg,
+              zScore: a.zScore,
+              description: a.description,
+              timestamp: result.fetchedAt,
+            });
+          }
         }
       }
     }
@@ -206,9 +245,10 @@ export function LiveDataProvider({ children }: { children: React.ReactNode }) {
       kpiMap[kpi.id] = kpi;
     }
 
-    const isLive = kpis.some(k => !k.loading && !k.error);
+    const isLive = kpis.some(k => k.status === 'live');
+    const overallStatus: DataStatus = isLive ? 'live' : kpis.some(k => k.status === 'fallback') ? 'fallback' : kpis.some(k => k.status === 'error') ? 'error' : 'loading';
 
-    return { kpis, kpiMap, anomalies, confidences, confidenceCounts, isLive };
+    return { kpis, kpiMap, anomalies, confidences, confidenceCounts, isLive, status: overallStatus };
   }, [kpiData, error]);
 
   const value = useMemo(() => ({
@@ -228,14 +268,24 @@ export function LiveDataProvider({ children }: { children: React.ReactNode }) {
 function formatValue(value: number, unit: string): string {
   if (isNaN(value)) return '—';
   if (unit === '%') return value.toFixed(1);
-  if (unit === 'RM Bilion') return `RM ${value.toFixed(1)}B`;
-  if (unit === 'RM Juta') return `RM ${(value / 1000).toFixed(1)}B`;
-  if (unit === 'RM/liter') return `RM ${value.toFixed(2)}`;
-  if (unit === 'RM') return `RM ${value.toFixed(2)}`;
-  if (unit === 'Indeks') return value.toFixed(1);
-  if (unit.includes('ribu orang') || unit.includes("'000")) {
+  if (unit === 'RM Bilion' || unit === 'RM Billion') return `RM ${value.toFixed(1)}B`;
+  if (unit === 'RM Juta' || unit === 'RM Million') return `RM ${(value / 1000).toFixed(1)}B`;
+  if (unit === 'RM/liter' || unit === 'RM/litre') return `RM ${value.toFixed(2)}`;
+  if (unit === 'RM' || unit === 'MYR') return `RM ${value.toFixed(2)}`;
+  if (unit === 'Indeks' || unit === 'Index') return value.toFixed(1);
+  if (unit.includes('ribu orang') || unit.includes('thousands') || unit.includes("'000")) {
     if (value >= 1000) return `${(value / 1000).toFixed(1)}M`;
     return `${value.toFixed(0)}K`;
+  }
+  if (unit === 'persons' || unit === 'orang') {
+    if (value >= 1e6) return `${(value / 1e6).toFixed(1)}M`;
+    if (value >= 1e3) return `${(value / 1e3).toFixed(1)}K`;
+    return value.toFixed(0);
+  }
+  if (unit === 'cases' || unit === 'kes') {
+    if (value >= 1e6) return `${(value / 1e6).toFixed(1)}M`;
+    if (value >= 1e3) return `${(value / 1e3).toFixed(1)}K`;
+    return value.toFixed(0);
   }
   if (Math.abs(value) >= 1e9) return `${(value / 1e9).toFixed(1)}B`;
   if (Math.abs(value) >= 1e6) return `${(value / 1e6).toFixed(1)}M`;

@@ -1,13 +1,16 @@
 // src/lib/dosm/client.ts
 // Client for api.data.gov.my/data-catalogue
-// Handles fetching, caching, error handling, and data enrichment
+// Handles fetching, caching, error handling, ID correction, static fallbacks, and data enrichment
 
-import { DOSM_REGISTRY, type DatasetId, type DatasetConfig } from './registry';
+import { DOSM_REGISTRY, STATIC_FALLBACKS, ID_CORRECTIONS, type DatasetId, type DatasetConfig } from './registry';
+import { guardFields, type FieldGuardResult } from './field-guard';
 
 const BASE_URL = '/api/dosm'; // Proxied through our server route
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min default cache
 
 // ── TYPES ──
+export type DataStatus = 'loading' | 'live' | 'fallback' | 'error';
+
 export interface DosmQueryOptions {
   limit?: number;
   sort?: 'asc' | 'desc';
@@ -30,6 +33,10 @@ export interface DosmDataResult<T = Record<string, unknown>> {
   max: number;
   avg: number;
   error?: string;
+  // NEW: Status tracking
+  status: DataStatus;
+  fieldGuard?: FieldGuardResult;
+  correctedId?: string;
 }
 
 // ── IN-MEMORY CACHE ──
@@ -37,6 +44,28 @@ const cache = new Map<string, { data: DosmDataResult; expires: number }>();
 
 function getCacheKey(datasetId: string, options: DosmQueryOptions): string {
   return `${datasetId}:${JSON.stringify(options)}`;
+}
+
+// ── ID CORRECTION ──
+function resolveId(rawId: string): { id: string; corrected: boolean; originalId: string } {
+  const corrected = ID_CORRECTIONS.get(rawId);
+  if (corrected && corrected !== rawId) {
+    console.warn(`[DoSM Client] ID corrected: "${rawId}" → "${corrected}"`);
+    return { id: corrected, corrected: true, originalId: rawId };
+  }
+  return { id: rawId, corrected: false, originalId: rawId };
+}
+
+// ── STATIC FALLBACK ──
+function getStaticFallback<T>(datasetId: string, config: DatasetConfig): DosmDataResult<T> | null {
+  const fallbackData = (STATIC_FALLBACKS as Record<string, { data: Record<string, unknown>[] }>)[datasetId];
+
+  if (!fallbackData?.data?.length) {
+    return null;
+  }
+
+  const dataArr = fallbackData.data as T[];
+  return enrichData(dataArr, config, 'fallback', undefined);
 }
 
 // ── MAIN FETCH FUNCTION ──
@@ -53,6 +82,8 @@ export async function fetchDosmData<T = Record<string, unknown>>(
     );
   }
 
+  const { id: resolvedId, corrected: wasCorrected, originalId } = resolveId(config.id);
+
   const cacheKey = getCacheKey(String(datasetId), options);
 
   // Check cache
@@ -63,38 +94,77 @@ export async function fetchDosmData<T = Record<string, unknown>>(
 
   // Build query params for our proxy
   const params = new URLSearchParams();
-  params.set('id', config.id);
+  params.set('id', resolvedId);
   params.set('limit', String(options.limit ?? config.defaultLimit));
   if (options.sort) {
     params.set('sort', options.sort);
   }
-  if (options.filters) {
-    Object.entries(options.filters).forEach(([k, v]) => {
-      params.set(k, String(v));
-    });
-  }
+
+  // Apply defaultFilter from config if not overridden
+  const filters = {
+    ...(config.defaultFilter ?? {}),
+    ...(options.filters ?? {}),
+  };
+  Object.entries(filters).forEach(([k, v]) => {
+    params.set(k, String(v));
+  });
 
   try {
     const res = await fetch(`${BASE_URL}?${params}`, {
       headers: { 'Accept': 'application/json' },
     });
 
+    // Get X-Fields from response header for field validation
+    const actualFields = res.headers.get('X-Fields')?.split(',') ?? [];
+    const correctedFromProxy = res.headers.get('X-ID-Corrected');
+
     if (!res.ok) {
-      const body = await res.text().catch(() => '');
-      throw new DosmApiError(
-        `Fetch failed: ${res.status} ${res.statusText} — ${body}`,
-        res.status,
-        String(datasetId)
-      );
+      const errJson = await res.json().catch(() => ({ error: res.statusText }));
+      const errMsg = (errJson as Record<string, string>).diagnosis
+        ?? (errJson as Record<string, string>).error
+        ?? `HTTP ${res.status}`;
+
+      console.warn(`[DoSM Client] API error for "${datasetId}": ${errMsg}`);
+
+      // Try static fallback
+      const fallback = getStaticFallback<T>(resolvedId, config);
+      if (fallback) {
+        return { ...fallback, error: errMsg, status: 'fallback' } as DosmDataResult<T>;
+      }
+
+      // No fallback available
+      const emptyResult = createEmptyResult(config, errMsg);
+      cache.set(cacheKey, { data: emptyResult, expires: Date.now() + CACHE_TTL_MS });
+      return emptyResult as DosmDataResult<T>;
     }
 
     const json = await res.json();
     const dataArr: T[] = Array.isArray(json) ? json : (json.data ?? []);
 
     if (dataArr.length === 0) {
-      const emptyResult = createEmptyResult(config);
+      // API returned empty data — try static fallback
+      const fallback = getStaticFallback<T>(resolvedId, config);
+      if (fallback) {
+        return { ...fallback, status: 'fallback', error: 'API returned empty data, using static fallback' } as DosmDataResult<T>;
+      }
+
+      const emptyResult = createEmptyResult(config, 'No data returned from API');
       cache.set(cacheKey, { data: emptyResult, expires: Date.now() + CACHE_TTL_MS });
       return emptyResult as DosmDataResult<T>;
+    }
+
+    // Run field guard validation
+    const fieldGuard = guardFields(
+      dataArr as Record<string, unknown>[],
+      String(datasetId),
+      { valueField: config.valueField, dateField: config.dateField, groupField: config.groupField }
+    );
+
+    if (!fieldGuard.safe) {
+      console.warn(
+        `[DoSM Client] Field mismatch for "${datasetId}":`,
+        fieldGuard.suggestion
+      );
     }
 
     // Sort by date descending (latest first)
@@ -104,7 +174,10 @@ export async function fetchDosmData<T = Record<string, unknown>>(
       return dateB - dateA;
     });
 
-    const result = enrichData(sorted as T[], config);
+    const result = enrichData<T>(sorted, config, 'live', fieldGuard);
+    if (wasCorrected || correctedFromProxy) {
+      (result as DosmDataResult).correctedId = correctedFromProxy ?? resolvedId;
+    }
 
     // Cache the result
     cache.set(cacheKey, {
@@ -115,11 +188,19 @@ export async function fetchDosmData<T = Record<string, unknown>>(
     return result as DosmDataResult<T>;
   } catch (err) {
     if (err instanceof DosmApiError) throw err;
-    throw new DosmApiError(
-      `Network error: ${err instanceof Error ? err.message : 'Unknown'}`,
-      0,
-      String(datasetId)
-    );
+
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    console.warn(`[DoSM Client] Network error for "${datasetId}": ${message}`);
+
+    // Try static fallback
+    const fallback = getStaticFallback<T>(resolvedId, config);
+    if (fallback) {
+      return { ...fallback, error: message, status: 'fallback' } as DosmDataResult<T>;
+    }
+
+    const emptyResult = createEmptyResult(config, message);
+    cache.set(cacheKey, { data: emptyResult, expires: Date.now() + CACHE_TTL_MS });
+    return emptyResult as DosmDataResult<T>;
   }
 }
 
@@ -140,7 +221,12 @@ export async function fetchMany(
 }
 
 // ── ENRICHMENT ──
-function enrichData<T>(sorted: T[], config: DatasetConfig): DosmDataResult<T> {
+function enrichData<T>(
+  sorted: T[],
+  config: DatasetConfig,
+  status: DataStatus = 'live',
+  fieldGuard?: FieldGuardResult
+): DosmDataResult<T> {
   const valueField = config.valueField;
   const latest = sorted[0];
   const previous = sorted[1] ?? sorted[0];
@@ -182,10 +268,12 @@ function enrichData<T>(sorted: T[], config: DatasetConfig): DosmDataResult<T> {
     min,
     max,
     avg,
+    status,
+    fieldGuard,
   };
 }
 
-function createEmptyResult(config: DatasetConfig): DosmDataResult {
+function createEmptyResult(config: DatasetConfig, error?: string): DosmDataResult {
   const empty = {} as Record<string, unknown>;
   empty[config.dateField] = new Date().toISOString();
   empty[config.valueField] = 0;
@@ -204,7 +292,8 @@ function createEmptyResult(config: DatasetConfig): DosmDataResult {
     min: 0,
     max: 0,
     avg: 0,
-    error: 'No data returned from API',
+    error: error ?? 'No data returned from API',
+    status: 'error',
   };
 }
 

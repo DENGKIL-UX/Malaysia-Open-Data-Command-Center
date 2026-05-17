@@ -1,11 +1,11 @@
 // src/hooks/useDosmData.ts
 // React hooks for fetching live data from api.data.gov.my via our proxy
-// Uses SWR pattern with stale-while-revalidate
+// Uses SWR pattern with stale-while-revalidate, static fallbacks, and status tracking
 
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { fetchDosmData, type DosmDataResult, type DosmQueryOptions } from '@/lib/dosm/client';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { fetchDosmData, type DosmDataResult, type DosmQueryOptions, type DataStatus } from '@/lib/dosm/client';
 import type { DatasetId } from '@/lib/dosm/registry';
 import { DOSM_REGISTRY, COMMAND_CENTER_KPIS, PRIORITY_DATASETS } from '@/lib/dosm/registry';
 
@@ -15,6 +15,7 @@ interface UseDosmState<T = Record<string, unknown>> {
   loading: boolean;
   error: string | null;
   stale: boolean;
+  status: DataStatus;
   refetch: () => void;
 }
 
@@ -28,6 +29,7 @@ export function useDosmData<T = Record<string, unknown>>(
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stale, setStale] = useState(false);
+  const [status, setStatus] = useState<DataStatus>('loading');
   const mountedRef = useRef(true);
   const fetchCountRef = useRef(0);
 
@@ -43,10 +45,15 @@ export function useDosmData<T = Record<string, unknown>>(
       if (!mountedRef.current || thisFetch !== fetchCountRef.current) return;
       setResult(data);
       setStale(false);
+      setStatus(data.status);
+      if (data.error && data.status === 'error') {
+        setError(data.error);
+      }
     } catch (err: unknown) {
       if (!mountedRef.current || thisFetch !== fetchCountRef.current) return;
       const message = err instanceof Error ? err.message : 'Unknown error';
       setError(message);
+      setStatus('error');
     } finally {
       if (mountedRef.current && thisFetch === fetchCountRef.current) {
         setLoading(false);
@@ -72,7 +79,7 @@ export function useDosmData<T = Record<string, unknown>>(
     return () => clearInterval(timer);
   }, [load, refreshMs, datasetId]);
 
-  return { result, loading, error, stale, refetch: load };
+  return { result, loading, error, stale, status, refetch: load };
 }
 
 // ── HOOK: Fetch all Command Center KPIs ──
@@ -80,6 +87,7 @@ export function useCommandCenterKPIs() {
   const [data, setData] = useState<Record<string, DosmDataResult | null>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [anyLive, setAnyLive] = useState(false);
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -94,6 +102,7 @@ export function useCommandCenterKPIs() {
         );
         if (!cancelled && mountedRef.current) {
           setData(result);
+          setAnyLive(Object.values(result).some(r => r?.status === 'live'));
           setLoading(false);
         }
       } catch (err: unknown) {
@@ -117,13 +126,14 @@ export function useCommandCenterKPIs() {
         );
         if (mountedRef.current) {
           setData(result);
+          setAnyLive(Object.values(result).some(r => r?.status === 'live'));
         }
       } catch { /* ignore refresh errors */ }
     }, 300_000);
     return () => clearInterval(timer);
   }, []);
 
-  return { data, loading, error };
+  return { data, loading, error, anyLive };
 }
 
 // ── HOOK: Fetch all datasets in a priority group ──
@@ -161,6 +171,7 @@ export function usePriorityGroup(priority: 'P0' | 'P1' | 'P2' | 'P3') {
 
 // ══════════════════════════════════════════════
 // NAMED HOOKS — one per dataset for convenience
+// All use CORRECTED dataset IDs from the ground truth registry
 // ══════════════════════════════════════════════
 
 export const useGDPAnnual = (options?: DosmQueryOptions) =>
@@ -237,3 +248,12 @@ export const useRidership = (options?: DosmQueryOptions) =>
 
 export const useVehicleRegistration = (options?: DosmQueryOptions) =>
   useDosmData('vehicle_registration', { limit: 24, ...options }, 600_000);
+
+export const useHousePrice = (options?: DosmQueryOptions) =>
+  useDosmData('hpi_malaysia', { limit: 24, ...options }, 600_000);
+
+export const useHiesMalaysia = (options?: DosmQueryOptions) =>
+  useDosmData('hies_malaysia', { limit: 50, ...options }, 86_400_000);
+
+export const useExchangeRateDaily = (options?: DosmQueryOptions) =>
+  useDosmData('exchangerates_daily', { limit: 30, ...options }, 300_000);
