@@ -44,7 +44,10 @@ export type DatasetCategory =
   | 'Education'
   | 'Agriculture'
   | 'Digital'
-  | 'Industry';
+  | 'Industry'
+  | 'PublicAdmin'
+  | 'Welfare'
+  | 'Metadata';
 
 export type DatasetPriority = 'P0' | 'P1' | 'P2' | 'P3';
 
@@ -94,6 +97,16 @@ export interface GroundTruthDataset {
   status: VerificationStatus;
   /** Notes / caveats */
   notes?: string;
+  /** Whether this dataset returns WIDE format (columns per category instead of rows) */
+  wideFormat?: boolean;
+  /** If wideFormat, the column names that become the group values after pivoting */
+  wideColumns?: string[];
+  /** If true, dataset has no API endpoint and must use CSV proxy */
+  csvOnly?: boolean;
+  /** CSV download URL (from catalogue) */
+  csvUrl?: string;
+  /** Subcategory within the main category */
+  subcategory?: string;
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -204,6 +217,29 @@ export const ID_CORRECTIONS: ReadonlyMap<string, string> = new Map([
   ['cpi_headline', 'cpi_headline'],              // Correct as-is ✅
   ['cpi_state', 'cpi_state'],                    // Correct as-is ✅
   ['lfs_month', 'lfs_month'],                    // Correct as-is ✅
+  // ── New GitHub-verified IDs (self-correcting) ──
+  ['cpi_headline_inflation', 'cpi_headline_inflation'],    // ✅
+  ['cpi_core', 'cpi_core'],                                // ✅
+  ['cpi_core_inflation', 'cpi_core_inflation'],            // ✅
+  ['gdp_qtr_real', 'gdp_qtr_real'],                        // ✅
+  ['gdp_state_real_supply', 'gdp_state_real_supply'],      // ✅
+  ['hh_income', 'hh_income'],                              // ✅
+  ['hh_income_state', 'hh_income_state'],                  // ✅
+  ['hh_poverty', 'hh_poverty'],                            // ✅
+  ['hh_inequality', 'hh_inequality'],                      // ✅
+  ['ghg_emissions', 'ghg_emissions'],                      // ✅
+  ['arrivals', 'arrivals'],                                // ✅
+  ['domains', 'domains'],                                  // ✅
+  ['economic_indicators', 'economic_indicators'],          // ✅
+  ['federal_finance_year', 'federal_finance_year'],        // ✅
+  ['epf_dividend', 'epf_dividend'],                        // ✅
+  ['productivity_qtr', 'productivity_qtr'],                // ✅
+  ['crime_district', 'crime_district'],                    // ✅
+  ['covid_cases', 'covid_cases'],                          // ✅
+  ['sppi', 'sppi'],                                        // ✅
+  ['iowrt', 'iowrt'],                                      // ✅
+  ['bop_balance', 'bop_balance'],                          // ✅ Actual API ID
+  ['fdi_flows', 'fdi_flows'],                              // ✅ Actual API ID
 ]);
 
 // ══════════════════════════════════════════════════════════════════
@@ -345,16 +381,23 @@ export const GROUND_TRUTH_REGISTRY = {
     priority: 'P0',
     fields: [
       { name: 'date', type: 'date', label: 'Month', required: true },
-      { name: 'currency', type: 'string', label: 'Currency', choices: ['USD', 'EUR', 'GBP', 'JPY', 'SGD', 'CNY', 'THB', 'IDR', 'KRW', 'AUD'], required: true },
-      { name: 'rate', type: 'number', label: 'Exchange Rate (MYR per unit)', required: true },
+      { name: 'usd', type: 'number', label: 'USD/MYR' },
+      { name: 'eur', type: 'number', label: 'EUR/MYR' },
+      { name: 'gbp', type: 'number', label: 'GBP/MYR' },
+      { name: 'jpy', type: 'number', label: 'JPY/MYR (per 100)' },
+      { name: 'sgd', type: 'number', label: 'SGD/MYR' },
+      { name: 'cny', type: 'number', label: 'CNY/MYR' },
     ],
-    valueField: 'rate',
+    valueField: 'usd',
     dateField: 'date',
     groupField: 'currency',
-    defaultFilter: { currency: 'USD' },
+    defaultFilter: {},
     unit: 'MYR',
     priority_order: 6,
     status: 'VERIFIED',
+    wideFormat: true,
+    wideColumns: ['aed', 'aud', 'bnd', 'cad', 'chf', 'cny', 'egp', 'eur', 'gbp', 'hkd', 'idr', 'inr', 'jpy', 'khr', 'krw', 'mmk', 'npr', 'nzd', 'php', 'pkr', 'sar', 'sgd', 'thb', 'twd', 'usd', 'vnd', 'xdr'],
+    notes: 'WIDE FORMAT: API returns {date, usd, eur, gbp, ...} with each currency as a column. Client must pivot to LONG format {date, currency, rate} for charting. The ID "exchangerates" maps to the actual API endpoint.',
   } satisfies GroundTruthDataset,
 
   population_state: {
@@ -705,20 +748,22 @@ export const GROUND_TRUTH_REGISTRY = {
     title_en: 'Industrial Production Index',
     frequency: 'monthly',
     geography: 'national',
-    category: 'Economy',
+    category: 'Industry',
     priority: 'P1',
     fields: [
       { name: 'date', type: 'date', label: 'Month', required: true },
-      { name: 'series_type', type: 'string', label: 'Series Type', required: true },
-      { name: 'value', type: 'number', label: 'IPI Value', required: true },
+      { name: 'series', type: 'string', label: 'Series Type', choices: ['index', 'growth'], required: true },
+      { name: 'index', type: 'number', label: 'IPI Index', required: true },
     ],
-    valueField: 'value',
+    valueField: 'index',
     dateField: 'date',
-    groupField: 'series_type',
+    groupField: 'series',
     defaultFilter: {},
     unit: 'Index',
     priority_order: 13,
     status: 'VERIFIED',
+    subcategory: 'Manufacturing',
+    notes: 'API returns fields: date, series, index. NOT date, series_type, value. Field is "index" not "value", group is "series" not "series_type".',
   } satisfies GroundTruthDataset,
 
   // ══════════════════════════════════════════════════════════════
@@ -807,16 +852,23 @@ export const GROUND_TRUTH_REGISTRY = {
     priority: 'P2',
     fields: [
       { name: 'date', type: 'date', label: 'Month', required: true },
-      { name: 'service', type: 'string', label: 'Service', required: true },
-      { name: 'ridership', type: 'number', label: 'Ridership', required: true },
+      { name: 'bus_rkl', type: 'number', label: 'Bus Rapid KL' },
+      { name: 'rail_lrt_ampang', type: 'number', label: 'LRT Ampang' },
+      { name: 'rail_lrt_kj', type: 'number', label: 'LRT Kelana Jaya' },
+      { name: 'rail_mrt_kajang', type: 'number', label: 'MRT Kajang' },
+      { name: 'rail_komuter', type: 'number', label: 'KTM Komuter' },
+      { name: 'rail_ets', type: 'number', label: 'ETS' },
     ],
-    valueField: 'ridership',
+    valueField: 'bus_rkl',
     dateField: 'date',
     groupField: 'service',
     defaultFilter: {},
     unit: 'persons',
     priority_order: 4,
     status: 'VERIFIED',
+    wideFormat: true,
+    wideColumns: ['bus_rkl', 'bus_rkn', 'bus_rpn', 'rail_lrt_ampang', 'rail_lrt_kj', 'rail_monorail', 'rail_mrt_kajang', 'rail_mrt_pjy', 'rail_ets', 'rail_intercity', 'rail_komuter', 'rail_komuter_utara', 'rail_tebrau'],
+    notes: 'WIDE FORMAT: API returns {date, bus_rkl, rail_ets, ...} with each service as a column. Client must pivot to LONG format {date, service, ridership} for charting.',
   } satisfies GroundTruthDataset,
 
   crime_index: {
@@ -954,16 +1006,18 @@ export const GROUND_TRUTH_REGISTRY = {
     priority: 'P3',
     fields: [
       { name: 'date', type: 'date', label: 'Month', required: true },
-      { name: 'series_type', type: 'string', label: 'Series Type', required: true },
-      { name: 'value', type: 'number', label: 'PPI Value', required: true },
+      { name: 'series', type: 'string', label: 'Series Type', choices: ['index', 'growth'], required: true },
+      { name: 'index', type: 'number', label: 'PPI Index', required: true },
     ],
-    valueField: 'value',
+    valueField: 'index',
     dateField: 'date',
-    groupField: 'series_type',
+    groupField: 'series',
     defaultFilter: {},
     unit: 'Index',
     priority_order: 1,
     status: 'VERIFIED',
+    subcategory: 'Producer Prices',
+    notes: 'API returns fields: date, series, index. NOT date, series_type, value. Same pattern as IPI.',
   } satisfies GroundTruthDataset,
 
   bop: {
@@ -977,17 +1031,18 @@ export const GROUND_TRUTH_REGISTRY = {
     priority: 'P3',
     fields: [
       { name: 'date', type: 'date', label: 'Quarter', required: true },
-      { name: 'series_type', type: 'string', label: 'Series Type', required: true },
-      { name: 'value', type: 'number', label: 'Value (RM Million)', required: true },
+      { name: 'account', type: 'string', label: 'Account Type', required: true },
+      { name: 'balance', type: 'number', label: 'Balance (RM Million)', required: true },
     ],
-    valueField: 'value',
+    valueField: 'balance',
     dateField: 'date',
-    groupField: 'series_type',
+    groupField: 'account',
     defaultFilter: {},
     unit: 'RM Million',
     priority_order: 2,
-    status: 'NEEDS_VERIFY',
-    notes: 'Previously "bop_balance". Need to verify that the API ID is "bop" (not "bop_balance").',
+    status: 'VERIFIED',
+    subcategory: 'Balance of Payments',
+    notes: 'Correct API ID is "bop_balance" (verified from GitHub catalogue). Fields: date, account, balance.',
   } satisfies GroundTruthDataset,
 
   fdi: {
@@ -1001,17 +1056,18 @@ export const GROUND_TRUTH_REGISTRY = {
     priority: 'P3',
     fields: [
       { name: 'date', type: 'date', label: 'Quarter', required: true },
-      { name: 'series_type', type: 'string', label: 'Series Type', required: true },
-      { name: 'value', type: 'number', label: 'Value (RM Million)', required: true },
+      { name: 'inflow', type: 'number', label: 'Inflow (RM Million)' },
+      { name: 'outflow', type: 'number', label: 'Outflow (RM Million)' },
+      { name: 'net', type: 'number', label: 'Net FDI (RM Million)', required: true },
     ],
-    valueField: 'value',
+    valueField: 'net',
     dateField: 'date',
-    groupField: 'series_type',
     defaultFilter: {},
     unit: 'RM Million',
     priority_order: 3,
-    status: 'NEEDS_VERIFY',
-    notes: 'Previously "fdi_flows". Need to verify that the API ID is "fdi" (not "fdi_flows").',
+    status: 'VERIFIED',
+    subcategory: 'Balance of Payments',
+    notes: 'Correct API ID is "fdi_flows" (verified from GitHub catalogue). Fields: date, inflow, outflow, net.',
   } satisfies GroundTruthDataset,
 
   interestrates: {
@@ -1025,16 +1081,18 @@ export const GROUND_TRUTH_REGISTRY = {
     priority: 'P3',
     fields: [
       { name: 'date', type: 'date', label: 'Date', required: true },
-      { name: 'series_type', type: 'string', label: 'Series Type', required: true },
+      { name: 'bank', type: 'string', label: 'Bank / Series', required: true },
       { name: 'rate', type: 'number', label: 'Rate (%)', required: true },
     ],
     valueField: 'rate',
     dateField: 'date',
-    groupField: 'series_type',
+    groupField: 'bank',
     defaultFilter: {},
     unit: '%',
     priority_order: 4,
     status: 'VERIFIED',
+    subcategory: 'Banking System',
+    notes: 'API returns fields: date, bank, rate. NOT date, series_type, rate. Group field is "bank" not "series_type".',
   } satisfies GroundTruthDataset,
 
   monetary_aggregates: {
@@ -1275,30 +1333,6 @@ export const GROUND_TRUTH_REGISTRY = {
     priority_order: 14,
     status: 'NEEDS_VERIFY',
     notes: 'Exact API ID uncertain. "registration_transactions_all" is the best guess from the YAML repo.',
-  } satisfies GroundTruthDataset,
-
-  air_pollution: {
-    apiId: 'air_pollution',
-    yamlSource: 'air_pollution.yaml',
-    title_ms: 'Indeks Pencemaran Udara',
-    title_en: 'Air Pollution Index',
-    frequency: 'daily',
-    geography: 'state',
-    category: 'Environment',
-    priority: 'P3',
-    fields: [
-      { name: 'date', type: 'date', label: 'Date', required: true },
-      { name: 'state', type: 'string', label: 'State', choices: STATE_NAMES_PLACEHOLDER, required: true },
-      { name: 'api', type: 'number', label: 'Air Pollutant Index', required: true },
-    ],
-    valueField: 'api',
-    dateField: 'date',
-    groupField: 'state',
-    defaultFilter: {},
-    unit: 'API',
-    priority_order: 15,
-    status: 'NEEDS_VERIFY',
-    notes: 'Need to verify exact API ID and field names. "api" as value field may be "value" instead.',
   } satisfies GroundTruthDataset,
 
   electricity_supply: {
@@ -1578,6 +1612,523 @@ export const GROUND_TRUTH_REGISTRY = {
     priority_order: 12,
     status: 'NEEDS_VERIFY',
     notes: "Malaysia's top export commodity. NEEDS_VERIFY: exact API ID and field names.",
+  } satisfies GroundTruthDataset,
+
+  // ══════════════════════════════════════════════════════════════
+  // NEW — GitHub-verified Datasets from datagovmy-meta (285 total)
+  // ══════════════════════════════════════════════════════════════
+
+  cpi_headline_inflation: {
+    apiId: 'cpi_headline_inflation',
+    yamlSource: 'cpi_headline_inflation.yaml',
+    title_ms: 'Inflasi IHP Keseluruhan',
+    title_en: 'Headline CPI Inflation (YoY %)',
+    frequency: 'monthly',
+    geography: 'national',
+    category: 'Prices',
+    priority: 'P1',
+    fields: [
+      { name: 'date', type: 'date', label: 'Month', required: true },
+      { name: 'division', type: 'string', label: 'COICOP Division', required: true },
+      { name: 'inflation_yoy', type: 'number', label: 'Inflation YoY (%)', required: true },
+    ],
+    valueField: 'inflation_yoy',
+    dateField: 'date',
+    groupField: 'division',
+    defaultFilter: { division: 'overall' },
+    unit: '%',
+    priority_order: 14,
+    status: 'VERIFIED',
+    subcategory: 'Consumer Prices',
+    notes: 'Direct inflation YoY from API — no client-side computation needed. Filter division=overall for headline.',
+  } satisfies GroundTruthDataset,
+
+  cpi_core: {
+    apiId: 'cpi_core',
+    yamlSource: 'cpi_core.yaml',
+    title_ms: 'IHP Teras',
+    title_en: 'Core Consumer Price Index',
+    frequency: 'monthly',
+    geography: 'national',
+    category: 'Prices',
+    priority: 'P2',
+    fields: [
+      { name: 'date', type: 'date', label: 'Month', required: true },
+      { name: 'division', type: 'string', label: 'Division', required: true },
+      { name: 'index', type: 'number', label: 'Core CPI Index', required: true },
+    ],
+    valueField: 'index',
+    dateField: 'date',
+    groupField: 'division',
+    defaultFilter: { division: 'overall' },
+    unit: 'Index',
+    priority_order: 5,
+    status: 'VERIFIED',
+    subcategory: 'Consumer Prices',
+  } satisfies GroundTruthDataset,
+
+  cpi_core_inflation: {
+    apiId: 'cpi_core_inflation',
+    yamlSource: 'cpi_core_inflation.yaml',
+    title_ms: 'Inflasi IHP Teras',
+    title_en: 'Core CPI Inflation (YoY %)',
+    frequency: 'monthly',
+    geography: 'national',
+    category: 'Prices',
+    priority: 'P2',
+    fields: [
+      { name: 'date', type: 'date', label: 'Month', required: true },
+      { name: 'inflation_yoy', type: 'number', label: 'Core Inflation YoY (%)', required: true },
+    ],
+    valueField: 'inflation_yoy',
+    dateField: 'date',
+    defaultFilter: {},
+    unit: '%',
+    priority_order: 6,
+    status: 'VERIFIED',
+    subcategory: 'Consumer Prices',
+  } satisfies GroundTruthDataset,
+
+  gdp_qtr_real: {
+    apiId: 'gdp_qtr_real',
+    yamlSource: 'gdp_qtr_real.yaml',
+    title_ms: 'KDNK Sebenar Suku Tahunan',
+    title_en: 'Real Quarterly GDP',
+    frequency: 'quarterly',
+    geography: 'national',
+    category: 'Economy',
+    priority: 'P1',
+    fields: [
+      { name: 'date', type: 'date', label: 'Quarter', required: true },
+      { name: 'series', type: 'string', label: 'Series', required: true },
+      { name: 'value', type: 'number', label: 'GDP Value (RM Billion)', required: true },
+    ],
+    valueField: 'value',
+    dateField: 'date',
+    groupField: 'series',
+    defaultFilter: {},
+    unit: 'RM Billion',
+    priority_order: 15,
+    status: 'VERIFIED',
+    subcategory: 'Gross Domestic Product',
+  } satisfies GroundTruthDataset,
+
+  gdp_state_real_supply: {
+    apiId: 'gdp_state_real_supply',
+    yamlSource: 'gdp_state_real_supply.yaml',
+    title_ms: 'KDNK Sebenar mengikut Negeri',
+    title_en: 'Real GDP by State (Supply Approach)',
+    frequency: 'annual',
+    geography: 'state',
+    category: 'Economy',
+    priority: 'P2',
+    fields: [
+      { name: 'date', type: 'date', label: 'Year', required: true },
+      { name: 'state', type: 'string', label: 'State', choices: STATE_NAMES_PLACEHOLDER, required: true },
+      { name: 'sector', type: 'string', label: 'Sector' },
+      { name: 'series', type: 'string', label: 'Series' },
+      { name: 'value', type: 'number', label: 'GDP (RM Million)', required: true },
+    ],
+    valueField: 'value',
+    dateField: 'date',
+    groupField: 'state',
+    defaultFilter: {},
+    unit: 'RM Million',
+    priority_order: 7,
+    status: 'VERIFIED',
+    subcategory: 'Gross Domestic Product',
+  } satisfies GroundTruthDataset,
+
+  hh_income: {
+    apiId: 'hh_income',
+    yamlSource: 'hh_income.yaml',
+    title_ms: 'Pendapatan Isi Rumah',
+    title_en: 'Household Income (National)',
+    frequency: 'biennial',
+    geography: 'national',
+    category: 'Households',
+    priority: 'P1',
+    fields: [
+      { name: 'date', type: 'date', label: 'Year', required: true },
+      { name: 'income_mean', type: 'number', label: 'Mean Income (RM)', required: true },
+      { name: 'income_median', type: 'number', label: 'Median Income (RM)', required: true },
+    ],
+    valueField: 'income_median',
+    dateField: 'date',
+    defaultFilter: {},
+    unit: 'RM',
+    priority_order: 16,
+    status: 'VERIFIED',
+    subcategory: 'Income',
+  } satisfies GroundTruthDataset,
+
+  hh_income_state: {
+    apiId: 'hh_income_state',
+    yamlSource: 'hh_income_state.yaml',
+    title_ms: 'Pendapatan Isi Rumah mengikut Negeri',
+    title_en: 'Household Income by State',
+    frequency: 'biennial',
+    geography: 'state',
+    category: 'Households',
+    priority: 'P2',
+    fields: [
+      { name: 'date', type: 'date', label: 'Year', required: true },
+      { name: 'state', type: 'string', label: 'State', choices: STATE_NAMES_PLACEHOLDER, required: true },
+      { name: 'income_mean', type: 'number', label: 'Mean Income (RM)' },
+      { name: 'income_median', type: 'number', label: 'Median Income (RM)', required: true },
+    ],
+    valueField: 'income_median',
+    dateField: 'date',
+    groupField: 'state',
+    defaultFilter: {},
+    unit: 'RM',
+    priority_order: 8,
+    status: 'VERIFIED',
+    subcategory: 'Income',
+  } satisfies GroundTruthDataset,
+
+  hh_poverty: {
+    apiId: 'hh_poverty',
+    yamlSource: 'hh_poverty.yaml',
+    title_ms: 'Kemiskinan Isi Rumah',
+    title_en: 'Household Poverty (National)',
+    frequency: 'biennial',
+    geography: 'national',
+    category: 'Households',
+    priority: 'P2',
+    fields: [
+      { name: 'date', type: 'date', label: 'Year', required: true },
+      { name: 'poverty_absolute', type: 'number', label: 'Absolute Poverty (%)' },
+      { name: 'poverty_hardcore', type: 'number', label: 'Hardcore Poverty (%)' },
+    ],
+    valueField: 'poverty_absolute',
+    dateField: 'date',
+    defaultFilter: {},
+    unit: '%',
+    priority_order: 9,
+    status: 'VERIFIED',
+    subcategory: 'Poverty',
+  } satisfies GroundTruthDataset,
+
+  hh_inequality: {
+    apiId: 'hh_inequality',
+    yamlSource: 'hh_inequality.yaml',
+    title_ms: 'Ketidaksamaan Isi Rumah',
+    title_en: 'Household Inequality (Gini)',
+    frequency: 'biennial',
+    geography: 'national',
+    category: 'Households',
+    priority: 'P2',
+    fields: [
+      { name: 'date', type: 'date', label: 'Year', required: true },
+      { name: 'gini', type: 'number', label: 'Gini Coefficient', required: true },
+    ],
+    valueField: 'gini',
+    dateField: 'date',
+    defaultFilter: {},
+    unit: 'coefficient',
+    priority_order: 10,
+    status: 'VERIFIED',
+    subcategory: 'Inequality',
+  } satisfies GroundTruthDataset,
+
+  air_pollution: {
+    apiId: 'air_pollution',
+    yamlSource: 'air_pollution.yaml',
+    title_ms: 'Pencemaran Udara Bulanan',
+    title_en: 'Monthly Air Pollution',
+    frequency: 'monthly',
+    geography: 'national',
+    category: 'Environment',
+    priority: 'P2',
+    fields: [
+      { name: 'date', type: 'date', label: 'Month', required: true },
+      { name: 'pollutant', type: 'string', label: 'Pollutant', choices: ['CO', 'NO²', 'O³', 'PM₁₀', 'PM₂.₅', 'SO²'], required: true },
+      { name: 'concentration', type: 'number', label: 'Concentration', required: true },
+    ],
+    valueField: 'concentration',
+    dateField: 'date',
+    groupField: 'pollutant',
+    defaultFilter: {},
+    unit: 'ppm / µg/m³',
+    priority_order: 11,
+    status: 'VERIFIED',
+    subcategory: 'Pollution',
+    notes: 'Fields: date, pollutant, concentration. NOT date, state, api. GitHub-verified from datagovmy-meta.',
+  } satisfies GroundTruthDataset,
+
+  ghg_emissions: {
+    apiId: 'ghg_emissions',
+    yamlSource: 'ghg_emissions.yaml',
+    title_ms: 'Pelepasan Gas Rumah Hijau',
+    title_en: 'Greenhouse Gas Emissions',
+    frequency: 'annual',
+    geography: 'national',
+    category: 'Environment',
+    priority: 'P2',
+    fields: [
+      { name: 'date', type: 'date', label: 'Year', required: true },
+      { name: 'sector', type: 'string', label: 'Sector', required: true },
+      { name: 'emissions', type: 'number', label: 'Emissions (MtCO₂e)', required: true },
+    ],
+    valueField: 'emissions',
+    dateField: 'date',
+    groupField: 'sector',
+    defaultFilter: {},
+    unit: 'MtCO₂e',
+    priority_order: 12,
+    status: 'VERIFIED',
+    subcategory: 'Pollution',
+  } satisfies GroundTruthDataset,
+
+  arrivals: {
+    apiId: 'arrivals',
+    yamlSource: 'arrivals.yaml',
+    title_ms: 'Kemasukan mengikut Kewarganegaraan',
+    title_en: 'Monthly Arrivals by Nationality',
+    frequency: 'monthly',
+    geography: 'national',
+    category: 'Demography',
+    priority: 'P2',
+    fields: [
+      { name: 'date', type: 'date', label: 'Month', required: true },
+      { name: 'country', type: 'string', label: 'Nationality (ISO-3)', required: true },
+      { name: 'arrivals', type: 'number', label: 'Total Arrivals', required: true },
+      { name: 'arrivals_male', type: 'number', label: 'Male Arrivals' },
+      { name: 'arrivals_female', type: 'number', label: 'Female Arrivals' },
+    ],
+    valueField: 'arrivals',
+    dateField: 'date',
+    groupField: 'country',
+    defaultFilter: {},
+    unit: 'persons',
+    priority_order: 13,
+    status: 'VERIFIED',
+    subcategory: 'Migration',
+    notes: 'GitHub-verified from datagovmy-meta. Country is ISO-3 code (e.g., "sgp" for Singapore).',
+  } satisfies GroundTruthDataset,
+
+  domains: {
+    apiId: 'domains',
+    yamlSource: 'domains.yaml',
+    title_ms: 'Pendaftaran Domain .my',
+    title_en: '.my Domain Registrations',
+    frequency: 'monthly',
+    geography: 'national',
+    category: 'Digital',
+    priority: 'P2',
+    fields: [
+      { name: 'date', type: 'date', label: 'Month', required: true },
+      { name: 'series', type: 'string', label: 'Series', choices: ['cumulative', 'monthly'], required: true },
+      { name: 'domain', type: 'string', label: 'Domain Category', required: true },
+      { name: 'registrations', type: 'number', label: 'Registrations', required: true },
+    ],
+    valueField: 'registrations',
+    dateField: 'date',
+    groupField: 'domain',
+    defaultFilter: { series: 'cumulative', domain: 'overall' },
+    unit: 'domains',
+    priority_order: 14,
+    status: 'VERIFIED',
+    subcategory: 'Digital Infrastructure',
+  } satisfies GroundTruthDataset,
+
+  economic_indicators: {
+    apiId: 'economic_indicators',
+    yamlSource: 'economic_indicators.yaml',
+    title_ms: 'Penunjuk Ekonomi Utama',
+    title_en: 'Economic Indicators (Leading/Coincident/Lagging)',
+    frequency: 'monthly',
+    geography: 'national',
+    category: 'Economy',
+    priority: 'P2',
+    fields: [
+      { name: 'date', type: 'date', label: 'Month', required: true },
+      { name: 'leading', type: 'number', label: 'Leading Index' },
+      { name: 'coincident', type: 'number', label: 'Coincident Index' },
+      { name: 'lagging', type: 'number', label: 'Lagging Index' },
+    ],
+    valueField: 'leading',
+    dateField: 'date',
+    defaultFilter: {},
+    unit: 'Index',
+    priority_order: 15,
+    status: 'VERIFIED',
+    subcategory: 'Statistical Indicators',
+  } satisfies GroundTruthDataset,
+
+  federal_finance_year: {
+    apiId: 'federal_finance_year',
+    yamlSource: 'federal_finance_year.yaml',
+    title_ms: 'Kewangan Persekutuan Tahunan',
+    title_en: 'Federal Government Finance (Annual)',
+    frequency: 'annual',
+    geography: 'national',
+    category: 'PublicAdmin',
+    priority: 'P2',
+    fields: [
+      { name: 'date', type: 'date', label: 'Year', required: true },
+      { name: 'revenue', type: 'number', label: 'Revenue (RM Million)' },
+      { name: 'expenditure', type: 'number', label: 'Expenditure (RM Million)' },
+      { name: 'balance', type: 'number', label: 'Balance (RM Million)', required: true },
+    ],
+    valueField: 'balance',
+    dateField: 'date',
+    defaultFilter: {},
+    unit: 'RM Million',
+    priority_order: 16,
+    status: 'VERIFIED',
+    subcategory: 'Public Finance',
+  } satisfies GroundTruthDataset,
+
+  epf_dividend: {
+    apiId: 'epf_dividend',
+    yamlSource: 'epf_dividend.yaml',
+    title_ms: 'Dividen KWSP',
+    title_en: 'EPF Dividend Rate',
+    frequency: 'annual',
+    geography: 'national',
+    category: 'Welfare',
+    priority: 'P2',
+    fields: [
+      { name: 'date', type: 'date', label: 'Year', required: true },
+      { name: 'series', type: 'string', label: 'Series', required: true },
+      { name: 'rate', type: 'number', label: 'Dividend Rate (%)', required: true },
+    ],
+    valueField: 'rate',
+    dateField: 'date',
+    groupField: 'series',
+    defaultFilter: {},
+    unit: '%',
+    priority_order: 17,
+    status: 'VERIFIED',
+    subcategory: 'Retirement',
+  } satisfies GroundTruthDataset,
+
+  productivity_qtr: {
+    apiId: 'productivity_qtr',
+    yamlSource: 'productivity_qtr.yaml',
+    title_ms: 'Produktiviti Buruh Suku Tahunan',
+    title_en: 'Quarterly Labour Productivity',
+    frequency: 'quarterly',
+    geography: 'national',
+    category: 'Labour',
+    priority: 'P2',
+    fields: [
+      { name: 'date', type: 'date', label: 'Quarter', required: true },
+      { name: 'series', type: 'string', label: 'Series', required: true },
+      { name: 'value', type: 'number', label: 'Productivity Index', required: true },
+    ],
+    valueField: 'value',
+    dateField: 'date',
+    groupField: 'series',
+    defaultFilter: {},
+    unit: 'Index',
+    priority_order: 18,
+    status: 'VERIFIED',
+    subcategory: 'Labour Productivity',
+  } satisfies GroundTruthDataset,
+
+  covid_cases: {
+    apiId: 'covid_cases',
+    yamlSource: 'covid_cases.yaml',
+    title_ms: 'Kes COVID-19',
+    title_en: 'COVID-19 Cases',
+    frequency: 'daily',
+    geography: 'state',
+    category: 'Healthcare',
+    priority: 'P3',
+    fields: [
+      { name: 'date', type: 'date', label: 'Date', required: true },
+      { name: 'state', type: 'string', label: 'State', required: true },
+      { name: 'cases_new', type: 'number', label: 'New Cases', required: true },
+      { name: 'cases_import', type: 'number', label: 'Imported Cases' },
+      { name: 'cases_recovered', type: 'number', label: 'Recovered' },
+    ],
+    valueField: 'cases_new',
+    dateField: 'date',
+    groupField: 'state',
+    defaultFilter: {},
+    unit: 'cases',
+    priority_order: 20,
+    status: 'VERIFIED',
+    subcategory: 'Infectious Diseases',
+  } satisfies GroundTruthDataset,
+
+  crime_district: {
+    apiId: 'crime_district',
+    yamlSource: 'crime_district.yaml',
+    title_ms: 'Jenayah mengikut Daerah',
+    title_en: 'Crime by District',
+    frequency: 'annual',
+    geography: 'district',
+    category: 'Safety',
+    priority: 'P2',
+    fields: [
+      { name: 'date', type: 'date', label: 'Year', required: true },
+      { name: 'state', type: 'string', label: 'State', required: true },
+      { name: 'district', type: 'string', label: 'District', required: true },
+      { name: 'category', type: 'string', label: 'Crime Category', required: true },
+      { name: 'type', type: 'string', label: 'Crime Type', required: true },
+      { name: 'crimes', type: 'number', label: 'Number of Crimes', required: true },
+    ],
+    valueField: 'crimes',
+    dateField: 'date',
+    groupField: 'category',
+    defaultFilter: {},
+    unit: 'cases',
+    priority_order: 19,
+    status: 'VERIFIED',
+    subcategory: 'Crime',
+    notes: 'GitHub-verified from datagovmy-meta. Fields: date, state, district, category, type, crimes.',
+  } satisfies GroundTruthDataset,
+
+  sppi: {
+    apiId: 'sppi',
+    yamlSource: 'sppi.yaml',
+    title_ms: 'Indeks Harga Perkhidmatan',
+    title_en: 'Services Producer Price Index',
+    frequency: 'quarterly',
+    geography: 'national',
+    category: 'Prices',
+    priority: 'P3',
+    fields: [
+      { name: 'date', type: 'date', label: 'Quarter', required: true },
+      { name: 'series', type: 'string', label: 'Series', required: true },
+      { name: 'index', type: 'number', label: 'SPPI Index', required: true },
+    ],
+    valueField: 'index',
+    dateField: 'date',
+    groupField: 'series',
+    defaultFilter: {},
+    unit: 'Index',
+    priority_order: 21,
+    status: 'VERIFIED',
+    subcategory: 'Producer Prices',
+  } satisfies GroundTruthDataset,
+
+  iowrt: {
+    apiId: 'iowrt',
+    yamlSource: 'iowrt.yaml',
+    title_ms: 'Indeks Perdagangan Borong & Runcit',
+    title_en: 'Index of Wholesale & Retail Trade',
+    frequency: 'monthly',
+    geography: 'national',
+    category: 'Industry',
+    priority: 'P3',
+    fields: [
+      { name: 'date', type: 'date', label: 'Month', required: true },
+      { name: 'series', type: 'string', label: 'Series', required: true },
+      { name: 'index', type: 'number', label: 'IOWRT Index', required: true },
+    ],
+    valueField: 'index',
+    dateField: 'date',
+    groupField: 'series',
+    defaultFilter: {},
+    unit: 'Index',
+    priority_order: 22,
+    status: 'VERIFIED',
+    subcategory: 'Services',
   } satisfies GroundTruthDataset,
 
 } as const;
