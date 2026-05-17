@@ -31,6 +31,9 @@ import { useSettings } from '@/hooks/use-settings';
 import { SkeletonCard, SkeletonChart, SkeletonMap } from '@/components/dashboard/skeleton-loader';
 import { ScrollProgress } from '@/components/dashboard/scroll-progress';
 import { LiveDataProvider } from '@/components/dashboard/live-data-provider';
+import { AlertTicker } from '@/components/palantir/AlertTicker';
+import { useIntelBus } from '@/engine/intelligence/bus';
+import { auditTrail } from '@/engine/audit/trail';
 
 import type { TabId, Lang } from '@/lib/dashboard-types';
 
@@ -166,6 +169,7 @@ export default function Home() {
   const [showQuickStats, setShowQuickStats] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const { settings, updateSetting, resetToDefaults } = useSettings();
+  const intelBus = useIntelBus();
 
   // Focus trap refs for modals
   const infographicRef = useRef<HTMLDivElement>(null);
@@ -263,24 +267,37 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [booted]);
 
+  // Audit trail helper (safe for client-side)
+  const audit = useCallback((type: string, detail: string) => {
+    try { auditTrail.tabChange(detail); } catch {}
+  }, []);
+
   // Command palette action handler
   const handleCommandAction = useCallback((action: string) => {
+    try { auditTrail.command(action); } catch {}
     switch (action) {
-      case 'tab-overview': setActiveTab('overview'); break;
-      case 'tab-geomap': setActiveTab('geomap'); break;
-      case 'tab-datasets': setActiveTab('datasets'); break;
-      case 'tab-analytics': setActiveTab('analytics'); break;
-      case 'tab-intelligence': setActiveTab('intelligence'); break;
-      case 'toggle-lang': setLang(l => l === 'en' ? 'ms' : 'en'); break;
+      case 'tab-overview': setActiveTab('overview'); intelBus.setContext('overview', 'overview'); break;
+      case 'tab-geomap': setActiveTab('geomap'); intelBus.setContext('geomap', 'geomap'); break;
+      case 'tab-datasets': setActiveTab('datasets'); intelBus.setContext('datasets', 'datasets'); break;
+      case 'tab-analytics': setActiveTab('analytics'); intelBus.setContext('analytics', 'analytics'); break;
+      case 'tab-intelligence': setActiveTab('intelligence'); intelBus.setContext('intelligence', 'intelligence'); break;
+      case 'toggle-lang': setLang(l => l === 'en' ? 'ms' : 'en'); try { auditTrail.langToggle(lang === 'en' ? 'ms' : 'en'); } catch {} break;
       case 'open-infographic': setShowInfographic(true); break;
+      case 'intel-anomalies': setActiveTab('intelligence'); intelBus.setContext('anomalies', 'intelligence'); break;
+      case 'intel-confidence': setActiveTab('intelligence'); intelBus.setContext('confidence', 'intelligence'); break;
+      case 'intel-graph': setActiveTab('intelligence'); intelBus.setContext('graph', 'intelligence'); break;
+      case 'gen-16x9': setShowInfographic(true); break;
+      case 'gen-9x16': setShowInfographic(true); break;
 
       default:
-        // Dataset commands — switch to datasets tab
+        // Dataset commands — switch to analytics tab and set context
         if (action.startsWith('dataset-')) {
-          setActiveTab('datasets');
+          const datasetKey = action.replace('dataset-', '');
+          setActiveTab('analytics');
+          intelBus.setContext(datasetKey, 'analytics');
         }
     }
-  }, []);
+  }, [intelBus, lang]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -311,12 +328,12 @@ export default function Home() {
       if (isInput) return;
 
       switch (e.key) {
-        case '1': setActiveTab('overview'); break;
-        case '2': setActiveTab('geomap'); break;
-        case '3': setActiveTab('datasets'); break;
-        case '4': setActiveTab('analytics'); break;
-        case '5': setActiveTab('intelligence'); break;
-        case 'l': case 'L': setLang(l => l === 'en' ? 'ms' : 'en'); break;
+        case '1': setActiveTab('overview'); try { auditTrail.tabChange('overview'); } catch {} break;
+        case '2': setActiveTab('geomap'); try { auditTrail.tabChange('geomap'); } catch {} break;
+        case '3': setActiveTab('datasets'); try { auditTrail.tabChange('datasets'); } catch {} break;
+        case '4': setActiveTab('analytics'); try { auditTrail.tabChange('analytics'); } catch {} break;
+        case '5': setActiveTab('intelligence'); try { auditTrail.tabChange('intelligence'); } catch {} break;
+        case 'l': case 'L': setLang(l => l === 'en' ? 'ms' : 'en'); try { auditTrail.langToggle(lang === 'en' ? 'ms' : 'en'); } catch {} break;
 
         case 'e': case 'E': setShowInfographic(true); break;
       }
@@ -388,6 +405,9 @@ export default function Home() {
         >
           {/* Scroll Progress Indicator */}
           <ScrollProgress enabled={booted} />
+
+          {/* Alert Ticker — Palantir mission control style */}
+          <AlertTicker />
 
           {/* Header */}
           <Header />
