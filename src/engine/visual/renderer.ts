@@ -17,15 +17,29 @@ export interface RenderResult {
 }
 
 /**
- * Check if sharp is available in the current runtime.
- * Sharp is a native Node.js addon and won't work in edge/worker runtimes.
+ * Dynamically load sharp at runtime without letting the bundler know about it.
+ *
+ * Sharp is a native C++ Node.js addon (libvips) that:
+ * - Cannot be bundled by esbuild/Turbopack for edge/worker runtimes
+ * - Won't exist in Cloudflare Workers environment
+ * - Must be loaded completely dynamically to prevent build failures
+ *
+ * We use `new Function()` to construct the import at runtime,
+ * which prevents static analysis by bundlers (Turbopack, webpack, esbuild).
  */
-async function isSharpAvailable(): Promise<boolean> {
+async function loadSharp(): Promise<any> {
   try {
-    await import('sharp');
-    return true;
+    // Only attempt in Node.js runtime (not Workers/Edge)
+    if (typeof process === 'undefined' || !process.versions?.node) return null;
+
+    // Use indirect dynamic import that bundlers cannot statically analyze.
+    // The `new Function` constructor creates a function at runtime,
+    // so the string 'sharp' never appears as a static import/require.
+    const dynamicImport = new Function('module', 'return import(module)');
+    const mod = await dynamicImport('sharp');
+    return mod.default || mod;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -64,9 +78,9 @@ export async function render(options: RenderOptions): Promise<RenderResult> {
   });
 
   // Step 2: Try Sharp SVG → PNG conversion (Node.js only)
-  if (await isSharpAvailable()) {
-    const sharp = (await import('sharp')).default;
-    const pngBuffer = await sharp(Buffer.from(svg))
+  const sharpModule = await loadSharp();
+  if (sharpModule) {
+    const pngBuffer = await sharpModule(Buffer.from(svg))
       .png({
         quality: 100,
         compressionLevel: 6,
