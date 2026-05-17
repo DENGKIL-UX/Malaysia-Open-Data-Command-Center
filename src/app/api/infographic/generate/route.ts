@@ -1,8 +1,9 @@
-// API Route: Generate infographic PNG using Satori + Sharp
+// API Route: Generate infographic PNG/SVG using Satori + Sharp
 // POST /api/infographic/generate
+// On Cloudflare Workers, falls back to SVG output (sharp unavailable)
 
 import { NextRequest, NextResponse } from 'next/server';
-import { renderToPng, getExportDimensions } from '@/engine/visual/renderer';
+import { render, getExportDimensions } from '@/engine/visual/renderer';
 import { OverviewTemplate16x9, OverviewTemplate9x16 } from '@/engine/visual/templates/overview';
 import type { InfographicData } from '@/engine/visual/templates/overview';
 import { STATES, MALAYSIA_TOTALS } from '@/lib/data/malaysia-data';
@@ -92,22 +93,27 @@ export async function POST(request: NextRequest) {
       ? OverviewTemplate16x9({ data: infographicData })
       : OverviewTemplate9x16({ data: infographicData });
 
-    // Render to PNG
-    const pngBuffer = await renderToPng({
+    // Render to PNG or SVG (depends on runtime)
+    const result = await render({
       width: dimensions.width,
       height: dimensions.height,
       element: template,
     });
 
-    // Return PNG response
-    return new NextResponse(pngBuffer, {
+    // Build filename with appropriate extension
+    const ext = result.format === 'png' ? 'png' : 'svg';
+    const filename = `malaysia-open-data-infographic-${format.replace(':', 'x')}-${Date.now()}.${ext}`;
+
+    // Return image response
+    return new NextResponse(result.buffer, {
       status: 200,
       headers: {
-        'Content-Type': 'image/png',
-        'Content-Disposition': `inline; filename="malaysia-open-data-infographic-${format.replace(':', 'x')}-${Date.now()}.png"`,
+        'Content-Type': result.contentType,
+        'Content-Disposition': `inline; filename="${filename}"`,
         'Cache-Control': 'no-cache',
         'X-Image-Width': dimensions.width.toString(),
         'X-Image-Height': dimensions.height.toString(),
+        'X-Image-Format': result.format,
       },
     });
   } catch (error) {

@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
   reactStrictMode: false,
   allowedDevOrigins: ['21.0.5.95'],
 
+  // Sharp is a native Node.js addon — cannot run in Cloudflare Workers.
+  // Mark as external so esbuild doesn't try to bundle it.
+  serverExternalPackages: ['sharp'],
+
   // Cloudflare Workers compatibility:
   // - @opennextjs/cloudflare handles the build output format automatically
   // - No "output: standalone" needed (Node.js-specific, incompatible with CF Workers)
