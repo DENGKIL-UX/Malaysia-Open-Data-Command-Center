@@ -30,6 +30,7 @@ import { SettingsPanel, SettingsGearButton } from '@/components/dashboard/settin
 import { useSettings } from '@/hooks/use-settings';
 import { SkeletonCard, SkeletonChart, SkeletonMap } from '@/components/dashboard/skeleton-loader';
 import { ScrollProgress } from '@/components/dashboard/scroll-progress';
+import { LiveDataProvider } from '@/components/dashboard/live-data-provider';
 
 import type { TabId, Lang } from '@/lib/dashboard-types';
 
@@ -378,6 +379,7 @@ export default function Home() {
       )}
 
       {booted && (
+        <LiveDataProvider>
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -830,6 +832,7 @@ export default function Home() {
             </div>
           </footer>
         </motion.div>
+        </LiveDataProvider>
       )}
 
       {/* Infographic Export Modal */}

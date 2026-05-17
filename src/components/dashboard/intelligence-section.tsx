@@ -5,10 +5,12 @@ import { motion } from 'framer-motion';
 import {
   ShieldCheck, AlertTriangle, Brain, Zap,
   TrendingUp, Activity, Eye, ChevronRight,
+  Radio, Wifi, WifiOff, Loader2,
 } from 'lucide-react';
 import type { Lang } from '@/lib/dashboard-types';
 import { HUDBracket, SectionHeaderLine } from '@/components/dashboard/particle-background';
 import { OntologyGraph } from '@/components/dashboard/ontology-graph';
+import { useLiveData, type LiveAnomaly } from '@/components/dashboard/live-data-provider';
 
 // ─── Premium Card Style Helper ───────────────────────────────────
 function premiumCardStyle(overrides?: Record<string, string>) {
@@ -53,126 +55,19 @@ function ScanBeamOverlay({ color = '#06b6d4' }: { color?: string }) {
   );
 }
 
-// ─── Anomaly Data ────────────────────────────────────────────────
-interface Anomaly {
-  id: string;
-  severity: 'critical' | 'high' | 'moderate';
-  title_en: string;
-  title_ms: string;
-  detail_en: string;
-  detail_ms: string;
-  color: string;
-}
-
-const ANOMALIES: Anomaly[] = [
-  {
-    id: 'anm-1',
-    severity: 'critical',
-    title_en: 'Sabah Unemployment Spike',
-    title_ms: 'Lonjakan Pengangguran Sabah',
-    detail_en: 'Sabah unemployment at 5.2% — significantly above national average of 3.4%',
-    detail_ms: 'Pengangguran Sabah pada 5.2% — jauh melebihi purata kebangsaan 3.4%',
-    color: '#ef4444',
-  },
-  {
-    id: 'anm-2',
-    severity: 'high',
-    title_en: 'KL Urban Density Anomaly',
-    title_ms: 'Anomali Ketumpatan Bandar KL',
-    detail_en: 'W.P. Kuala Lumpur density at 7,983/km\u00B2 — 8x national average',
-    detail_ms: 'Ketumpatan W.P. Kuala Lumpur pada 7,983/km\u00B2 — 8x purata kebangsaan',
-    color: '#F59E0B',
-  },
-  {
-    id: 'anm-3',
-    severity: 'moderate',
-    title_en: 'Death Rate Divergence',
-    title_ms: 'Penyimpangan Kadar Kematian',
-    detail_en: 'Inversely correlated with healthcare spending — Sarawak outlier detected',
-    detail_ms: 'Berkorelasi songsang dengan perbelanjaan kesihatan — pencilan Sarawak dikesan',
-    color: '#8B5CF6',
-  },
-  {
-    id: 'anm-4',
-    severity: 'moderate',
-    title_en: 'GDP-Inflation Divergence',
-    title_ms: 'Penyimpangan KDNK-Inflasi',
-    detail_en: 'GDP growth 4.5% vs CPI 2.2% — potential demand-pull pressure',
-    detail_ms: 'Pertumbuhan KDNK 4.5% vs CPI 2.2% — potensi tekanan tarikan permintaan',
-    color: '#06b6d4',
-  },
-];
-
-// ─── Finding Data ────────────────────────────────────────────────
-interface Finding {
-  id: string;
-  title_en: string;
-  title_ms: string;
-  detail_en: string;
-  detail_ms: string;
-  confidence: number;
-  color: string;
-}
-
-const FINDINGS: Finding[] = [
-  {
-    id: 'fnd-1',
-    title_en: 'GDP drives unemployment inverse',
-    title_ms: 'KDNK memacu songsangan pengangguran',
-    detail_en: 'Strong inverse correlation (r=-0.76) between GDP growth and unemployment rate',
-    detail_ms: 'Korelasi songsangan kuat (r=-0.76) antara pertumbuhan KDNK dan kadar pengangguran',
-    confidence: 0.87,
-    color: '#00D4FF',
-  },
-  {
-    id: 'fnd-2',
-    title_en: 'Selangor GDP concentration risk',
-    title_ms: 'Risiko penumpuan KDNK Selangor',
-    detail_en: 'Selangor contributes 21.6% of GDP — single-state dependency risk identified',
-    detail_ms: 'Selangor menyumbang 21.6% KDNK — risiko kebergantungan satu negeri dikenal pasti',
-    confidence: 0.82,
-    color: '#F59E0B',
-  },
-  {
-    id: 'fnd-3',
-    title_en: 'Birth rate decline trajectory',
-    title_ms: 'Trajektori penurunan kadar kelahiran',
-    detail_en: 'Birth rate declining at 1.2% annually — below replacement level in 3 states',
-    detail_ms: 'Kadar kelahiran menurun pada 1.2% setahun — di bawah tahap penggantian di 3 negeri',
-    confidence: 0.91,
-    color: '#8B5CF6',
-  },
-  {
-    id: 'fnd-4',
-    title_en: 'East Malaysia trade gap',
-    title_ms: 'Jurang perdagangan Malaysia Timur',
-    detail_en: 'Sarawak trade contribution disproportionate to population — resource extraction pattern',
-    detail_ms: 'Sumbangan perdagangan Sarawak tidak seimbang dengan penduduk — corak pengekstrakan sumber',
-    confidence: 0.72,
-    color: '#10B981',
-  },
-  {
-    id: 'fnd-5',
-    title_en: 'Healthcare spending vs outcomes',
-    title_ms: 'Perbelanjaan kesihatan vs hasil',
-    detail_en: 'Death rate inversely correlates (r=-0.68) with healthcare metric — causal link suspected',
-    detail_ms: 'Kadar kematian berkorelasi songsang (r=-0.68) dengan metrik kesihatan — pautan kausal disyaki',
-    confidence: 0.68,
-    color: '#EC4899',
-  },
-];
-
 // ─── Severity Badge ──────────────────────────────────────────────
-function SeverityBadge({ severity, lang }: { severity: Anomaly['severity']; lang: Lang }) {
+function SeverityBadge({ severity, lang }: { severity: LiveAnomaly['severity']; lang: Lang }) {
   const colors: Record<string, string> = {
     critical: '#ef4444',
     high: '#F59E0B',
-    moderate: '#8B5CF6',
+    medium: '#8B5CF6',
+    low: '#10B981',
   };
   const labels: Record<string, { en: string; ms: string }> = {
     critical: { en: 'CRITICAL', ms: 'KRITIKAL' },
     high: { en: 'HIGH', ms: 'TINGGI' },
-    moderate: { en: 'MODERATE', ms: 'Sederhana' },
+    medium: { en: 'MODERATE', ms: 'SEDERHANA' },
+    low: { en: 'LOW', ms: 'RENDAH' },
   };
   const color = colors[severity];
   const label = labels[severity];
@@ -216,21 +111,65 @@ function ConfidenceBadge({ confidence }: { confidence: number }) {
   );
 }
 
+// ─── Fallback static data (used when live data hasn't loaded yet) ──
+const FALLBACK_ANOMALIES = [
+  { id: 'fb-1', datasetId: 'labour_monthly', datasetLabel: 'Kadar Pengangguran', severity: 'critical' as const, value: 5.2, expected: 3.4, zScore: 2.8, description: 'Sabah unemployment at 5.2% — significantly above national average', timestamp: new Date() },
+  { id: 'fb-2', datasetId: 'cpi_headline', datasetLabel: 'Indeks Harga Pengguna', severity: 'high' as const, value: 132.1, expected: 128.0, zScore: 2.1, description: 'CPI above expected range — demand-pull pressure detected', timestamp: new Date() },
+  { id: 'fb-3', datasetId: 'population_state', datasetLabel: 'Penduduk mengikut Negeri', severity: 'medium' as const, value: 7983, expected: 5000, zScore: 1.8, description: 'KL urban density anomaly — 8x national average', timestamp: new Date() },
+  { id: 'fb-4', datasetId: 'trade_monthly', datasetLabel: 'Perdagangan Luar', severity: 'medium' as const, value: -200, expected: 14000, zScore: -1.9, description: 'GDP-Inflation divergence — potential demand-pull pressure', timestamp: new Date() },
+];
+
+const FALLBACK_FINDINGS = [
+  { id: 'ff-1', title_en: 'GDP drives unemployment inverse', title_ms: 'KDNK memacu songsangan pengangguran', detail_en: 'Strong inverse correlation (r=-0.76) between GDP growth and unemployment rate', detail_ms: 'Korelasi songsangan kuat (r=-0.76) antara pertumbuhan KDNK dan kadar pengangguran', confidence: 0.87, color: '#00D4FF' },
+  { id: 'ff-2', title_en: 'Selangor GDP concentration risk', title_ms: 'Risiko penumpuan KDNK Selangor', detail_en: 'Selangor contributes 21.6% of GDP — single-state dependency risk identified', detail_ms: 'Selangor menyumbang 21.6% KDNK — risiko kebergantungan satu negeri dikenal pasti', confidence: 0.82, color: '#F59E0B' },
+  { id: 'ff-3', title_en: 'Birth rate decline trajectory', title_ms: 'Trajektori penurunan kadar kelahiran', detail_en: 'Birth rate declining at 1.2% annually — below replacement level in 3 states', detail_ms: 'Kadar kelahiran menurun pada 1.2% setahun — di bawah tahap penggantian di 3 negeri', confidence: 0.91, color: '#8B5CF6' },
+  { id: 'ff-4', title_en: 'East Malaysia trade gap', title_ms: 'Jurang perdagangan Malaysia Timur', detail_en: 'Sarawak trade contribution disproportionate to population — resource extraction pattern', detail_ms: 'Sumbangan perdagangan Sarawak tidak seimbang dengan penduduk — corak pengekstrakan sumber', confidence: 0.72, color: '#10B981' },
+  { id: 'ff-5', title_en: 'Healthcare spending vs outcomes', title_ms: 'Perbelanjaan kesihatan vs hasil', detail_en: 'Death rate inversely correlates (r=-0.68) with healthcare metric', detail_ms: 'Kadar kematian berkorelasi songsang (r=-0.68) dengan metrik kesihatan', confidence: 0.68, color: '#EC4899' },
+];
+
 // ─── Intelligence Section Component ──────────────────────────────
 export function IntelligenceSection({ lang }: { lang: Lang }) {
-  // Confidence badge counts
+  const liveData = useLiveData();
+
+  // Use live anomalies or fallback
+  const anomalies = liveData.anomalies.length > 0
+    ? liveData.anomalies.slice(0, 8)
+    : FALLBACK_ANOMALIES;
+
+  // Findings from live confidence data
+  const findings = useMemo(() => {
+    if (liveData.confidences.length > 0) {
+      // Generate findings from live confidence data
+      return liveData.confidences.map((c, i) => {
+        const colors = ['#00D4FF', '#F59E0B', '#8B5CF6', '#10B981', '#EC4899', '#06B6D4'];
+        return {
+          id: `live-finding-${i}`,
+          title_en: `${c.datasetLabel} — ${c.label} confidence`,
+          title_ms: `${c.datasetLabel} — keyakinan ${c.label}`,
+          detail_en: c.recommendation,
+          detail_ms: c.recommendation,
+          confidence: c.score,
+          color: colors[i % colors.length],
+        };
+      });
+    }
+    return FALLBACK_FINDINGS;
+  }, [liveData.confidences]);
+
+  // Confidence counts from live data
   const confidenceCounts = useMemo(() => {
-    const allConfidences = [
-      0.98, 0.97, 0.95, 0.96, 0.94, 0.92, 0.91, 0.93,
-      0.88, 0.99, 0.97, 0.96, 0.97, 0.96,
-      0.87, 0.72, 0.65, 0.78, 0.91, 0.68, 0.76, 0.95, 0.85, 0.72, 0.65, 0.80,
-    ];
+    if (liveData.isLive) {
+      return liveData.confidenceCounts;
+    }
+    // Fallback
+    const allConfidences = [0.98, 0.97, 0.95, 0.96, 0.94, 0.92, 0.91, 0.93, 0.88, 0.99, 0.97, 0.96, 0.97, 0.96, 0.87, 0.72, 0.65, 0.78, 0.91, 0.68, 0.76, 0.95, 0.85, 0.72, 0.65, 0.80];
     return {
-      confirmed: allConfidences.filter(c => c > 0.9).length, // CONFIRMED
-      high: allConfidences.filter(c => c > 0.7 && c <= 0.9).length, // HIGH
-      moderate: allConfidences.filter(c => c <= 0.7).length, // MODERATE
+      confirmed: allConfidences.filter(c => c > 0.9).length,
+      high: allConfidences.filter(c => c > 0.7 && c <= 0.9).length,
+      moderate: allConfidences.filter(c => c <= 0.7).length,
+      unverfied: 0,
     };
-  }, []);
+  }, [liveData.isLive, liveData.confidenceCounts]);
 
   return (
     <div className="space-y-6" role="region" aria-label={lang === 'ms' ? 'Pusat intelligens' : 'Intelligence center'}>
@@ -243,14 +182,72 @@ export function IntelligenceSection({ lang }: { lang: Lang }) {
               {lang === 'ms' ? 'PUSAT INTELLIGEN' : 'INTELLIGENCE CENTER'}
             </span>
             <SectionHeaderLine color="#00D4FF" delay={0.2} />
+            {/* Live data indicator */}
+            {liveData.isLive ? (
+              <motion.span
+                className="text-[8px] font-mono px-1.5 py-0.5 rounded flex items-center gap-1"
+                style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.15)', color: '#10B981' }}
+                animate={{ opacity: [0.7, 1, 0.7] }}
+                transition={{ duration: 2, repeat: Infinity }}
+              >
+                <Radio size={8} />
+                LIVE
+              </motion.span>
+            ) : liveData.anyLoading ? (
+              <span className="text-[8px] font-mono px-1.5 py-0.5 rounded flex items-center gap-1" style={{ background: 'rgba(6,182,212,0.08)', border: '1px solid rgba(6,182,212,0.15)', color: '#06b6d4' }}>
+                <Loader2 size={8} className="animate-spin" />
+                {lang === 'ms' ? 'MEMUAT...' : 'LOADING...'}
+              </span>
+            ) : (
+              <span className="text-[8px] font-mono px-1.5 py-0.5 rounded flex items-center gap-1" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)', color: '#F59E0B' }}>
+                <WifiOff size={8} />
+                OFFLINE
+              </span>
+            )}
           </div>
           <p className="text-[10px] font-mono mt-1" style={{ color: '#6b7280' }}>
-            {lang === 'ms'
-              ? 'Graf ontologi kelas perusahaan dengan pengesanan anomali masa nyata dan penemuan auto'
-              : 'Enterprise-grade ontology graph with real-time anomaly detection and auto-discovery findings'}
+            {liveData.isLive
+              ? (lang === 'ms'
+                ? 'Data langsung dari api.data.gov.my — pengesanan anomali & penilaian keyakinan masa nyata'
+                : 'Live data from api.data.gov.my — real-time anomaly detection & confidence assessment')
+              : (lang === 'ms'
+                ? 'Graf ontologi kelas perusahaan dengan pengesanan anomali dan penemuan auto'
+                : 'Enterprise-grade ontology graph with anomaly detection and auto-discovery findings')}
           </p>
         </div>
       </div>
+
+      {/* ─── Data Source Banner (shown when live) ──────────────── */}
+      {liveData.isLive && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-3 px-4 py-2.5 rounded-lg"
+          style={{
+            background: 'rgba(0,212,255,0.04)',
+            border: '1px solid rgba(0,212,255,0.10)',
+          }}
+        >
+          <div className="w-2 h-2 rounded-full" style={{ background: '#00D4FF', boxShadow: '0 0 6px #00D4FF' }}>
+            <motion.div
+              className="w-2 h-2 rounded-full"
+              style={{ border: '1px solid rgba(0,212,255,0.4)' }}
+              animate={{ scale: [1, 2, 1], opacity: [0.6, 0, 0.6] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            />
+          </div>
+          <span className="text-[10px] font-mono font-semibold tracking-wider" style={{ color: '#00D4FF' }}>
+            SUMBER AKTIF: api.data.gov.my/data-catalogue
+          </span>
+          <span className="text-[10px] font-mono" style={{ color: '#4b5563' }}>|</span>
+          <span className="text-[10px] font-mono" style={{ color: '#6b7280' }}>DoSM Malaysia</span>
+          <span className="text-[10px] font-mono" style={{ color: '#4b5563' }}>|</span>
+          <Wifi size={10} style={{ color: '#10B981' }} />
+          <span className="text-[10px] font-mono" style={{ color: '#10B981' }}>
+            {liveData.kpis.filter(k => !k.loading && !k.error).length}/{liveData.kpis.length} KPIs
+          </span>
+        </motion.div>
+      )}
 
       {/* ─── Top Row: Confidence Badges ────────────────────────── */}
       <div className="grid grid-cols-3 gap-4">
@@ -344,7 +341,7 @@ export function IntelligenceSection({ lang }: { lang: Lang }) {
                 MODERATE
               </div>
               <div className="text-2xl font-bold font-mono" style={{ color: '#e0f7fa', textShadow: '0 0 12px rgba(139,92,246,0.3)' }}>
-                {confidenceCounts.moderate}
+                {confidenceCounts.moderate + confidenceCounts.unverfied}
               </div>
               <div className="text-[8px] font-mono" style={{ color: '#6b7280' }}>
                 {lang === 'ms' ? 'keyakinan < 70%' : 'confidence < 70%'}
@@ -388,14 +385,15 @@ export function IntelligenceSection({ lang }: { lang: Lang }) {
                 border: '1px solid rgba(0,212,255,0.15)',
                 color: '#00D4FF',
               }}>
-                v1.0
+                v2.0
               </span>
-              <span className="text-[8px] font-mono px-1.5 py-0.5 rounded" style={{
-                background: 'rgba(16,185,129,0.08)',
-                border: '1px solid rgba(16,185,129,0.15)',
-                color: '#10B981',
+              <span className="text-[8px] font-mono px-1.5 py-0.5 rounded flex items-center gap-1" style={{
+                background: liveData.isLive ? 'rgba(16,185,129,0.08)' : 'rgba(245,158,11,0.08)',
+                border: `1px solid ${liveData.isLive ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)'}`,
+                color: liveData.isLive ? '#10B981' : '#F59E0B',
               }}>
-                LIVE
+                {liveData.isLive ? <Radio size={8} /> : <WifiOff size={8} />}
+                {liveData.isLive ? 'LIVE' : 'OFFLINE'}
               </span>
             </div>
           </div>
@@ -431,51 +429,71 @@ export function IntelligenceSection({ lang }: { lang: Lang }) {
               border: '1px solid rgba(239,68,68,0.2)',
               color: '#ef4444',
             }}>
-              {ANOMALIES.length} {lang === 'ms' ? 'dikesan' : 'detected'}
+              {anomalies.length} {lang === 'ms' ? 'dikesan' : 'detected'}
             </span>
+            {liveData.isLive && (
+              <span className="text-[7px] font-mono px-1 py-0.5 rounded" style={{
+                background: 'rgba(16,185,129,0.08)',
+                border: '1px solid rgba(16,185,129,0.12)',
+                color: '#10B981',
+              }}>
+                LIVE
+              </span>
+            )}
           </div>
 
           <div className="space-y-2.5 max-h-72 overflow-y-auto custom-scrollbar">
-            {ANOMALIES.map((anomaly, i) => (
-              <motion.div
-                key={anomaly.id}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.5 + i * 0.1, duration: 0.4 }}
-                className="flex items-start gap-3 p-2.5 rounded-lg border transition-all duration-200 hover:scale-[1.01]"
-                style={{
-                  background: `${anomaly.color}06`,
-                  borderColor: `${anomaly.color}15`,
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.borderColor = `${anomaly.color}30`;
-                  e.currentTarget.style.background = `${anomaly.color}0a`;
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.borderColor = `${anomaly.color}15`;
-                  e.currentTarget.style.background = `${anomaly.color}06`;
-                }}
-              >
-                <div className="flex-shrink-0 mt-0.5">
-                  <div className="w-2 h-2 rounded-full" style={{
-                    background: anomaly.color,
-                    boxShadow: `0 0 6px ${anomaly.color}60`,
-                  }} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[10px] font-mono font-bold" style={{ color: '#e0f7fa' }}>
-                      {lang === 'ms' ? anomaly.title_ms : anomaly.title_en}
-                    </span>
-                    <SeverityBadge severity={anomaly.severity} lang={lang} />
+            {anomalies.map((anomaly, i) => {
+              const sevColor = anomaly.severity === 'critical' ? '#ef4444'
+                : anomaly.severity === 'high' ? '#F59E0B'
+                : anomaly.severity === 'medium' ? '#8B5CF6' : '#10B981';
+
+              return (
+                <motion.div
+                  key={anomaly.id}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.5 + i * 0.1, duration: 0.4 }}
+                  className="flex items-start gap-3 p-2.5 rounded-lg border transition-all duration-200 hover:scale-[1.01]"
+                  style={{
+                    background: `${sevColor}06`,
+                    borderColor: `${sevColor}15`,
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.borderColor = `${sevColor}30`;
+                    e.currentTarget.style.background = `${sevColor}0a`;
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.borderColor = `${sevColor}15`;
+                    e.currentTarget.style.background = `${sevColor}06`;
+                  }}
+                >
+                  <div className="flex-shrink-0 mt-0.5">
+                    <div className="w-2 h-2 rounded-full" style={{
+                      background: sevColor,
+                      boxShadow: `0 0 6px ${sevColor}60`,
+                    }} />
                   </div>
-                  <p className="text-[9px] font-mono leading-relaxed" style={{ color: '#8899aa' }}>
-                    {lang === 'ms' ? anomaly.detail_ms : anomaly.detail_en}
-                  </p>
-                </div>
-                <ChevronRight size={12} className="flex-shrink-0 mt-1 opacity-30" style={{ color: anomaly.color }} />
-              </motion.div>
-            ))}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[10px] font-mono font-bold" style={{ color: '#e0f7fa' }}>
+                        {anomaly.datasetLabel}
+                      </span>
+                      <SeverityBadge severity={anomaly.severity} lang={lang} />
+                      {liveData.isLive && (
+                        <span className="text-[7px] font-mono" style={{ color: '#6b7280' }}>
+                          z={anomaly.zScore.toFixed(1)}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[9px] font-mono leading-relaxed" style={{ color: '#8899aa' }}>
+                      {anomaly.description}
+                    </p>
+                  </div>
+                  <ChevronRight size={12} className="flex-shrink-0 mt-1 opacity-30" style={{ color: sevColor }} />
+                </motion.div>
+              );
+            })}
           </div>
         </motion.div>
 
@@ -502,12 +520,12 @@ export function IntelligenceSection({ lang }: { lang: Lang }) {
               border: '1px solid rgba(0,212,255,0.2)',
               color: '#00D4FF',
             }}>
-              {FINDINGS.length} {lang === 'ms' ? 'penemuan' : 'findings'}
+              {findings.length} {lang === 'ms' ? 'penemuan' : 'findings'}
             </span>
           </div>
 
           <div className="space-y-2.5 max-h-72 overflow-y-auto custom-scrollbar">
-            {FINDINGS.map((finding, i) => (
+            {findings.map((finding, i) => (
               <motion.div
                 key={finding.id}
                 initial={{ opacity: 0, x: 10 }}
