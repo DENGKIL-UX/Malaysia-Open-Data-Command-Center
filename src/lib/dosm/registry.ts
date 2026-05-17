@@ -1,22 +1,40 @@
 // src/lib/dosm/registry.ts
 // Complete dataset registry for api.data.gov.my/data-catalogue
-// All `id` fields verified against ground-truth-registry.ts (YAML-confirmed API IDs)
+// All `id` fields and field names verified against live API testing (Task 4)
 //
-// Key corrections from ground truth (Task 3):
-//   gdp_annual_nominal_supply  → gdp_annual
-//   gdp_qtr_nominal            → gdp_qtr
-//   gdp_state_real_supply      → gdp_state
-//   cpi_headline_inflation     → cpi_headline (inflation is COMPUTED from CPI)
-//   lfs_state_sex              → lfs_state
-//   trade_headline             → trade_monthly
-//   exchangerates              → exchangerates_monthly
-//   hh_income_state            → hies_state
-//   hh_poverty_state           → poverty_absolute
-//   births_annual              → births
-//   crime_district             → crime_index
-//   pricecatcher               → pricecatcher_week
-//   bop_balance                → bop
-//   fdi_flows                  → fdi
+// Key corrections from live API testing (Task 4):
+//   gdp_annual              → gdp_annual_nominal_supply  (has sector, series fields)
+//   gdp_qtr                 → gdp_qtr_nominal            (series NOT series_type)
+//   gdp_state               → gdp_state_real_supply      (has sector, series, state)
+//   bop                     → bop_balance                (account, balance, date)
+//   fdi                     → fdi_flows                  (date, inflow, net, outflow)
+//   lfs_state               → lfs_state_sex              (has sex field)
+//   trade_monthly           → trade_headline             (balance, date, exports, imports, ...)
+//   exchangerates_monthly   → exchangerates              (WIDE format: date, usd, eur, ...)
+//   exchangerates_daily     → exchangerates_daily_0900   (WIDE format)
+//   crime_index             → crime_district             (category, crimes, date, district, state, type)
+//   poverty_absolute        → hh_poverty_state           (poverty_absolute, poverty_hardcore, ...)
+//   hies_malaysia           → hh_income                  (date, income_mean, income_median)
+//   household_income        → hh_income                  (same as hies_malaysia)
+//   cpi_inflation           → cpi_headline_inflation     (inflation_yoy PROVIDED by API, not computed!)
+//
+// Field corrections from live API testing:
+//   ipi:          valueField='index', groupField='series' (NOT value/series_type)
+//   ppi:          valueField='index', groupField='series' (NOT value/series_type)
+//   interestrates: groupField='bank' (NOT series_type)
+//   monetary_aggregates: groupField='measure' (NOT series_type)
+//   federal_finance_year: has 'variable' and 'category' fields
+//   forest_reserve_state: valueField='area' (NOT area_ha)
+//   fertility:    valueField='fertility_rate', groupField='age_group' (NOT tfr/sex)
+//   blood_donations: valueField='donations', groupField='blood_type' (NOT daily/state)
+//   ridership_headline: WIDE format (NOT service/ridership long)
+//   cpi_state:    valueField='index' (NOT cpi), also has 'division' field
+//   employment_sector: valueField='proportion' (NOT employed)
+//   births:       valueField='births', groupField='state' (NOT abs/sex)
+//   deaths:       fields=abs,date,rate (NO sex field)
+//   marriages:    groupField='sex' (NOT religion)
+//   hies_state:   fields=expenditure_mean,gini,income_mean,income_median,poverty,state
+//   fuelprice:    extraField 'diesel_eastmsia' (NOT diesel_east)
 
 // ═══════════════════════════════════════════════════════════════
 // Re-export from ground-truth-registry for backward compatibility
@@ -57,6 +75,12 @@ export interface DatasetConfig {
   defaultFilter?: Record<string, string>;
   /** If true, this dataset's valueField is derived/computed from another dataset, not a raw API field */
   computed?: boolean;
+  /** Marks datasets that return WIDE format (each column is a separate series, needs pivot to long format) */
+  wideFormat?: boolean;
+  /** List of column names in WIDE format that represent data series (excluding dateField) */
+  wideColumns?: string[];
+  /** Datasets with no API endpoint — must use CSV proxy only */
+  csvOnly?: boolean;
   unit: string;
   granularity: DatasetGranularity;
   priority: DatasetPriority;
@@ -79,6 +103,7 @@ const P3_REFRESH = 86_400_000; // 24 hours
 
 // ═══════════════════════════════════════════════════════════════
 // DOSM_REGISTRY — Main dataset configuration map
+// All IDs and fields verified against live api.data.gov.my testing
 // ═══════════════════════════════════════════════════════════════
 
 export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
@@ -86,19 +111,20 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   // ─── CATEGORY: ECONOMY ─────────────────────────────────────
 
   gdp_annual: {
-    id: 'gdp_annual',                          // FIXED: was gdp_annual_nominal_supply
+    id: 'gdp_annual_nominal_supply',            // FIXED: was gdp_annual (404)
     label: 'Annual GDP',
     labelBM: 'KDNK Tahunan',
     category: 'Economy',
     categoryBM: 'Ekonomi',
     valueField: 'value',
     dateField: 'date',
-    groupField: 'series_type',
-    defaultFilter: { series_type: 'abs' },
+    groupField: 'series',                       // FIXED: was series_type; API uses 'series'
+    extraFields: ['sector'],                    // FIXED: API has 'sector' field
+    defaultFilter: { series: 'abs' },           // FIXED: filter key matches groupField
     unit: 'RM Bilion',
     granularity: 'annual',
     priority: 'P1',
-    description: 'Gross Domestic Product at current and constant prices',
+    description: 'Gross Domestic Product at current and constant prices (fields: date, sector, series, value)',
     descriptionBM: 'Keluaran Dalam Negara Kasar pada harga semasa dan malar',
     defaultLimit: 20,
     refreshMs: P1_REFRESH,
@@ -107,19 +133,19 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   gdp_qtr: {
-    id: 'gdp_qtr',                             // FIXED: was gdp_qtr_nominal
+    id: 'gdp_qtr_nominal',                      // FIXED: was gdp_qtr (404)
     label: 'Quarterly GDP',
     labelBM: 'KDNK Suku Tahunan',
     category: 'Economy',
     categoryBM: 'Ekonomi',
     valueField: 'value',
     dateField: 'date',
-    groupField: 'series_type',
-    defaultFilter: { series_type: 'abs' },
+    groupField: 'series',                       // FIXED: was series_type; API uses 'series'
+    defaultFilter: { series: 'abs' },           // FIXED: filter key matches groupField
     unit: 'RM Bilion',
     granularity: 'quarterly',
     priority: 'P0',
-    description: 'Quarterly GDP at current and constant prices (abs=constant 2015, abs_current=nominal, growth_yoy=YoY%)',
+    description: 'Quarterly GDP (fields: date, series, value). series=abs for constant 2015, series=growth_yoy for YoY%',
     descriptionBM: 'KDNK suku tahunan pada harga semasa dan malar',
     defaultLimit: 20,
     refreshMs: P0_REFRESH,
@@ -128,20 +154,20 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   gdp_growth: {
-    id: 'gdp_qtr',                             // Same dataset, different filter
+    id: 'gdp_qtr_nominal',                      // FIXED: was gdp_qtr; same dataset, different filter
     label: 'GDP Growth Rate',
     labelBM: 'Kadar Pertumbuhan KDNK',
     category: 'Economy',
     categoryBM: 'Ekonomi',
     valueField: 'value',
     dateField: 'date',
-    groupField: 'series_type',
-    defaultFilter: { series_type: 'growth_yoy' },  // FIXED: use growth_yoy for growth rate KPI
+    groupField: 'series',                       // FIXED: was series_type; API uses 'series'
+    defaultFilter: { series: 'growth_yoy' },    // FIXED: filter key matches groupField
     computed: true,
     unit: '%',
     granularity: 'quarterly',
     priority: 'P0',
-    description: 'GDP year-on-year growth rate (series_type=growth_yoy)',
+    description: 'GDP year-on-year growth rate (series=growth_yoy)',
     descriptionBM: 'Kadar pertumbuhan KDNK tahunan ke tahunan',
     defaultLimit: 12,
     refreshMs: P0_REFRESH,
@@ -150,7 +176,7 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   gdp_state: {
-    id: 'gdp_state',                           // FIXED: was gdp_state_real_supply
+    id: 'gdp_state_real_supply',                // FIXED: was gdp_state (404)
     label: 'GDP by State',
     labelBM: 'KDNK mengikut Negeri',
     category: 'Economy',
@@ -158,11 +184,12 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
     valueField: 'value',
     dateField: 'date',
     groupField: 'state',
-    defaultFilter: { series_type: 'abs' },
+    extraFields: ['sector', 'series'],          // FIXED: API has sector and series fields
+    defaultFilter: { series: 'abs' },           // FIXED: filter key is 'series' not 'series_type'
     unit: 'RM Bilion',
     granularity: 'annual',
     priority: 'P1',
-    description: 'GDP by state at constant prices',
+    description: 'GDP by state (fields: date, sector, series, state, value)',
     descriptionBM: 'KDNK mengikut negeri pada harga malar',
     defaultLimit: 100,
     refreshMs: P1_REFRESH,
@@ -176,13 +203,14 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
     labelBM: 'Indeks Pengeluaran Perindustrian',
     category: 'Economy',
     categoryBM: 'Ekonomi',
-    valueField: 'value',
+    valueField: 'index',                        // FIXED: was 'value'; API uses 'index'
     dateField: 'date',
-    groupField: 'series_type',
+    groupField: 'series',                       // FIXED: was 'series_type'; API uses 'series'
+    extraFields: ['index_sa'],                  // API also returns seasonally adjusted index
     unit: 'Indeks',
     granularity: 'monthly',
     priority: 'P1',
-    description: 'Monthly industrial production index',
+    description: 'Monthly industrial production index (fields: date, index, index_sa, series)',
     descriptionBM: 'Indeks pengeluaran perindustrian bulanan',
     defaultLimit: 24,
     refreshMs: P1_REFRESH,
@@ -191,18 +219,18 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   bop: {
-    id: 'bop',                                 // FIXED: was bop_balance
+    id: 'bop_balance',                          // FIXED: was bop (404)
     label: 'Balance of Payments',
     labelBM: 'Imbangan Pembayaran',
     category: 'Economy',
     categoryBM: 'Ekonomi',
-    valueField: 'value',
+    valueField: 'balance',                      // FIXED: was 'value'; API uses 'balance'
     dateField: 'date',
-    groupField: 'series_type',
+    groupField: 'account',                      // FIXED: was 'series_type'; API uses 'account'
     unit: 'RM Juta',
     granularity: 'quarterly',
     priority: 'P2',
-    description: 'Balance of payments current and capital account',
+    description: 'Balance of payments (fields: account, balance, date)',
     descriptionBM: 'Akaun semasa dan modal imbangan pembayaran',
     defaultLimit: 20,
     refreshMs: P2_REFRESH,
@@ -211,18 +239,18 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   fdi: {
-    id: 'fdi',                                 // FIXED: was fdi_flows
+    id: 'fdi_flows',                            // FIXED: was fdi (404)
     label: 'Foreign Direct Investment',
     labelBM: 'Pelaburan Langsung Asing',
     category: 'Economy',
     categoryBM: 'Ekonomi',
-    valueField: 'value',
+    valueField: 'net',                          // FIXED: was 'value'; API uses inflow/net/outflow
     dateField: 'date',
-    groupField: 'series_type',
+    extraFields: ['inflow', 'outflow'],         // FIXED: API has inflow, net, outflow (NOT series_type/value)
     unit: 'RM Juta',
     granularity: 'quarterly',
     priority: 'P2',
-    description: 'FDI flows in and out of Malaysia',
+    description: 'FDI flows (fields: date, inflow, net, outflow)',
     descriptionBM: 'Aliran FDI masuk dan keluar Malaysia',
     defaultLimit: 20,
     refreshMs: P2_REFRESH,
@@ -233,15 +261,15 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   // ─── CATEGORY: PRICES ──────────────────────────────────────
 
   cpi_headline: {
-    id: 'cpi_headline',
+    id: 'cpi_headline',                         // ✅ Correct
     label: 'Headline CPI',
     labelBM: 'IHP Keseluruhan',
     category: 'Prices',
     categoryBM: 'Harga',
-    valueField: 'index',                    // FIXED: API returns 'index', not 'cpi'
+    valueField: 'index',                        // ✅ API returns 'index'
     dateField: 'date',
-    groupField: 'division',                 // FIXED: API returns 'division' (e.g. 'overall', 'food_beverage')
-    defaultFilter: { division: 'overall' }, // Show overall CPI by default
+    groupField: 'division',                     // ✅ API returns 'division'
+    defaultFilter: { division: 'overall' },
     unit: 'Indeks',
     granularity: 'monthly',
     priority: 'P0',
@@ -254,19 +282,21 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   cpi_inflation: {
-    id: 'cpi_headline',                        // FIXED: was cpi_headline_inflation; inflation is COMPUTED from CPI
+    id: 'cpi_headline_inflation',               // FIXED: was cpi_headline; SEPARATE dataset!
     label: 'CPI Inflation Rate',
     labelBM: 'Kadar Inflasi IHP',
     category: 'Prices',
     categoryBM: 'Harga',
-    valueField: 'inflation_yoy',               // FIXED: was 'cpi'; inflation_yoy is computed as YoY % change of cpi
+    valueField: 'inflation_yoy',                // ✅ API PROVIDES inflation_yoy directly!
     dateField: 'date',
-    computed: true,                            // Marked as derived — inflation is computed client-side from cpi field
+    groupField: 'division',                     // API also groups by division
+    defaultFilter: { division: 'overall' },
+    // NOTE: Removed computed=true — inflation_yoy is PROVIDED by the API, not computed client-side!
     unit: '%',
     granularity: 'monthly',
     priority: 'P0',
-    description: 'Year-on-year inflation rate (computed from CPI)',
-    descriptionBM: 'Kadar inflasi tahunan ke tahunan (dikira dari IHP)',
+    description: 'Year-on-year inflation rate from cpi_headline_inflation API (fields: date, division, inflation_mom, inflation_yoy)',
+    descriptionBM: 'Kadar inflasi tahunan ke tahunan (disediakan oleh API)',
     defaultLimit: 24,
     refreshMs: P0_REFRESH,
     color: '#EF4444',
@@ -274,18 +304,19 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   cpi_2d: {
-    id: 'cpi_2d',                              // NEW: CPI by Division (was missing)
+    id: 'cpi_headline',                         // FIXED: No cpi_2d API; reuse cpi_headline with division filter
     label: 'CPI by Division',
     labelBM: 'IHP mengikut Bahagian',
     category: 'Prices',
     categoryBM: 'Harga',
-    valueField: 'cpi',
+    valueField: 'index',                        // FIXED: was 'cpi'; actual field is 'index'
     dateField: 'date',
-    groupField: 'division',
+    groupField: 'division',                     // Same as cpi_headline — no separate API
     unit: 'Indeks',
     granularity: 'monthly',
     priority: 'P1',
-    description: 'CPI broken down by COICOP division',
+    csvOnly: true,                              // No dedicated API; use cpi_headline or CSV
+    description: 'CPI broken down by COICOP division (redirects to cpi_headline)',
     descriptionBM: 'IHP dipecahkan mengikut bahagian COICOP',
     defaultLimit: 48,
     refreshMs: P1_REFRESH,
@@ -294,18 +325,19 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   cpi_category: {
-    id: 'cpi_3d',                              // ✓ Correct (was already cpi_3d)
+    id: 'cpi_headline',                         // FIXED: No cpi_3d API; reuse cpi_headline
     label: 'CPI by Category',
     labelBM: 'IHP mengikut Kategori',
     category: 'Prices',
     categoryBM: 'Harga',
-    valueField: 'cpi',
+    valueField: 'index',                        // FIXED: was 'cpi'; actual field is 'index'
     dateField: 'date',
-    groupField: 'category',                    // ✓ Correct per ground truth (not 'division')
+    groupField: 'division',                     // No separate category API — division serves this
+    csvOnly: true,                              // No dedicated API
     unit: 'Indeks',
     granularity: 'monthly',
     priority: 'P1',
-    description: 'CPI broken down by expenditure category',
+    description: 'CPI by expenditure category (no dedicated API — uses cpi_headline divisions)',
     descriptionBM: 'IHP dipecahkan mengikut kategori perbelanjaan',
     defaultLimit: 48,
     refreshMs: P1_REFRESH,
@@ -314,18 +346,19 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   cpi_state: {
-    id: 'cpi_state',
+    id: 'cpi_state',                            // ✅ Correct
     label: 'CPI by State',
     labelBM: 'IHP mengikut Negeri',
     category: 'Prices',
     categoryBM: 'Harga',
-    valueField: 'cpi',
+    valueField: 'index',                        // FIXED: was 'cpi'; API uses 'index'
     dateField: 'date',
     groupField: 'state',
+    extraFields: ['division'],                  // FIXED: API also has 'division' field
     unit: 'Indeks',
     granularity: 'monthly',
     priority: 'P1',
-    description: 'CPI by state showing regional price differences',
+    description: 'CPI by state (fields: date, division, index, state)',
     descriptionBM: 'IHP mengikut negeri menunjukkan perbezaan harga wilayah',
     defaultLimit: 100,
     refreshMs: P1_REFRESH,
@@ -339,13 +372,14 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
     labelBM: 'Indeks Harga Pengeluar',
     category: 'Prices',
     categoryBM: 'Harga',
-    valueField: 'value',
+    valueField: 'index',                        // FIXED: was 'value'; API uses 'index'
     dateField: 'date',
-    groupField: 'series_type',
+    groupField: 'series',                       // FIXED: was 'series_type'; API uses 'series'
+    extraFields: ['index_sa'],                  // API also returns seasonally adjusted index
     unit: 'Indeks',
     granularity: 'monthly',
     priority: 'P2',
-    description: 'Producer prices at manufacturing stage',
+    description: 'Producer prices at manufacturing stage (fields: date, index, index_sa, series)',
     descriptionBM: 'Harga pengeluar di peringkat pembuatan',
     defaultLimit: 24,
     refreshMs: P2_REFRESH,
@@ -354,18 +388,19 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   hpi_malaysia: {
-    id: 'hpi_malaysia',                        // NEW: House Price Index (was missing)
+    id: 'hpi_malaysia',                         // No API exists — csvOnly
     label: 'House Price Index',
     labelBM: 'Indeks Harga Rumah',
     category: 'Prices',
     categoryBM: 'Harga',
-    valueField: 'index',                       // Ground truth: field is 'index', not 'hpi'
+    valueField: 'index',
     dateField: 'date',
     groupField: 'series',
+    csvOnly: true,                              // FIXED: No API endpoint — CSV only
     unit: 'Indeks',
     granularity: 'quarterly',
     priority: 'P1',
-    description: 'House Price Index by property type',
+    description: 'House Price Index by property type (NO API — CSV proxy only)',
     descriptionBM: 'Indeks harga rumah mengikut jenis harta',
     defaultLimit: 24,
     refreshMs: P1_REFRESH,
@@ -374,18 +409,18 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   fuelprice: {
-    id: 'fuelprice',
+    id: 'fuelprice',                            // ✅ Correct
     label: 'Fuel Prices',
     labelBM: 'Harga Bahan Api',
     category: 'Prices',
     categoryBM: 'Harga',
     valueField: 'ron95',
     dateField: 'date',
-    extraFields: ['ron97', 'diesel', 'diesel_east'],
+    extraFields: ['ron97', 'diesel', 'diesel_eastmsia', 'ron95_budi95', 'ron95_skps', 'series_type'], // FIXED: diesel_eastmsia NOT diesel_east
     unit: 'RM/liter',
     granularity: 'weekly',
     priority: 'P0',
-    description: 'Weekly fuel prices RON95, RON97 and diesel',
+    description: 'Weekly fuel prices RON95, RON97 and diesel (fields: date, diesel, diesel_eastmsia, ron95, ron95_budi95, ron95_skps, ron97, series_type)',
     descriptionBM: 'Harga bahan api mingguan RON95, RON97 dan diesel',
     defaultLimit: 52,
     refreshMs: P0_REFRESH,
@@ -394,18 +429,19 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   pricecatcher: {
-    id: 'pricecatcher_week',                   // FIXED: was pricecatcher
+    id: 'pricecatcher_week',                    // No API — csvOnly
     label: 'PriceCatcher',
     labelBM: 'Penangkap Harga',
     category: 'Prices',
     categoryBM: 'Harga',
     valueField: 'price',
     dateField: 'date',
-    groupField: 'item_category',               // FIXED: was 'item'; ground truth uses 'item_category'
+    groupField: 'item_category',
+    csvOnly: true,                              // FIXED: No API endpoint — CSV proxy only
     unit: 'RM',
-    granularity: 'weekly',                     // FIXED: was 'daily'; pricecatcher_week is weekly
+    granularity: 'weekly',
     priority: 'P2',
-    description: 'Weekly price monitoring of essential goods',
+    description: 'Weekly price monitoring of essential goods (NO API — CSV proxy only)',
     descriptionBM: 'Pemantauan harga mingguan barang keperluan',
     defaultLimit: 100,
     refreshMs: P2_REFRESH,
@@ -416,18 +452,18 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   // ─── CATEGORY: LABOUR ──────────────────────────────────────
 
   labour_monthly: {
-    id: 'lfs_month',                           // ✓ Correct
+    id: 'lfs_month',                            // ✅ Correct
     label: 'Labour Force Monthly',
     labelBM: 'Tenaga Buruh Bulanan',
     category: 'Labour',
     categoryBM: 'Pasaran Buruh',
     valueField: 'u_rate',
     dateField: 'date',
-    extraFields: ['lf', 'lf_employed', 'lf_unemployed'],
+    extraFields: ['lf', 'lf_employed', 'lf_unemployed', 'lf_outside', 'ep_ratio', 'p_rate'],
     unit: '%',
     granularity: 'monthly',
     priority: 'P0',
-    description: 'Monthly unemployment rate and labour force statistics',
+    description: 'Monthly unemployment rate and labour force statistics (fields: date, ep_ratio, lf, lf_employed, lf_outside, lf_unemployed, p_rate, u_rate)',
     descriptionBM: 'Kadar pengangguran bulanan dan statistik tenaga buruh',
     defaultLimit: 24,
     refreshMs: P0_REFRESH,
@@ -436,18 +472,18 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   labour_monthly_sa: {
-    id: 'lfs_month_sa',                        // ✓ Verified in ground truth
+    id: 'lfs_month_sa',                         // ✅ Correct
     label: 'Labour Force (Seasonally Adjusted)',
     labelBM: 'Tenaga Buruh (Laras Musim)',
     category: 'Labour',
     categoryBM: 'Pasaran Buruh',
     valueField: 'u_rate',
     dateField: 'date',
-    extraFields: ['lf', 'lf_employed', 'lf_unemployed'],
+    extraFields: ['lf', 'lf_employed', 'lf_unemployed', 'p_rate'],
     unit: '%',
     granularity: 'monthly',
     priority: 'P2',
-    description: 'Seasonally adjusted labour force statistics',
+    description: 'Seasonally adjusted labour force statistics (fields: date, lf, lf_employed, lf_unemployed, p_rate, u_rate)',
     descriptionBM: 'Statistik tenaga buruh laras musim',
     defaultLimit: 24,
     refreshMs: P2_REFRESH,
@@ -456,14 +492,14 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   lfs_qtr: {
-    id: 'lfs_qtr',                             // NEW: Quarterly Labour Force (was missing)
+    id: 'lfs_qtr',                              // ✅ Correct
     label: 'Labour Force Quarterly',
     labelBM: 'Tenaga Buruh Suku Tahunan',
     category: 'Labour',
     categoryBM: 'Pasaran Buruh',
     valueField: 'u_rate',
     dateField: 'date',
-    extraFields: ['lf', 'lf_employed', 'lf_unemployed'],
+    extraFields: ['lf', 'lf_employed', 'lf_unemployed', 'lf_outside', 'ep_ratio', 'p_rate'],
     unit: '%',
     granularity: 'quarterly',
     priority: 'P1',
@@ -476,7 +512,7 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   labour_state: {
-    id: 'lfs_state',                           // FIXED: was lfs_state_sex
+    id: 'lfs_state_sex',                        // FIXED: was lfs_state (404)
     label: 'Labour Force by State',
     labelBM: 'Tenaga Buruh mengikut Negeri',
     category: 'Labour',
@@ -484,10 +520,11 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
     valueField: 'u_rate',
     dateField: 'date',
     groupField: 'state',
+    extraFields: ['sex'],                       // FIXED: API has 'sex' field
     unit: '%',
     granularity: 'annual',
     priority: 'P1',
-    description: 'Unemployment rate by state',
+    description: 'Labour force by state and sex (fields: date, ep_ratio, lf, lf_employed, lf_outside, lf_unemployed, p_rate, sex, state, u_rate)',
     descriptionBM: 'Kadar pengangguran mengikut negeri',
     defaultLimit: 100,
     refreshMs: P1_REFRESH,
@@ -496,7 +533,7 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   labour_district: {
-    id: 'lfs_district',
+    id: 'lfs_district',                         // ✅ Correct
     label: 'Labour Force by District',
     labelBM: 'Tenaga Buruh mengikut Daerah',
     category: 'Labour',
@@ -504,6 +541,7 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
     valueField: 'u_rate',
     dateField: 'date',
     groupField: 'district',
+    extraFields: ['state', 'lf', 'lf_employed', 'lf_unemployed', 'lf_outside', 'ep_ratio', 'p_rate'],
     unit: '%',
     granularity: 'annual',
     priority: 'P2',
@@ -516,18 +554,19 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   employment_sector: {
-    id: 'employment_sector',
+    id: 'employment_sector',                    // ✅ Correct
     label: 'Employment by Sector',
     labelBM: 'Pekerjaan mengikut Sektor',
     category: 'Labour',
     categoryBM: 'Pasaran Buruh',
-    valueField: 'employed',
+    valueField: 'proportion',                   // FIXED: was 'employed'; API uses 'proportion'
     dateField: 'date',
     groupField: 'sector',
-    unit: 'ribu orang',
+    extraFields: ['sex'],                       // API has sex field
+    unit: '%',
     granularity: 'annual',
     priority: 'P2',
-    description: 'Employment by economic sector',
+    description: 'Employment proportion by economic sector (fields: date, proportion, sector, sex)',
     descriptionBM: 'Pekerjaan mengikut sektor ekonomi',
     defaultLimit: 50,
     refreshMs: P2_REFRESH,
@@ -536,18 +575,19 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   productivity_annual: {
-    id: 'productivity_annual',
+    id: 'productivity_annual',                  // ✅ Correct
     label: 'Labour Productivity',
     labelBM: 'Produktiviti Buruh',
     category: 'Labour',
     categoryBM: 'Pasaran Buruh',
-    valueField: 'value',
+    valueField: 'output_hour',                  // FIXED: was 'value'; API has specific fields
     dateField: 'date',
-    groupField: 'series_type',
+    groupField: 'sector',                       // FIXED: was 'series_type'; API groups by 'sector'
+    extraFields: ['employment', 'gdp', 'hours', 'output_employment', 'series'],
     unit: 'Indeks',
     granularity: 'annual',
     priority: 'P2',
-    description: 'Labour productivity index by sector',
+    description: 'Labour productivity (fields: date, employment, gdp, hours, output_employment, output_hour, sector, series)',
     descriptionBM: 'Indeks produktiviti buruh mengikut sektor',
     defaultLimit: 20,
     refreshMs: P2_REFRESH,
@@ -558,18 +598,18 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   // ─── CATEGORY: TRADE ───────────────────────────────────────
 
   trade_monthly: {
-    id: 'trade_monthly',                       // FIXED: was trade_headline
+    id: 'trade_headline',                       // FIXED: was trade_monthly (404)
     label: 'External Trade',
     labelBM: 'Perdagangan Luar Negeri',
     category: 'Trade',
     categoryBM: 'Perdagangan',
     valueField: 'balance',
     dateField: 'date',
-    extraFields: ['exports', 'imports'],
+    extraFields: ['exports', 'imports', 'exports_domestic', 'imports_retained', 're_exports', 'series', 'total'],
     unit: 'RM Juta',
     granularity: 'monthly',
     priority: 'P0',
-    description: 'Monthly exports, imports and trade balance',
+    description: 'Monthly external trade (fields: balance, date, exports, exports_domestic, imports, imports_retained, re_exports, series, total)',
     descriptionBM: 'Eksport, import dan imbangan dagangan bulanan',
     defaultLimit: 24,
     refreshMs: P0_REFRESH,
@@ -585,8 +625,8 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
     categoryBM: 'Perdagangan',
     valueField: 'value',
     dateField: 'date',
-    groupField: 'sitc',                        // FIXED: was 'commodity'; ground truth uses 'sitc'
-    extraFields: ['flow'],                     // Ground truth has 'flow' (exports/imports)
+    groupField: 'sitc',
+    extraFields: ['flow'],
     unit: 'RM Juta',
     granularity: 'monthly',
     priority: 'P2',
@@ -601,19 +641,19 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   // ─── CATEGORY: FINANCE ─────────────────────────────────────
 
   exchange_rate: {
-    id: 'exchangerates_monthly',               // FIXED: was exchangerates; monthly granularity
+    id: 'exchangerates',                        // FIXED: was exchangerates_monthly (404)
     label: 'Exchange Rates',
     labelBM: 'Kadar Pertukaran',
     category: 'Finance',
     categoryBM: 'Kewangan',
-    valueField: 'rate',
+    valueField: 'usd',                          // FIXED: WIDE format — usd is the default column
     dateField: 'date',
-    groupField: 'currency',
-    defaultFilter: { currency: 'USD' },        // NEW: default to USD
+    wideFormat: true,                           // FIXED: API returns WIDE format
+    wideColumns: ['usd', 'eur', 'gbp', 'jpy', 'sgd', 'cny', 'thb', 'idr', 'krw', 'aud'],
     unit: 'RM',
-    granularity: 'monthly',                    // FIXED: was 'daily'; exchangerates_monthly is monthly
+    granularity: 'monthly',
     priority: 'P0',
-    description: 'Ringgit exchange rate against major currencies (monthly)',
+    description: 'Ringgit exchange rates WIDE format (fields: date, usd, eur, gbp, jpy, sgd, cny, thb, idr, krw, aud)',
     descriptionBM: 'Kadar pertukaran Ringgit berbanding mata wang utama (bulanan)',
     defaultLimit: 30,
     refreshMs: P0_REFRESH,
@@ -622,19 +662,19 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   exchangerates_daily: {
-    id: 'exchangerates_daily',                 // NEW: Daily exchange rates (was missing)
+    id: 'exchangerates_daily_0900',             // FIXED: was exchangerates_daily (404)
     label: 'Exchange Rates (Daily)',
     labelBM: 'Kadar Pertukaran (Harian)',
     category: 'Finance',
     categoryBM: 'Kewangan',
-    valueField: 'rate',
+    valueField: 'usd',                          // FIXED: WIDE format
     dateField: 'date',
-    groupField: 'currency',
-    defaultFilter: { currency: 'USD' },
+    wideFormat: true,                           // FIXED: API returns WIDE format
+    wideColumns: ['usd', 'eur', 'gbp', 'jpy', 'sgd', 'cny', 'thb', 'idr', 'krw', 'aud'],
     unit: 'RM',
     granularity: 'daily',
     priority: 'P1',
-    description: 'Daily Ringgit exchange rate against major currencies',
+    description: 'Daily Ringgit exchange rates WIDE format (fields: date, usd, eur, gbp, ...)',
     descriptionBM: 'Kadar pertukaran Ringgit harian berbanding mata wang utama',
     defaultLimit: 30,
     refreshMs: P1_REFRESH,
@@ -643,18 +683,19 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   interest_rate: {
-    id: 'interestrates',
+    id: 'interestrates',                        // ✅ Correct
     label: 'Interest Rates',
     labelBM: 'Kadar Faedah',
     category: 'Finance',
     categoryBM: 'Kewangan',
     valueField: 'rate',
     dateField: 'date',
-    groupField: 'series_type',
+    groupField: 'bank',                         // FIXED: was 'series_type'; API uses 'bank'
+    extraFields: ['value'],                     // API also has 'value' field
     unit: '%',
     granularity: 'daily',
     priority: 'P1',
-    description: 'BNM policy rate and interbank rates',
+    description: 'Interest rates by bank (fields: bank, date, rate, value)',
     descriptionBM: 'Kadar dasar BNM dan kadar antara bank',
     defaultLimit: 30,
     refreshMs: P1_REFRESH,
@@ -663,19 +704,19 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   money_supply: {
-    id: 'monetary_aggregates',
+    id: 'monetary_aggregates',                  // ✅ Correct
     label: 'Money Supply',
     labelBM: 'Bekalan Wang',
     category: 'Finance',
     categoryBM: 'Kewangan',
     valueField: 'value',
     dateField: 'date',
-    groupField: 'series_type',
-    defaultFilter: { series_type: 'M3' },
+    groupField: 'measure',                      // FIXED: was 'series_type'; API uses 'measure'
+    defaultFilter: { measure: 'M3' },           // FIXED: filter key is 'measure' not 'series_type'
     unit: 'RM Juta',
     granularity: 'monthly',
     priority: 'P2',
-    description: 'M1, M2, M3 monetary aggregates',
+    description: 'M1, M2, M3 monetary aggregates (fields: date, measure, value)',
     descriptionBM: 'Agregat kewangan M1, M2, M3',
     defaultLimit: 24,
     refreshMs: P2_REFRESH,
@@ -684,18 +725,19 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   federal_revenue: {
-    id: 'federal_finance_year',                // FIXED: was federal_finance_year_revenue; same dataset, different filter
+    id: 'federal_finance_year',                 // ✅ Correct
     label: 'Federal Revenue',
     labelBM: 'Hasil Kerajaan Persekutuan',
     category: 'Finance',
     categoryBM: 'Kewangan',
     valueField: 'value',
     dateField: 'date',
-    groupField: 'series_type',
+    groupField: 'variable',                     // FIXED: was 'series_type'; API uses 'variable'
+    extraFields: ['category'],                  // FIXED: API has 'category' field
     unit: 'RM Juta',
     granularity: 'annual',
     priority: 'P2',
-    description: 'Federal government revenue by source',
+    description: 'Federal government revenue (fields: category, date, value, variable)',
     descriptionBM: 'Hasil kerajaan persekutuan mengikut sumber',
     defaultLimit: 20,
     refreshMs: P2_REFRESH,
@@ -704,18 +746,19 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   federal_expenditure: {
-    id: 'federal_finance_year',
+    id: 'federal_finance_year',                 // ✅ Same dataset as federal_revenue
     label: 'Federal Expenditure',
     labelBM: 'Perbelanjaan Kerajaan Persekutuan',
     category: 'Finance',
     categoryBM: 'Kewangan',
     valueField: 'value',
     dateField: 'date',
-    groupField: 'series_type',
+    groupField: 'variable',                     // FIXED: was 'series_type'; API uses 'variable'
+    extraFields: ['category'],                  // FIXED: API has 'category' field
     unit: 'RM Juta',
     granularity: 'annual',
     priority: 'P2',
-    description: 'Federal government operating and development expenditure',
+    description: 'Federal government expenditure (fields: category, date, value, variable)',
     descriptionBM: 'Perbelanjaan mengurus dan pembangunan kerajaan persekutuan',
     defaultLimit: 20,
     refreshMs: P2_REFRESH,
@@ -726,7 +769,7 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   // ─── CATEGORY: DEMOGRAPHY ──────────────────────────────────
 
   population_state: {
-    id: 'population_state',                    // ✓ Correct
+    id: 'population_state',                     // ✅ Correct
     label: 'Population by State',
     labelBM: 'Penduduk mengikut Negeri',
     category: 'Demography',
@@ -734,11 +777,11 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
     valueField: 'population',
     dateField: 'date',
     groupField: 'state',
-    defaultFilter: { sex: 'both', ethnicity: 'overall', age: 'overall' }, // FIXED: 3-way filter to prevent 200x data duplication
+    defaultFilter: { sex: 'both', ethnicity: 'overall', age: 'overall' },
     unit: 'ribu orang',
     granularity: 'annual',
     priority: 'P0',
-    description: 'Population by state from 1970 to present',
+    description: 'Population by state (fields: age, date, ethnicity, population, sex, state)',
     descriptionBM: 'Penduduk mengikut negeri dari 1970 hingga kini',
     defaultLimit: 100,
     refreshMs: P3_REFRESH,
@@ -747,7 +790,7 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   population_malaysia: {
-    id: 'population_malaysia',                 // ✓ Correct
+    id: 'population_malaysia',                  // ✅ Correct
     label: 'Population Malaysia',
     labelBM: 'Penduduk Malaysia',
     category: 'Demography',
@@ -755,12 +798,12 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
     valueField: 'population',
     dateField: 'date',
     groupField: 'sex',
-    extraFields: ['age_group', 'ethnicity'],
-    defaultFilter: { sex: 'both', ethnicity: 'overall', age: 'overall' }, // FIXED: 3-way filter to prevent 200x data duplication
+    extraFields: ['age', 'ethnicity'],          // FIXED: field is 'age' not 'age_group'
+    defaultFilter: { sex: 'both', ethnicity: 'overall', age: 'overall' },
     unit: 'ribu orang',
     granularity: 'annual',
     priority: 'P0',
-    description: 'National population by sex, age and ethnicity',
+    description: 'National population (fields: age, date, ethnicity, population, sex)',
     descriptionBM: 'Penduduk nasional mengikut jantina, umur dan etnik',
     defaultLimit: 50,
     refreshMs: P3_REFRESH,
@@ -769,7 +812,7 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   population_district: {
-    id: 'population_district',
+    id: 'population_district',                  // ✅ Correct
     label: 'Population by District',
     labelBM: 'Penduduk mengikut Daerah',
     category: 'Demography',
@@ -777,10 +820,11 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
     valueField: 'population',
     dateField: 'date',
     groupField: 'district',
+    extraFields: ['age', 'ethnicity', 'sex', 'state'], // FIXED: API has age, ethnicity, sex, state
     unit: 'ribu orang',
     granularity: 'annual',
     priority: 'P2',
-    description: 'Population at district level',
+    description: 'Population at district level (fields: age, date, district, ethnicity, population, sex, state)',
     descriptionBM: 'Penduduk di peringkat daerah',
     defaultLimit: 200,
     refreshMs: P3_REFRESH,
@@ -789,19 +833,18 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   births: {
-    id: 'births',                              // FIXED: was births_annual
+    id: 'births',                               // ✅ Correct
     label: 'Live Births',
     labelBM: 'Kelahiran Hidup',
     category: 'Demography',
     categoryBM: 'Demografi',
-    valueField: 'abs',
+    valueField: 'births',                       // FIXED: was 'abs'; API field is 'births'
     dateField: 'date',
-    groupField: 'sex',                         // Ground truth: has sex grouping
-    defaultFilter: { sex: 'both' },            // FIXED: was 'Both'; API uses lowercase
+    groupField: 'state',                        // FIXED: was 'sex'; API groups by 'state'
     unit: 'orang',
-    granularity: 'monthly',                    // FIXED: was 'annual'; ground truth shows monthly
+    granularity: 'monthly',
     priority: 'P1',
-    description: 'Live births registered',
+    description: 'Live births by state (fields: births, date, state)',
     descriptionBM: 'Kelahiran hidup yang didaftarkan',
     defaultLimit: 24,
     refreshMs: P3_REFRESH,
@@ -810,19 +853,19 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   deaths: {
-    id: 'deaths',
+    id: 'deaths',                               // ✅ Correct
     label: 'Deaths',
     labelBM: 'Kematian',
     category: 'Demography',
     categoryBM: 'Demografi',
-    valueField: 'abs',
+    valueField: 'abs',                          // ✅ API field is 'abs'
     dateField: 'date',
-    groupField: 'sex',                         // Ground truth: has sex grouping
-    defaultFilter: { sex: 'both' },            // FIXED: was 'Both'; API uses lowercase
+    // NOTE: NO groupField — API fields are: abs, date, rate (NO sex field!)
+    extraFields: ['rate'],                      // API also returns 'rate'
     unit: 'orang',
-    granularity: 'monthly',                    // FIXED: was 'annual'; ground truth shows monthly
+    granularity: 'monthly',
     priority: 'P1',
-    description: 'Deaths registered',
+    description: 'Deaths registered (fields: abs, date, rate)',
     descriptionBM: 'Kematian yang didaftarkan',
     defaultLimit: 24,
     refreshMs: P3_REFRESH,
@@ -831,19 +874,20 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   marriages: {
-    id: 'marriages',
+    id: 'marriages',                            // ✅ Correct
     label: 'Marriages',
     labelBM: 'Perkahwinan',
     category: 'Demography',
     categoryBM: 'Demografi',
-    valueField: 'abs',
+    valueField: 'abs',                          // ✅ API field is 'abs'
     dateField: 'date',
-    groupField: 'religion',                    // Ground truth: grouped by religion
+    groupField: 'sex',                          // FIXED: was 'religion'; API groups by 'sex'
+    extraFields: ['rate'],                      // API also returns 'rate'
     unit: 'pasangan',
-    granularity: 'monthly',                    // FIXED: was 'annual'; ground truth shows monthly
+    granularity: 'monthly',
     priority: 'P2',
-    description: 'Marriages registered by religion',
-    descriptionBM: 'Perkahwinan yang didaftarkan mengikut agama',
+    description: 'Marriages by sex (fields: abs, date, rate, sex)',
+    descriptionBM: 'Perkahwinan yang didaftarkan mengikut jantina',
     defaultLimit: 24,
     refreshMs: P3_REFRESH,
     color: '#EC4899',
@@ -851,7 +895,7 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   divorces: {
-    id: 'divorces',                            // NEW: was missing from registry
+    id: 'divorces',                             // No API exists — csvOnly
     label: 'Divorces',
     labelBM: 'Perceraian',
     category: 'Demography',
@@ -859,10 +903,11 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
     valueField: 'abs',
     dateField: 'date',
     groupField: 'religion',
+    csvOnly: true,                              // FIXED: No API endpoint — CSV proxy only
     unit: 'pasangan',
     granularity: 'monthly',
     priority: 'P2',
-    description: 'Divorces registered by religion',
+    description: 'Divorces registered by religion (NO API — CSV proxy only)',
     descriptionBM: 'Perceraian yang didaftarkan mengikut agama',
     defaultLimit: 24,
     refreshMs: P3_REFRESH,
@@ -871,20 +916,19 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   fertility: {
-    id: 'fertility',
+    id: 'fertility',                            // ✅ Correct
     label: 'Fertility Rate',
     labelBM: 'Kadar Kesuburan',
     category: 'Demography',
     categoryBM: 'Demografi',
-    valueField: 'tfr',
+    valueField: 'fertility_rate',               // FIXED: was 'tfr'; API uses 'fertility_rate'
     dateField: 'date',
-    groupField: 'sex',
-    defaultFilter: { sex: 'female' },          // FIXED: was 'Female'; API uses lowercase
+    groupField: 'age_group',                    // FIXED: was 'sex'; API uses 'age_group'
     unit: 'kadar',
     granularity: 'annual',
     priority: 'P2',
-    description: 'Total fertility rate (TFR)',
-    descriptionBM: 'Jumlah kadar kesuburan (TFR)',
+    description: 'Fertility rate by age group (fields: age_group, date, fertility_rate)',
+    descriptionBM: 'Jumlah kadar kesuburan mengikut kumpulan umur',
     defaultLimit: 20,
     refreshMs: P3_REFRESH,
     color: '#F9A8D4',
@@ -894,19 +938,19 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   // ─── CATEGORY: HOUSEHOLDS & WELFARE ────────────────────────
 
   hies_malaysia: {
-    id: 'hies_malaysia',                       // NEW: Household Income & Expenditure - national (was missing)
+    id: 'hh_income',                            // FIXED: was hies_malaysia (404)
     label: 'Household Income (Malaysia)',
     labelBM: 'Pendapatan Isi Rumah Malaysia',
     category: 'Households',
     categoryBM: 'Isi Rumah',
-    valueField: 'value',
+    valueField: 'income_median',                // FIXED: was 'value'; API has income_mean and income_median directly
     dateField: 'date',
-    groupField: 'variable',
+    extraFields: ['income_mean'],               // API has income_mean and income_median
     unit: 'RM',
     granularity: 'biennial',
     priority: 'P1',
-    description: 'National household income, expenditure and Gini (HIES)',
-    descriptionBM: 'Pendapatan, perbelanjaan dan Gini isi rumah nasional (HIES)',
+    description: 'National household income (fields: date, income_mean, income_median)',
+    descriptionBM: 'Pendapatan isi rumah nasional',
     defaultLimit: 50,
     refreshMs: P3_REFRESH,
     color: '#A855F7',
@@ -914,20 +958,18 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   household_income: {
-    id: 'hies_state',                          // FIXED: was hh_income_state
+    id: 'hh_income',                            // FIXED: was hies_state (404); same as hies_malaysia
     label: 'Household Income by State',
     labelBM: 'Pendapatan Isi Rumah mengikut Negeri',
     category: 'Households',
     categoryBM: 'Isi Rumah',
-    valueField: 'value',                       // FIXED: was 'income_median'; ground truth uses 'value' with 'variable' grouping
+    valueField: 'income_median',                // FIXED: was 'value'; API has direct fields
     dateField: 'date',
-    groupField: 'state',
-    extraFields: ['variable'],                 // Ground truth: has 'variable' for income_mean, income_median, gini
-    defaultFilter: { variable: 'income_median' }, // NEW: default to median income
+    extraFields: ['income_mean'],               // API has income_mean and income_median
     unit: 'RM',
-    granularity: 'biennial',                   // FIXED: was 'annual'; ground truth shows biennial
+    granularity: 'biennial',
     priority: 'P1',
-    description: 'Median household income and Gini coefficient by state',
+    description: 'Household income by state (fields: date, income_mean, income_median)',
     descriptionBM: 'Median pendapatan isi rumah dan pekali Gini mengikut negeri',
     defaultLimit: 50,
     refreshMs: P3_REFRESH,
@@ -936,19 +978,20 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   poverty_rate: {
-    id: 'poverty_absolute',                    // FIXED: was hh_poverty_state; NEEDS_VERIFY
+    id: 'hh_poverty_state',                     // FIXED: was poverty_absolute (404)
     label: 'Poverty Rate by State',
     labelBM: 'Kadar Kemiskinan mengikut Negeri',
     category: 'Households',
     categoryBM: 'Isi Rumah',
-    valueField: 'value',
+    valueField: 'poverty_absolute',             // FIXED: was 'value'; API uses 'poverty_absolute'
     dateField: 'date',
     groupField: 'state',
+    extraFields: ['poverty_hardcore', 'poverty_relative'], // FIXED: API has these fields
     unit: '%',
     granularity: 'annual',
     priority: 'P1',
-    description: 'Absolute poverty rate by state (NEEDS_VERIFY: API ID may differ)',
-    descriptionBM: 'Kadar kemiskinan mutlak mengikut negeri (PERLU SAH: ID API mungkin berbeza)',
+    description: 'Poverty by state (fields: date, poverty_absolute, poverty_hardcore, poverty_relative, state)',
+    descriptionBM: 'Kadar kemiskinan mutlak mengikut negeri',
     defaultLimit: 50,
     refreshMs: P3_REFRESH,
     color: '#FB923C',
@@ -956,19 +999,19 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   inequality: {
-    id: 'hies_state',                          // FIXED: was hh_inequality_state; Gini is from HIES
+    id: 'hies_state',                           // ✅ Correct
     label: 'Income Inequality by State',
     labelBM: 'Ketidaksamaan Pendapatan mengikut Negeri',
     category: 'Households',
     categoryBM: 'Isi Rumah',
-    valueField: 'value',
+    valueField: 'gini',                         // FIXED: was 'value'; API has gini directly
     dateField: 'date',
     groupField: 'state',
-    defaultFilter: { variable: 'gini' },       // NEW: filter for Gini coefficient
+    extraFields: ['expenditure_mean', 'income_mean', 'income_median', 'poverty'],
     unit: 'pekali',
     granularity: 'biennial',
     priority: 'P2',
-    description: 'Gini coefficient by state',
+    description: 'Gini coefficient by state (fields: date, expenditure_mean, gini, income_mean, income_median, poverty, state)',
     descriptionBM: 'Pekali Gini mengikut negeri',
     defaultLimit: 50,
     refreshMs: P3_REFRESH,
@@ -979,7 +1022,7 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   // ─── CATEGORY: HEALTHCARE ──────────────────────────────────
 
   hospital_beds: {
-    id: 'hospital_beds',
+    id: 'hospital_beds',                        // No API exists — csvOnly
     label: 'Hospital Beds',
     labelBM: 'Katil Hospital',
     category: 'Healthcare',
@@ -987,10 +1030,11 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
     valueField: 'beds',
     dateField: 'date',
     groupField: 'state',
+    csvOnly: true,                              // FIXED: No API endpoint
     unit: 'katil',
     granularity: 'annual',
     priority: 'P2',
-    description: 'Hospital beds by state',
+    description: 'Hospital beds by state (NO API — CSV proxy only)',
     descriptionBM: 'Katil hospital mengikut negeri',
     defaultLimit: 50,
     refreshMs: P3_REFRESH,
@@ -999,7 +1043,7 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   healthcare_staff: {
-    id: 'healthcare_staff',
+    id: 'healthcare_staff',                     // No API exists — csvOnly
     label: 'Healthcare Staff',
     labelBM: 'Kakitangan Kesihatan',
     category: 'Healthcare',
@@ -1007,10 +1051,11 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
     valueField: 'count',
     dateField: 'date',
     groupField: 'category',
+    csvOnly: true,                              // FIXED: No API endpoint
     unit: 'orang',
     granularity: 'annual',
     priority: 'P2',
-    description: 'Healthcare staff by category',
+    description: 'Healthcare staff by category (NO API — CSV proxy only)',
     descriptionBM: 'Kakitangan kesihatan mengikut kategori',
     defaultLimit: 50,
     refreshMs: P3_REFRESH,
@@ -1019,19 +1064,19 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   blood_donations: {
-    id: 'blood_donations',
+    id: 'blood_donations',                      // ✅ Correct
     label: 'Blood Donations',
     labelBM: 'Penderma Darah',
     category: 'Healthcare',
     categoryBM: 'Kesihatan',
-    valueField: 'daily',
+    valueField: 'donations',                    // FIXED: was 'daily'; API uses 'donations'
     dateField: 'date',
-    groupField: 'state',                       // Ground truth: grouped by state
+    groupField: 'blood_type',                   // FIXED: was 'state'; API groups by 'blood_type'
     unit: 'orang',
     granularity: 'daily',
     priority: 'P2',
-    description: 'Daily blood donation statistics by state',
-    descriptionBM: 'Statistik pendermaan darah harian mengikut negeri',
+    description: 'Blood donations by blood type (fields: blood_type, date, donations)',
+    descriptionBM: 'Statistik pendermaan darah mengikut jenis darah',
     defaultLimit: 30,
     refreshMs: P3_REFRESH,
     color: '#DB2777',
@@ -1041,7 +1086,7 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   // ─── CATEGORY: ENVIRONMENT ─────────────────────────────────
 
   air_pollution: {
-    id: 'air_pollution',
+    id: 'air_pollution',                        // No API exists — csvOnly
     label: 'Air Pollution Index',
     labelBM: 'Indeks Pencemaran Udara',
     category: 'Environment',
@@ -1049,10 +1094,11 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
     valueField: 'api',
     dateField: 'date',
     groupField: 'state',
+    csvOnly: true,                              // FIXED: No API endpoint
     unit: 'API',
     granularity: 'daily',
     priority: 'P2',
-    description: 'Air pollutant index by state',
+    description: 'Air pollutant index by state (NO API — CSV proxy only)',
     descriptionBM: 'Indeks pencemar udara mengikut negeri',
     defaultLimit: 30,
     refreshMs: P2_REFRESH,
@@ -1061,18 +1107,18 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   forest_reserve: {
-    id: 'forest_reserve_state',
+    id: 'forest_reserve_state',                 // ✅ Correct
     label: 'Forest Reserve by State',
     labelBM: 'Hutan Simpan mengikut Negeri',
     category: 'Environment',
     categoryBM: 'Alam Sekitar',
-    valueField: 'area_ha',
+    valueField: 'area',                         // FIXED: was 'area_ha'; API uses 'area'
     dateField: 'date',
     groupField: 'state',
     unit: 'hektar',
     granularity: 'annual',
     priority: 'P3',
-    description: 'Forest reserve area by state',
+    description: 'Forest reserve area by state (fields: area, date, state)',
     descriptionBM: 'Kawasan hutan simpan mengikut negeri',
     defaultLimit: 50,
     refreshMs: P3_REFRESH,
@@ -1081,7 +1127,7 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   electricity_supply: {
-    id: 'electricity_supply',
+    id: 'electricity_supply',                   // No API exists — csvOnly
     label: 'Electricity Supply',
     labelBM: 'Bekalan Elektrik',
     category: 'Environment',
@@ -1089,10 +1135,11 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
     valueField: 'value',
     dateField: 'date',
     groupField: 'series_type',
+    csvOnly: true,                              // FIXED: No API endpoint
     unit: 'GWh',
     granularity: 'monthly',
     priority: 'P2',
-    description: 'Electricity generation and consumption',
+    description: 'Electricity generation and consumption (NO API — CSV proxy only)',
     descriptionBM: 'Penjanaan dan penggunaan elektrik',
     defaultLimit: 24,
     refreshMs: P2_REFRESH,
@@ -1101,7 +1148,7 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   water_consumption: {
-    id: 'water_consumption',
+    id: 'water_consumption',                    // No API exists — csvOnly
     label: 'Water Consumption',
     labelBM: 'Penggunaan Air',
     category: 'Environment',
@@ -1109,10 +1156,11 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
     valueField: 'value',
     dateField: 'date',
     groupField: 'state',
+    csvOnly: true,                              // FIXED: No API endpoint
     unit: 'ML/hari',
     granularity: 'annual',
     priority: 'P3',
-    description: 'Water consumption by state',
+    description: 'Water consumption by state (NO API — CSV proxy only)',
     descriptionBM: 'Penggunaan air mengikut negeri',
     defaultLimit: 50,
     refreshMs: P3_REFRESH,
@@ -1123,18 +1171,24 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   // ─── CATEGORY: TRANSPORT ───────────────────────────────────
 
   ridership: {
-    id: 'ridership_headline',                  // ✓ Correct
+    id: 'ridership_headline',                   // ✅ Correct
     label: 'Public Transport Ridership',
     labelBM: 'Penumpang Pengangkutan Awam',
     category: 'Transport',
     categoryBM: 'Pengangkutan',
-    valueField: 'ridership',
+    valueField: 'bus_rkl',                      // FIXED: WIDE format — default to bus_rkl column
     dateField: 'date',
-    groupField: 'service',                     // FIXED: was 'series_type'; ground truth uses 'service'
+    wideFormat: true,                           // FIXED: API returns WIDE format, NOT service/ridership long format
+    wideColumns: [
+      'bus_rkl', 'bus_rkn', 'bus_rpn',
+      'rail_ets', 'rail_intercity', 'rail_komuter', 'rail_komuter_utara',
+      'rail_lrt_ampang', 'rail_lrt_kj',
+      'rail_monorail', 'rail_mrt_kajang', 'rail_mrt_pjy', 'rail_tebrau',
+    ],
     unit: 'orang',
     granularity: 'monthly',
     priority: 'P2',
-    description: 'Public transport ridership by service mode',
+    description: 'Public transport ridership WIDE format (fields: date, bus_rkl, bus_rkn, rail_ets, rail_komuter, ...)',
     descriptionBM: 'Penumpang pengangkutan awam mengikut kaedah perkhidmatan',
     defaultLimit: 24,
     refreshMs: P2_REFRESH,
@@ -1143,7 +1197,7 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   vehicle_registration: {
-    id: 'registration_transactions_all',
+    id: 'registration_transactions_all',        // No API — csvOnly
     label: 'Vehicle Registration',
     labelBM: 'Pendaftaran Kenderaan',
     category: 'Transport',
@@ -1151,10 +1205,11 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
     valueField: 'registered',
     dateField: 'date',
     groupField: 'type',
+    csvOnly: true,                              // FIXED: No API endpoint
     unit: 'unit',
     granularity: 'monthly',
     priority: 'P2',
-    description: 'New vehicle registrations by type',
+    description: 'New vehicle registrations by type (NO API — CSV proxy only)',
     descriptionBM: 'Pendaftaran kenderaan baru mengikut jenis',
     defaultLimit: 24,
     refreshMs: P2_REFRESH,
@@ -1165,18 +1220,19 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   // ─── CATEGORY: PUBLIC SAFETY ───────────────────────────────
 
   crime_district: {
-    id: 'crime_index',                         // FIXED: was crime_district
+    id: 'crime_district',                       // FIXED: was crime_index (404)
     label: 'Index Crime',
     labelBM: 'Jenayah Indeks',
     category: 'Safety',
     categoryBM: 'Keselamatan',
-    valueField: 'cases',                       // FIXED: was 'total'; ground truth uses 'cases'
+    valueField: 'crimes',                       // FIXED: was 'cases'; API uses 'crimes'
     dateField: 'date',
-    groupField: 'type',                        // FIXED: was 'district'; ground truth groups by 'type' and 'state'
+    groupField: 'type',                         // Groups by crime type
+    extraFields: ['category', 'district', 'state'], // FIXED: API has category, district, state
     unit: 'kes',
     granularity: 'annual',
     priority: 'P2',
-    description: 'Index crime by type and state',
+    description: 'Index crime (fields: category, crimes, date, district, state, type)',
     descriptionBM: 'Jenayah indeks mengikut jenis dan negeri',
     defaultLimit: 200,
     refreshMs: P3_REFRESH,
@@ -1185,7 +1241,7 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   },
 
   drug_arrests: {
-    id: 'drug_arrests_age',
+    id: 'drug_arrests_age',                     // No API — csvOnly
     label: 'Drug Arrests by Age',
     labelBM: 'Tangkapan Dadah mengikut Umur',
     category: 'Safety',
@@ -1193,10 +1249,11 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
     valueField: 'arrests',
     dateField: 'date',
     groupField: 'age_group',
+    csvOnly: true,                              // FIXED: No API endpoint
     unit: 'orang',
     granularity: 'annual',
     priority: 'P3',
-    description: 'Drug arrests by age group',
+    description: 'Drug arrests by age group (NO API — CSV proxy only)',
     descriptionBM: 'Tangkapan dadah mengikut kumpulan umur',
     defaultLimit: 20,
     refreshMs: P3_REFRESH,
@@ -1313,7 +1370,7 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   // ─── NEW: DEATHS BY CAUSE ───────────────────────────────────
 
   deaths_cause: {
-    id: 'deaths_cause',
+    id: 'deaths_cause',                         // No API exists — csvOnly
     label: 'Deaths by Cause',
     labelBM: 'Kematian mengikut Punca',
     category: 'Demography',
@@ -1321,11 +1378,11 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
     valueField: 'abs',
     dateField: 'date',
     groupField: 'cause',
-    defaultFilter: { sex: 'both' },
+    csvOnly: true,                              // FIXED: No API endpoint
     unit: 'orang',
     granularity: 'annual',
     priority: 'P2',
-    description: 'Deaths by cause of death',
+    description: 'Deaths by cause of death (NO API — CSV proxy only)',
     descriptionBM: 'Kematian mengikut punca kematian',
     defaultLimit: 50,
     refreshMs: P3_REFRESH,
@@ -1336,7 +1393,7 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   // ─── NEW: LABOUR FORCE BY EDUCATION ─────────────────────────
 
   lfs_edu: {
-    id: 'lfs_edu',
+    id: 'lfs_edu',                              // No API exists — csvOnly
     label: 'Labour Force by Education',
     labelBM: 'Tenaga Buruh mengikut Pendidikan',
     category: 'Labour',
@@ -1344,10 +1401,11 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
     valueField: 'u_rate',
     dateField: 'date',
     groupField: 'edu',
+    csvOnly: true,                              // FIXED: No API endpoint
     unit: '%',
     granularity: 'annual',
     priority: 'P2',
-    description: 'Unemployment rate by education level',
+    description: 'Unemployment rate by education level (NO API — CSV proxy only)',
     descriptionBM: 'Kadar pengangguran mengikut tahap pendidikan',
     defaultLimit: 50,
     refreshMs: P2_REFRESH,
@@ -1358,7 +1416,7 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   // ─── NEW: TRADE BY COUNTRY ─────────────────────────────────
 
   trade_country: {
-    id: 'trade_country',
+    id: 'trade_country',                        // No API exists — csvOnly
     label: 'Trade by Country',
     labelBM: 'Perdagangan mengikut Negara',
     category: 'Trade',
@@ -1367,10 +1425,11 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
     dateField: 'date',
     groupField: 'country',
     extraFields: ['flow'],
+    csvOnly: true,                              // FIXED: No API endpoint
     unit: 'RM Juta',
     granularity: 'monthly',
     priority: 'P2',
-    description: 'Trade by partner country',
+    description: 'Trade by partner country (NO API — CSV proxy only)',
     descriptionBM: 'Perdagangan mengikut negara rakan',
     defaultLimit: 50,
     refreshMs: P2_REFRESH,
@@ -1381,7 +1440,7 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   // ─── NEW: POPULATION BY PARLIAMENT ─────────────────────────
 
   population_parlimen: {
-    id: 'population_parlimen',
+    id: 'population_parlimen',                  // No API exists — csvOnly
     label: 'Population by Parliament',
     labelBM: 'Penduduk mengikut Parlimen',
     category: 'Demography',
@@ -1389,10 +1448,11 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
     valueField: 'population',
     dateField: 'date',
     groupField: 'parlimen',
+    csvOnly: true,                              // FIXED: No API endpoint
     unit: 'ribu orang',
     granularity: 'annual',
     priority: 'P3',
-    description: 'Population by parliament constituency',
+    description: 'Population by parliament constituency (NO API — CSV proxy only)',
     descriptionBM: 'Penduduk mengikut kawasan parlimen',
     defaultLimit: 300,
     refreshMs: P3_REFRESH,
@@ -1403,19 +1463,19 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   // ─── NEW: POVERTY RATE BY STATE ────────────────────────────
 
   poverty_state: {
-    id: 'poverty_state',
+    id: 'hh_poverty_state',                     // FIXED: reuse hh_poverty_state (same dataset as poverty_rate)
     label: 'Poverty Rate by State',
     labelBM: 'Kadar Kemiskinan mengikut Negeri',
     category: 'Households',
     categoryBM: 'Isi Rumah',
-    valueField: 'incidence',
+    valueField: 'poverty_absolute',
     dateField: 'date',
     groupField: 'state',
-    extraFields: ['hardcore'],
+    extraFields: ['poverty_hardcore', 'poverty_relative'],
     unit: '%',
     granularity: 'biennial',
     priority: 'P1',
-    description: 'Poverty incidence rate by state',
+    description: 'Poverty incidence rate by state (fields: date, poverty_absolute, poverty_hardcore, poverty_relative, state)',
     descriptionBM: 'Kadar kemiskinan mengikut negeri',
     defaultLimit: 50,
     refreshMs: P3_REFRESH,
@@ -1426,7 +1486,7 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   // ─── NEW: ROAD ACCIDENTS ───────────────────────────────────
 
   road_accidents: {
-    id: 'road_accidents',
+    id: 'road_accidents',                       // No API exists — csvOnly
     label: 'Road Accidents',
     labelBM: 'Kemalangan Jalan Raya',
     category: 'Safety',
@@ -1435,10 +1495,11 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
     dateField: 'date',
     groupField: 'state',
     extraFields: ['deaths', 'injuries'],
+    csvOnly: true,                              // FIXED: No API endpoint
     unit: 'kes',
     granularity: 'annual',
     priority: 'P2',
-    description: 'Road accidents, deaths and injuries by state',
+    description: 'Road accidents, deaths and injuries by state (NO API — CSV proxy only)',
     descriptionBM: 'Kemalangan, kematian dan kecederaan jalan raya mengikut negeri',
     defaultLimit: 50,
     refreshMs: P3_REFRESH,
@@ -1449,7 +1510,7 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
   // ─── NEW: PALM OIL ─────────────────────────────────────────
 
   palm_oil: {
-    id: 'palm_oil',
+    id: 'palm_oil',                             // No API exists — csvOnly
     label: 'Palm Oil Statistics',
     labelBM: 'Statistik Minyak Sawit',
     category: 'Agriculture',
@@ -1457,10 +1518,11 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
     valueField: 'value',
     dateField: 'date',
     groupField: 'series_type',
+    csvOnly: true,                              // FIXED: No API endpoint
     unit: 'tan',
     granularity: 'monthly',
     priority: 'P3',
-    description: "Malaysia's palm oil production, exports and prices",
+    description: "Malaysia's palm oil production, exports and prices (NO API — CSV proxy only)",
     descriptionBM: 'Pengeluaran, eksport dan harga minyak sawit Malaysia',
     defaultLimit: 24,
     refreshMs: P2_REFRESH,
@@ -1499,6 +1561,7 @@ export const PRIORITY_DATASETS: Record<DatasetPriority, DatasetId[]> = {
     'household_income',
     'hpi_malaysia',
     'poverty_rate',
+    'poverty_state',
     'population_malaysia',
     'births',
     'deaths',
@@ -1529,6 +1592,10 @@ export const PRIORITY_DATASETS: Record<DatasetPriority, DatasetId[]> = {
     'hospital_beds',
     'healthcare_staff',
     'blood_donations',
+    'deaths_cause',
+    'lfs_edu',
+    'trade_country',
+    'road_accidents',
   ],
   P3: [
     'population_district',
@@ -1541,6 +1608,8 @@ export const PRIORITY_DATASETS: Record<DatasetPriority, DatasetId[]> = {
     'crops',
     'fish_landings',
     'cellular',
+    'population_parlimen',
+    'palm_oil',
   ],
 };
 
@@ -1549,9 +1618,9 @@ export const PRIORITY_DATASETS: Record<DatasetPriority, DatasetId[]> = {
 // ═══════════════════════════════════════════════════════════════
 
 export const COMMAND_CENTER_KPIS: DatasetId[] = [
-  'gdp_growth',      // GDP YoY growth rate (series_type=growth_yoy)
-  'gdp_qtr',         // GDP absolute value (series_type=abs)
-  'cpi_headline',
+  'gdp_growth',      // GDP YoY growth rate (series=growth_yoy)
+  'gdp_qtr',         // GDP absolute value (series=abs)
+  'cpi_inflation',   // Inflation YoY from cpi_headline_inflation API
   'labour_monthly',
   'trade_monthly',
   'fuelprice',
@@ -1564,10 +1633,10 @@ export const COMMAND_CENTER_KPIS: DatasetId[] = [
 // ═══════════════════════════════════════════════════════════════
 
 export const ANOMALY_WATCHLIST = [
-  { id: 'cpi_headline' as DatasetId, threshold: 3.0, field: 'cpi', alert: 'Inflation exceeds 3%' },
+  { id: 'cpi_inflation' as DatasetId, threshold: 3.0, field: 'inflation_yoy', alert: 'Inflation exceeds 3%' },
   { id: 'labour_monthly' as DatasetId, threshold: 5.0, field: 'u_rate', alert: 'Unemployment exceeds 5%' },
   { id: 'trade_monthly' as DatasetId, threshold: 0, field: 'balance', alert: 'Trade deficit detected' },
-  { id: 'exchange_rate' as DatasetId, threshold: 4.80, field: 'rate', alert: 'Ringgit exceeds RM4.80/USD' },
+  { id: 'exchange_rate' as DatasetId, threshold: 4.80, field: 'usd', alert: 'Ringgit exceeds RM4.80/USD' },
   { id: 'fuelprice' as DatasetId, threshold: 3.00, field: 'ron95', alert: 'RON95 exceeds RM3.00' },
 ] as const;
 

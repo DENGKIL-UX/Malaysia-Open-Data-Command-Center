@@ -179,10 +179,25 @@ export async function fetchDosmData<T = Record<string, unknown>>(
           return dateB - dateA;
         });
 
+        // ── WIDE → LONG transformation ──
+        // Some datasets (exchangerates, ridership) return WIDE format where each
+        // column is a separate series. We pivot them to LONG format so charts work.
+        let pivotData = sorted as Record<string, unknown>[];
+        let pivotConfig = config;
+        if (config.wideFormat && config.wideColumns?.length) {
+          const pivotResult = pivotWideToLong(
+            sorted as Record<string, unknown>[],
+            config,
+            String(datasetId)
+          );
+          pivotData = pivotResult.data;
+          pivotConfig = pivotResult.config;
+        }
+
         // Apply computed dataset transforms (e.g., YoY inflation from CPI)
         const { data: transformedData, config: effectiveConfig } = applyComputedTransform(
-          sorted as Record<string, unknown>[],
-          config,
+          pivotData,
+          pivotConfig,
           String(datasetId)
         );
 
@@ -401,6 +416,75 @@ function computeYoYInflation(
 
   // Reverse back to latest-first order
   return inflationData.length > 0 ? inflationData.reverse() : null;
+}
+
+// ── WIDE → LONG PIVOT ──
+// Transforms WIDE format data (one column per series) into LONG format
+// (one row per date+series combination) so that charts can group/split by series.
+//
+// Example WIDE input:
+//   { date: "2024-01", usd: 4.68, eur: 5.10, gbp: 5.94 }
+// → LONG output:
+//   { date: "2024-01", currency: "usd", rate: 4.68 }
+//   { date: "2024-01", currency: "eur", rate: 5.10 }
+//   { date: "2024-01", currency: "gbp", rate: 5.94 }
+function pivotWideToLong(
+  data: Record<string, unknown>[],
+  config: DatasetConfig,
+  registryKey: string,
+): { data: Record<string, unknown>[]; config: DatasetConfig } {
+  const wideCols = config.wideColumns ?? [];
+  if (wideCols.length === 0) return { data, config };
+
+  // Determine the group field name and value field name based on dataset
+  let groupFieldName = 'series';
+  let valueFieldName = 'value';
+
+  if (registryKey === 'exchange_rate' || registryKey === 'exchangerates_daily') {
+    groupFieldName = 'currency';
+    valueFieldName = 'rate';
+  } else if (registryKey === 'ridership') {
+    groupFieldName = 'service';
+    valueFieldName = 'ridership';
+  }
+
+  const longData: Record<string, unknown>[] = [];
+
+  for (const row of data) {
+    const dateVal = row[config.dateField];
+    if (dateVal === undefined) continue;
+
+    for (const col of wideCols) {
+      const cellValue = row[col];
+      if (cellValue !== undefined && cellValue !== null) {
+        longData.push({
+          [config.dateField]: dateVal,
+          [groupFieldName]: col,
+          [valueFieldName]: typeof cellValue === 'number' ? cellValue : parseFloat(String(cellValue)),
+        });
+      }
+    }
+  }
+
+  // Return modified config with LONG format fields
+  const modifiedConfig: DatasetConfig = {
+    ...config,
+    valueField: valueFieldName,
+    groupField: groupFieldName,
+    // Remove WIDE format markers since data is now LONG
+    wideFormat: false,
+    wideColumns: undefined,
+    // Update defaultFilter to use the new groupField
+    defaultFilter: config.defaultFilter?.currency
+      ? { [groupFieldName]: config.defaultFilter.currency }
+      : config.defaultFilter,
+  };
+
+  console.log(
+    `[DoSM Client] WIDE→LONG pivot for "${registryKey}": ${data.length} rows × ${wideCols.length} cols → ${longData.length} long rows`
+  );
+
+  return { data: longData, config: modifiedConfig };
 }
 
 // ── COMPUTED DATASET POST-PROCESSING ──

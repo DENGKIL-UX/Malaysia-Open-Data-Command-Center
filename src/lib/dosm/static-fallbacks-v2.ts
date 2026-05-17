@@ -24,14 +24,14 @@ export const VERIFIED_STATIC_FALLBACKS: Record<string, { data: Record<string, un
   // This entry is looked up FIRST by getStaticFallback(registryKey='gdp_growth', ...)
   gdp_growth: {
     data: [
-      { date: '2024-Q3', series_type: 'growth_yoy', value: 5.3 },
-      { date: '2024-Q2', series_type: 'growth_yoy', value: 5.9 },
-      { date: '2024-Q1', series_type: 'growth_yoy', value: 4.2 },
-      { date: '2023-Q4', series_type: 'growth_yoy', value: 3.0 },
-      { date: '2023-Q3', series_type: 'growth_yoy', value: 3.3 },
-      { date: '2023-Q2', series_type: 'growth_yoy', value: 2.9 },
-      { date: '2023-Q1', series_type: 'growth_yoy', value: 5.6 },
-      { date: '2022-Q4', series_type: 'growth_yoy', value: 7.4 },
+      { date: '2024-Q3', series: 'growth_yoy', value: 5.3 },
+      { date: '2024-Q2', series: 'growth_yoy', value: 5.9 },
+      { date: '2024-Q1', series: 'growth_yoy', value: 4.2 },
+      { date: '2023-Q4', series: 'growth_yoy', value: 3.0 },
+      { date: '2023-Q3', series: 'growth_yoy', value: 3.3 },
+      { date: '2023-Q2', series: 'growth_yoy', value: 2.9 },
+      { date: '2023-Q1', series: 'growth_yoy', value: 5.6 },
+      { date: '2022-Q4', series: 'growth_yoy', value: 7.4 },
     ],
   },
 
@@ -66,24 +66,25 @@ export const VERIFIED_STATIC_FALLBACKS: Record<string, { data: Record<string, un
 
   // Source: DoSM GDP Press Release Q3 2024
   // GDP grew 5.3% in Q3 2024
+  // FIXED: API field is 'series' not 'series_type'
   gdp_qtr: {
     data: [
       // Growth rate series (for KPI card showing %)
-      { date: '2024-Q3', series_type: 'growth_yoy', value: 5.3 },
-      { date: '2024-Q2', series_type: 'growth_yoy', value: 5.9 },
-      { date: '2024-Q1', series_type: 'growth_yoy', value: 4.2 },
-      { date: '2023-Q4', series_type: 'growth_yoy', value: 3.0 },
-      { date: '2023-Q3', series_type: 'growth_yoy', value: 3.3 },
-      { date: '2023-Q2', series_type: 'growth_yoy', value: 2.9 },
-      { date: '2023-Q1', series_type: 'growth_yoy', value: 5.6 },
-      { date: '2022-Q4', series_type: 'growth_yoy', value: 7.4 },
+      { date: '2024-Q3', series: 'growth_yoy', value: 5.3 },
+      { date: '2024-Q2', series: 'growth_yoy', value: 5.9 },
+      { date: '2024-Q1', series: 'growth_yoy', value: 4.2 },
+      { date: '2023-Q4', series: 'growth_yoy', value: 3.0 },
+      { date: '2023-Q3', series: 'growth_yoy', value: 3.3 },
+      { date: '2023-Q2', series: 'growth_yoy', value: 2.9 },
+      { date: '2023-Q1', series: 'growth_yoy', value: 5.6 },
+      { date: '2022-Q4', series: 'growth_yoy', value: 7.4 },
       // Absolute GDP series (for trend chart)
-      { date: '2024-Q3', series_type: 'abs', value: 432.1 },
-      { date: '2024-Q2', series_type: 'abs', value: 416.8 },
-      { date: '2024-Q1', series_type: 'abs', value: 407.2 },
-      { date: '2023-Q4', series_type: 'abs', value: 398.6 },
-      { date: '2023-Q3', series_type: 'abs', value: 389.1 },
-      { date: '2023-Q2', series_type: 'abs', value: 378.4 },
+      { date: '2024-Q3', series: 'abs', value: 432.1 },
+      { date: '2024-Q2', series: 'abs', value: 416.8 },
+      { date: '2024-Q1', series: 'abs', value: 407.2 },
+      { date: '2023-Q4', series: 'abs', value: 398.6 },
+      { date: '2023-Q3', series: 'abs', value: 389.1 },
+      { date: '2023-Q2', series: 'abs', value: 378.4 },
     ],
   },
 
@@ -240,14 +241,15 @@ export const VERIFIED_STATIC_FALLBACKS: Record<string, { data: Record<string, un
 
   // Source: IPI July 2024
   // Manufacturing IPI 121.2 in Jul 2024
+  // FIXED: API field is 'index' not 'value', and 'series' not 'series_type'
   ipi: {
     data: [
-      { date: '2024-07-01', series_type: 'manufacturing', value: 121.2 },
-      { date: '2024-06-01', series_type: 'manufacturing', value: 120.8 },
-      { date: '2024-05-01', series_type: 'manufacturing', value: 119.4 },
-      { date: '2024-04-01', series_type: 'manufacturing', value: 118.9 },
-      { date: '2024-03-01', series_type: 'manufacturing', value: 117.6 },
-      { date: '2024-02-01', series_type: 'manufacturing', value: 116.8 },
+      { date: '2024-07-01', series: 'manufacturing', index: 121.2 },
+      { date: '2024-06-01', series: 'manufacturing', index: 120.8 },
+      { date: '2024-05-01', series: 'manufacturing', index: 119.4 },
+      { date: '2024-04-01', series: 'manufacturing', index: 118.9 },
+      { date: '2024-03-01', series: 'manufacturing', index: 117.6 },
+      { date: '2024-02-01', series: 'manufacturing', index: 116.8 },
     ],
   },
 
