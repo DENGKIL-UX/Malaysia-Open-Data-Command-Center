@@ -6,6 +6,7 @@ import {
   Users, TrendingUp, Baby, Heart, Briefcase, Database,
   BarChart3, Activity, Zap, MapPin, Layers, Globe, Clock,
   ShieldCheck, RefreshCw, PieChart as PieChartIcon, CheckCircle2,
+  DollarSign,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -31,6 +32,7 @@ import { AnimatedBorderCard } from '@/components/dashboard/animated-border-card'
 import { DataFlowLines } from '@/components/dashboard/data-flow-lines';
 import { DataExplorerModal } from '@/components/dashboard/data-explorer-modal';
 import { YoYComparisonPanel } from '@/components/dashboard/yoy-comparison-panel';
+import { useLiveData } from '@/components/dashboard/live-data-provider';
 
 // ─── Animated Section Divider ────────────────────────────────────
 function AnimatedDivider() {
@@ -269,14 +271,51 @@ const CHART_TICK_LINE = { stroke: 'rgba(6,182,212,0.15)' };
 export function OverviewSection({ lang, onNavigateDatasets }: { lang: Lang; onNavigateDatasets?: (category?: string) => void }) {
   const [explorerMetric, setExplorerMetric] = useState<'population' | 'gdp' | 'gdpGrowth' | 'births' | 'unemployment' | 'datasets' | null>(null);
 
-  const kpis = [
-    { icon: Users, label: lang === 'ms' ? 'Penduduk' : 'Population', value: '34.3M', unit: lang === 'ms' ? 'orang' : 'people', change: 1.1, color: '#06b6d4', sparkline: [32.4, 32.7, 33.0, 33.2, 33.4, 33.6, 33.8], trendValue: '+2.3%' },
-    { icon: TrendingUp, label: lang === 'ms' ? 'KDNK' : 'GDP', value: 'RM 1.68T', unit: '', change: 4.5, color: '#f59e0b', sparkline: [1.42, 1.49, 1.56, 1.61, 1.65, 1.68, 1.72], trendValue: '+2.5%' },
-    { icon: Baby, label: lang === 'ms' ? 'Kelahiran' : 'Births', value: '602.9K', unit: '', change: -2.3, color: '#10b981', sparkline: [488, 492, 478, 468, 462, 458, 455], trendValue: '-1.2%' },
-    { icon: Heart, label: lang === 'ms' ? 'Kematian' : 'Deaths', value: '159.7K', unit: '', change: 1.8, color: '#ef4444', sparkline: [155, 157, 159, 160, 158, 159, 160], trendValue: '+1.8%' },
-    { icon: Briefcase, label: lang === 'ms' ? 'Pengangguran' : 'Unemployment', value: '3.4', unit: '%', change: -0.3, color: '#8b5cf6', sparkline: [3.3, 3.4, 4.6, 4.7, 3.8, 3.6, 3.4], trendValue: '-3.4%' },
-    { icon: Database, label: lang === 'ms' ? 'Set Data' : 'Datasets', value: '287', unit: '', change: 12, color: '#ec4899', sparkline: [245, 252, 261, 270, 278, 283, 287], trendValue: '+1.4%' },
-  ];
+  // ── Live Data from LiveDataProvider ──
+  const { kpiMap, anyLoading, isLive, status } = useLiveData();
+
+  // Map live KPI data to display format, with static fallbacks
+  type KpiItem = { icon: typeof Users; label: string; value: number | string; unit: string; change: number; color: string; sparkline: number[]; trendValue: string };
+
+  const kpis: KpiItem[] = useMemo(() => {
+    // Live data mapping: registry ID → display KPI
+    const liveMap: Record<string, KpiItem> = {};
+    for (const [id, kpi] of Object.entries(kpiMap)) {
+      liveMap[id] = {
+        icon: id === 'gdp_growth' || id === 'gdp_qtr' ? TrendingUp
+          : id === 'cpi_headline' ? BarChart3
+          : id === 'labour_monthly' ? Briefcase
+          : id === 'trade_monthly' ? Globe
+          : id === 'fuelprice' ? Zap
+          : id === 'exchange_rate' ? DollarSign
+          : id === 'population_malaysia' ? Users
+          : Database,
+        label: kpi.labelBM && lang === 'ms' ? kpi.labelBM : kpi.label,
+        value: kpi.value,
+        unit: kpi.unit,
+        change: kpi.changePct,
+        color: kpi.color,
+        sparkline: kpi.sparkline,
+        trendValue: `${kpi.changePct >= 0 ? '+' : ''}${kpi.changePct.toFixed(1)}%`,
+      };
+    }
+
+    // Build ordered KPI list: prefer live data, fallback to static
+    return [
+      // GDP Growth Rate (primary KPI)
+      liveMap.gdp_growth ?? { icon: TrendingUp, label: lang === 'ms' ? 'Pertumbuhan KDNK' : 'GDP Growth', value: '5.3', unit: '%', change: 5.3, color: '#00FFD4', sparkline: [3.0, 3.3, 2.9, 5.6, 7.4, 4.2, 5.9], trendValue: '+5.3%' },
+      // Population
+      liveMap.population_malaysia ?? { icon: Users, label: lang === 'ms' ? 'Penduduk' : 'Population', value: '33.9M', unit: lang === 'ms' ? 'orang' : 'people', change: 1.1, color: '#06b6d4', sparkline: [32.4, 32.7, 33.0, 33.2, 33.4, 33.6, 33.9], trendValue: '+1.1%' },
+      // CPI / Inflation
+      liveMap.cpi_headline ?? { icon: BarChart3, label: lang === 'ms' ? 'IHP' : 'CPI', value: '132.4', unit: lang === 'ms' ? 'indeks' : 'index', change: 2.0, color: '#f59e0b', sparkline: [130.9, 131.0, 131.2, 131.3, 131.5, 131.8, 132.4], trendValue: '+2.0%' },
+      // Unemployment
+      liveMap.labour_monthly ?? { icon: Briefcase, label: lang === 'ms' ? 'Pengangguran' : 'Unemployment', value: '3.4', unit: '%', change: -0.3, color: '#8b5cf6', sparkline: [3.3, 3.4, 4.6, 4.7, 3.8, 3.6, 3.4], trendValue: '-3.4%' },
+      // Trade Balance
+      liveMap.trade_monthly ?? { icon: Globe, label: lang === 'ms' ? 'Imbangan Perdagangan' : 'Trade Balance', value: 'RM 18.2B', unit: '', change: 12.5, color: '#06b6d4', sparkline: [12.9, 13.2, 14.4, 14.5, 15.6, 16.7, 18.2], trendValue: '+12.5%' },
+      // Fuel Price
+      liveMap.fuelprice ?? { icon: Zap, label: lang === 'ms' ? 'Harga Bahan Api' : 'Fuel Price', value: 'RM 2.05', unit: '/L', change: 0, color: '#84CC16', sparkline: [2.05, 2.05, 2.05, 2.05, 2.05, 2.05, 2.05], trendValue: '0.0%' },
+    ];
+  }, [kpiMap, lang]);
 
   // Top states bar chart data
   const topStatesData = STATES.slice()

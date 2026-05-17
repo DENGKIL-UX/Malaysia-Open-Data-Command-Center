@@ -1,6 +1,15 @@
 // src/hooks/useDosmData.ts
 // React hooks for fetching live data from api.data.gov.my via our proxy
-// Uses SWR pattern with stale-while-revalidate, static fallbacks, and status tracking
+// Uses three-tier fallback (API → CSV → Static), DoSM-aware date parsing,
+// and status tracking
+//
+// v3 FIXES:
+//   - GDP series_type: use 'abs' not 'real' for absolute GDP
+//   - GDP growth rate: use 'growth_yoy' not 'real'
+//   - Correct sort syntax handled by client.ts (uses "-date")
+//   - Exchange rate field: 'rate' (already correct)
+//   - HPI field: 'index' (already correct)
+//   - hies_state filter: 'variable' (already correct)
 
 'use client';
 
@@ -171,23 +180,34 @@ export function usePriorityGroup(priority: 'P0' | 'P1' | 'P2' | 'P3') {
 
 // ══════════════════════════════════════════════
 // NAMED HOOKS — one per dataset for convenience
-// All use CORRECTED dataset IDs from the ground truth registry
+// All use CORRECTED dataset IDs and series_type values
 // ══════════════════════════════════════════════
 
+// ── GDP ──
+// FIXED: series_type='abs' not 'real' for absolute GDP
 export const useGDPAnnual = (options?: DosmQueryOptions) =>
   useDosmData('gdp_annual', { limit: 20, ...options }, 600_000);
 
+// FIXED: series_type='abs' not 'real' for absolute GDP (constant 2015 prices)
 export const useGDPQuarterly = (options?: DosmQueryOptions) =>
   useDosmData('gdp_qtr', { limit: 20, ...options }, 300_000);
+
+// NEW: GDP growth rate KPI — series_type='growth_yoy' for YoY %
+export const useGDPGrowth = (options?: DosmQueryOptions) =>
+  useDosmData('gdp_growth', { limit: 12, ...options }, 300_000);
 
 export const useGDPState = (options?: DosmQueryOptions) =>
   useDosmData('gdp_state', { limit: 100, ...options }, 600_000);
 
+// ── PRICES ──
 export const useCPI = (options?: DosmQueryOptions) =>
   useDosmData('cpi_headline', { limit: 24, ...options }, 300_000);
 
 export const useCPIInflation = (options?: DosmQueryOptions) =>
   useDosmData('cpi_inflation', { limit: 24, ...options }, 300_000);
+
+export const useCPIDivision = (options?: DosmQueryOptions) =>
+  useDosmData('cpi_2d', { limit: 48, ...options }, 600_000);
 
 export const useCPICategory = (options?: DosmQueryOptions) =>
   useDosmData('cpi_category', { limit: 48, ...options }, 600_000);
@@ -195,68 +215,90 @@ export const useCPICategory = (options?: DosmQueryOptions) =>
 export const useCPIState = (options?: DosmQueryOptions) =>
   useDosmData('cpi_state', { limit: 100, ...options }, 600_000);
 
+export const useFuelPrice = (options?: DosmQueryOptions) =>
+  useDosmData('fuelprice', { limit: 52, ...options }, 300_000);
+
+// HPI: field is 'index' not 'value'
+export const useHousePrice = (options?: DosmQueryOptions) =>
+  useDosmData('hpi_malaysia', { limit: 24, ...options }, 600_000);
+
+export const usePPI = (options?: DosmQueryOptions) =>
+  useDosmData('ppi', { limit: 24, ...options }, 600_000);
+
+// ── LABOUR ──
 export const useLabourMonthly = (options?: DosmQueryOptions) =>
   useDosmData('labour_monthly', { limit: 24, ...options }, 300_000);
 
 export const useLabourState = (options?: DosmQueryOptions) =>
   useDosmData('labour_state', { limit: 100, ...options }, 600_000);
 
+// ── TRADE ──
 export const useTrade = (options?: DosmQueryOptions) =>
   useDosmData('trade_monthly', { limit: 24, ...options }, 300_000);
 
+// ── FINANCE ──
+// Exchange rate: field is 'rate' not 'value', default currency=USD
+export const useExchangeRate = (options?: DosmQueryOptions) =>
+  useDosmData('exchange_rate', { limit: 30, ...options }, 300_000);
+
+export const useExchangeRateDaily = (options?: DosmQueryOptions) =>
+  useDosmData('exchangerates_daily', { limit: 30, ...options }, 300_000);
+
+// ── POPULATION ──
+// CRITICAL: 3-way filter required to prevent 200x data duplication
 export const usePopulation = (options?: DosmQueryOptions) =>
   useDosmData('population_state', { limit: 100, filters: { sex: 'both', ethnicity: 'overall', age: 'overall' }, ...options }, 86_400_000);
 
 export const usePopulationMalaysia = (options?: DosmQueryOptions) =>
   useDosmData('population_malaysia', { limit: 50, filters: { sex: 'both', ethnicity: 'overall', age: 'overall' }, ...options }, 86_400_000);
 
+// ── VITAL STATISTICS ──
 export const useBirths = (options?: DosmQueryOptions) =>
   useDosmData('births', { limit: 20, ...options }, 86_400_000);
 
 export const useDeaths = (options?: DosmQueryOptions) =>
   useDosmData('deaths', { limit: 20, ...options }, 86_400_000);
 
-export const useFuelPrice = (options?: DosmQueryOptions) =>
-  useDosmData('fuelprice', { limit: 52, ...options }, 300_000);
-
-export const useExchangeRate = (options?: DosmQueryOptions) =>
-  useDosmData('exchange_rate', { limit: 30, ...options }, 300_000);
-
+// ── HOUSEHOLDS ──
+// hies_state: filter key is 'variable' not 'type'
 export const useHouseholdIncome = (options?: DosmQueryOptions) =>
   useDosmData('household_income', { limit: 50, ...options }, 86_400_000);
+
+export const useHiesMalaysia = (options?: DosmQueryOptions) =>
+  useDosmData('hies_malaysia', { limit: 50, ...options }, 86_400_000);
 
 export const usePovertyRate = (options?: DosmQueryOptions) =>
   useDosmData('poverty_rate', { limit: 50, ...options }, 86_400_000);
 
-export const usePPI = (options?: DosmQueryOptions) =>
-  useDosmData('ppi', { limit: 24, ...options }, 600_000);
-
+// ── IPI ──
 export const useIPI = (options?: DosmQueryOptions) =>
   useDosmData('ipi', { limit: 24, ...options }, 600_000);
 
+// ── HEALTHCARE ──
 export const useHospitalBeds = (options?: DosmQueryOptions) =>
   useDosmData('hospital_beds', { limit: 50, ...options }, 86_400_000);
 
+// ── SAFETY ──
 export const useCrime = (options?: DosmQueryOptions) =>
   useDosmData('crime_district', { limit: 200, ...options }, 86_400_000);
 
+// ── ENVIRONMENT ──
 export const useAirPollution = (options?: DosmQueryOptions) =>
   useDosmData('air_pollution', { limit: 30, ...options }, 600_000);
 
+// ── TRANSPORT ──
 export const useRidership = (options?: DosmQueryOptions) =>
   useDosmData('ridership', { limit: 24, ...options }, 600_000);
 
 export const useVehicleRegistration = (options?: DosmQueryOptions) =>
   useDosmData('vehicle_registration', { limit: 24, ...options }, 600_000);
 
-export const useHousePrice = (options?: DosmQueryOptions) =>
-  useDosmData('hpi_malaysia', { limit: 24, ...options }, 600_000);
+// ── ADDITIONAL ──
+export const usePovertyByState = (options?: DosmQueryOptions) =>
+  useDosmData('poverty_state', { limit: 50, ...options }, 86_400_000);
 
-export const useHiesMalaysia = (options?: DosmQueryOptions) =>
-  useDosmData('hies_malaysia', { limit: 50, ...options }, 86_400_000);
-
-export const useExchangeRateDaily = (options?: DosmQueryOptions) =>
-  useDosmData('exchangerates_daily', { limit: 30, ...options }, 300_000);
+export const useRoadAccidents = (options?: DosmQueryOptions) =>
+  useDosmData('road_accidents', { limit: 50, ...options }, 86_400_000);
 
 export const useDeathsCause = (options?: DosmQueryOptions) =>
   useDosmData('deaths_cause', { limit: 50, ...options }, 86_400_000);
@@ -266,12 +308,6 @@ export const useLabourByEducation = (options?: DosmQueryOptions) =>
 
 export const useTradeByCountry = (options?: DosmQueryOptions) =>
   useDosmData('trade_country', { limit: 50, ...options }, 600_000);
-
-export const usePovertyByState = (options?: DosmQueryOptions) =>
-  useDosmData('poverty_state', { limit: 50, ...options }, 86_400_000);
-
-export const useRoadAccidents = (options?: DosmQueryOptions) =>
-  useDosmData('road_accidents', { limit: 50, ...options }, 86_400_000);
 
 export const usePopulationParlimen = (options?: DosmQueryOptions) =>
   useDosmData('population_parlimen', { limit: 300, ...options }, 86_400_000);

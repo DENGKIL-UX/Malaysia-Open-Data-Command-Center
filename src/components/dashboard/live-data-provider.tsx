@@ -245,8 +245,8 @@ export function LiveDataProvider({ children }: { children: React.ReactNode }) {
       kpiMap[kpi.id] = kpi;
     }
 
-    const isLive = kpis.some(k => k.status === 'live');
-    const overallStatus: DataStatus = isLive ? 'live' : kpis.some(k => k.status === 'fallback') ? 'fallback' : kpis.some(k => k.status === 'error') ? 'error' : 'loading';
+    const isLive = kpis.some(k => k.status === 'live' || k.status === 'csv');
+    const overallStatus: DataStatus = isLive ? 'live' : kpis.some(k => k.status === 'fallback') ? 'fallback' : kpis.some(k => k.status === 'csv') ? 'csv' : kpis.some(k => k.status === 'error') ? 'error' : 'loading';
 
     return { kpis, kpiMap, anomalies, confidences, confidenceCounts, isLive, status: overallStatus };
   }, [kpiData, error]);

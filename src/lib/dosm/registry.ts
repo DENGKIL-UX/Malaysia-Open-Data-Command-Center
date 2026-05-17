@@ -94,7 +94,7 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
     valueField: 'value',
     dateField: 'date',
     groupField: 'series_type',
-    defaultFilter: { series_type: 'real' },
+    defaultFilter: { series_type: 'abs' },
     unit: 'RM Bilion',
     granularity: 'annual',
     priority: 'P1',
@@ -115,15 +115,37 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
     valueField: 'value',
     dateField: 'date',
     groupField: 'series_type',
-    defaultFilter: { series_type: 'real' },
+    defaultFilter: { series_type: 'abs' },
     unit: 'RM Bilion',
     granularity: 'quarterly',
     priority: 'P0',
-    description: 'Quarterly GDP at current and constant prices',
+    description: 'Quarterly GDP at current and constant prices (abs=constant 2015, abs_current=nominal, growth_yoy=YoY%)',
     descriptionBM: 'KDNK suku tahunan pada harga semasa dan malar',
     defaultLimit: 20,
     refreshMs: P0_REFRESH,
     color: '#00D4FF',
+    icon: 'TrendingUp',
+  },
+
+  gdp_growth: {
+    id: 'gdp_qtr',                             // Same dataset, different filter
+    label: 'GDP Growth Rate',
+    labelBM: 'Kadar Pertumbuhan KDNK',
+    category: 'Economy',
+    categoryBM: 'Ekonomi',
+    valueField: 'value',
+    dateField: 'date',
+    groupField: 'series_type',
+    defaultFilter: { series_type: 'growth_yoy' },  // FIXED: use growth_yoy for growth rate KPI
+    computed: true,
+    unit: '%',
+    granularity: 'quarterly',
+    priority: 'P0',
+    description: 'GDP year-on-year growth rate (series_type=growth_yoy)',
+    descriptionBM: 'Kadar pertumbuhan KDNK tahunan ke tahunan',
+    defaultLimit: 12,
+    refreshMs: P0_REFRESH,
+    color: '#00FFD4',
     icon: 'TrendingUp',
   },
 
@@ -136,7 +158,7 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
     valueField: 'value',
     dateField: 'date',
     groupField: 'state',
-    defaultFilter: { series_type: 'real' },
+    defaultFilter: { series_type: 'abs' },
     unit: 'RM Bilion',
     granularity: 'annual',
     priority: 'P1',
@@ -1526,12 +1548,14 @@ export const PRIORITY_DATASETS: Record<DatasetPriority, DatasetId[]> = {
 // ═══════════════════════════════════════════════════════════════
 
 export const COMMAND_CENTER_KPIS: DatasetId[] = [
-  'gdp_qtr',
+  'gdp_growth',      // GDP YoY growth rate (series_type=growth_yoy)
+  'gdp_qtr',         // GDP absolute value (series_type=abs)
   'cpi_headline',
   'labour_monthly',
   'trade_monthly',
   'fuelprice',
   'exchange_rate',
+  'population_malaysia',
 ];
 
 // ═══════════════════════════════════════════════════════════════

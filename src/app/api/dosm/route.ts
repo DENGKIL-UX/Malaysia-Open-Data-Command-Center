@@ -1,11 +1,19 @@
 // src/app/api/dosm/route.ts
 // Server proxy for api.data.gov.my/data-catalogue
-// Adds: caching, ID correction, field introspection, diagnostics, CORS, timeout
+// Adds: caching, ID correction, sort syntax fix, field introspection,
+//       CSV fallback headers, diagnostics, CORS, timeout
+//
+// v3 CHANGES:
+//   - Fix sort syntax: "date desc" → "-date" (API uses "-" prefix for desc)
+//   - Add X-CSV-Download header pointing to storage.data.gov.my
+//   - Better error diagnosis with CSV fallback suggestion
+//   - Detailed field logging for debugging
 
 import { NextRequest, NextResponse } from 'next/server';
 import { ID_CORRECTIONS } from '@/lib/dosm/ground-truth-registry';
 
 const UPSTREAM = 'https://api.data.gov.my/data-catalogue';
+const CSV_BASE = 'https://storage.data.gov.my/data-catalogue';
 const CACHE_SECS = 300; // 5 min server cache
 const TIMEOUT_MS = 10_000; // 10-second upstream timeout
 
@@ -49,20 +57,15 @@ const WRONG_ID_SUGGESTIONS: Record<string, string> = {
 function extractFieldsFromBody(body: string): { fields: string; recordCount: number } {
   try {
     const parsed = JSON.parse(body);
-
-    // API returns either an array directly or { data: [...] }
     const arr: unknown[] = Array.isArray(parsed) ? parsed : parsed?.data ?? [];
-
     if (arr.length === 0) {
       return { fields: '', recordCount: 0 };
     }
-
     const first = arr[0];
     if (first && typeof first === 'object' && first !== null) {
       const fieldNames = Object.keys(first).sort().join(',');
       return { fields: fieldNames, recordCount: arr.length };
     }
-
     return { fields: '', recordCount: arr.length };
   } catch {
     return { fields: '', recordCount: 0 };
@@ -71,29 +74,21 @@ function extractFieldsFromBody(body: string): { fields: string; recordCount: num
 
 function diagnoseError(err: unknown, datasetId: string): { message: string; status: number } {
   if (err instanceof Error) {
-    // Timeout via AbortController
     if (err.name === 'AbortError') {
       return { message: 'Request timed out — api.data.gov.my did not respond within 10 seconds', status: 504 };
     }
-
-    // DNS / network unreachable
     if (err.message.includes('ENOTFOUND') || err.message.includes('EAI_AGAIN')) {
       return { message: 'Cannot reach api.data.gov.my from this environment (DNS resolution failed)', status: 502 };
     }
-
     if (err.message.includes('ECONNREFUSED')) {
       return { message: 'Cannot reach api.data.gov.my — connection refused', status: 502 };
     }
-
     if (err.message.includes('ECONNRESET')) {
       return { message: 'Connection to api.data.gov.my was reset', status: 502 };
     }
-
-    // Fallback with the original message
     console.error(`[DoSM Proxy] Network error for "${datasetId}":`, err.message);
     return { message: `Unable to connect to api.data.gov.my: ${err.message}`, status: 502 };
   }
-
   return { message: 'Unknown error connecting to api.data.gov.my', status: 502 };
 }
 
@@ -109,6 +104,7 @@ function buildHeaders(opts: {
     'X-Cache': opts.cacheStatus,
     'X-Dataset': opts.datasetId,
     'X-Source': 'api.data.gov.my/data-catalogue',
+    'X-CSV-Download': `${CSV_BASE}/${opts.datasetId}.csv`,
     'Cache-Control': `public, s-maxage=${CACHE_SECS}`,
     'Access-Control-Allow-Origin': '*',
   };
@@ -116,16 +112,31 @@ function buildHeaders(opts: {
   if (opts.correctedId && opts.correctedId !== opts.datasetId) {
     headers['X-ID-Corrected'] = opts.correctedId;
   }
-
   if (opts.fields) {
     headers['X-Fields'] = opts.fields;
   }
-
   if (opts.recordCount !== undefined) {
     headers['X-Record-Count'] = String(opts.recordCount);
   }
 
   return headers;
+}
+
+// ── Fix sort syntax ────────────────────────────────────────────
+// Convert "date desc" → "-date" and "date asc" → "date"
+function fixSortSyntax(searchParams: URLSearchParams): void {
+  const rawSort = searchParams.get('sort');
+  if (!rawSort) return;
+
+  if (rawSort.endsWith(' desc')) {
+    const field = rawSort.replace(' desc', '').trim();
+    searchParams.set('sort', `-${field}`);
+    console.log(`[DoSM Proxy] Sort syntax fixed: "${rawSort}" → "-${field}"`);
+  } else if (rawSort.endsWith(' asc')) {
+    const field = rawSort.replace(' asc', '').trim();
+    searchParams.set('sort', field);
+  }
+  // Already correct: "-date" or "date" → leave as-is
 }
 
 // ── Main handler ───────────────────────────────────────────────
@@ -136,12 +147,16 @@ export async function GET(req: NextRequest) {
 
   if (!datasetId) {
     return NextResponse.json(
-      { error: "Parameter 'id' is required. Example: /api/dosm?id=gdp_qtr" },
+      {
+        error: "Parameter 'id' diperlukan",
+        example: '/api/dosm?id=gdp_qtr&series_type=growth_yoy&limit=8&sort=-date',
+        docs: 'https://developer.data.gov.my',
+      },
       { status: 400 }
     );
   }
 
-  // ── 5. ID Correction ──────────────────────────────────────
+  // ── ID Correction ──────────────────────────────────────
   const corrected = ID_CORRECTIONS.get(datasetId);
   if (corrected && corrected !== datasetId) {
     console.log(`[DoSM] ID corrected: "${datasetId}" → "${corrected}"`);
@@ -149,9 +164,12 @@ export async function GET(req: NextRequest) {
     datasetId = corrected;
   }
 
+  // ── Fix Sort Syntax ────────────────────────────────────
+  fixSortSyntax(searchParams);
+
   const cacheKey = searchParams.toString();
 
-  // ── 6. Serve from cache ───────────────────────────────────
+  // ── Serve from cache ───────────────────────────────────
   const hit = memCache.get(cacheKey);
   if (hit && hit.expires > Date.now()) {
     return new NextResponse(hit.body, {
@@ -165,7 +183,7 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // ── 7. Fetch with AbortController timeout ─────────────────
+  // ── Fetch with AbortController timeout ─────────────────
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
@@ -175,8 +193,8 @@ export async function GET(req: NextRequest) {
 
     const res = await fetch(upstream.toString(), {
       headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'MalaysiaOpenDataCommandCenter/1.0 (+data.gov.my)',
+        Accept: 'application/json',
+        'User-Agent': 'MalaysiaOpenDataCommandCenter/3.0 (+data.gov.my)',
       },
       signal: controller.signal,
       next: { revalidate: CACHE_SECS },
@@ -187,7 +205,6 @@ export async function GET(req: NextRequest) {
       const text = await res.text().catch(() => '');
       console.error(`[DoSM Proxy] Upstream error ${res.status} for "${datasetId}":`, text.substring(0, 200));
 
-      // 404 is especially common for wrong dataset IDs
       if (res.status === 404) {
         const suggestion = WRONG_ID_SUGGESTIONS[datasetId];
         return NextResponse.json(
@@ -195,31 +212,37 @@ export async function GET(req: NextRequest) {
             error: `Dataset "${datasetId}" not found on api.data.gov.my`,
             suggestion: suggestion ?? 'Check the dataset ID at https://data.gov.my/data-catalogue',
             dataset: datasetId,
+            csvFallback: `${CSV_BASE}/${datasetId}.csv`,
           },
           { status: 404 }
         );
       }
 
       return NextResponse.json(
-        { error: `DoSM API returned HTTP ${res.status}`, dataset: datasetId, upstreamBody: text.substring(0, 200) },
+        {
+          error: `DoSM API returned HTTP ${res.status}`,
+          dataset: datasetId,
+          upstreamBody: text.substring(0, 200),
+          csvFallback: `${CSV_BASE}/${datasetId}.csv`,
+        },
         { status: res.status }
       );
     }
 
     const body = await res.text();
 
-    // ── 1. Empty response detection ──────────────────────
+    // ── Parse JSON ────────────────────────────────────────
     let parsed: unknown;
     try {
       parsed = JSON.parse(body);
     } catch {
-      // ── 4. Invalid JSON ───────────────────────────────
       console.error(`[DoSM Proxy] Upstream returned invalid JSON for "${datasetId}":`, body.substring(0, 200));
       return NextResponse.json(
         {
           error: 'Upstream returned invalid JSON — api.data.gov.my may be experiencing issues',
           dataset: datasetId,
           rawPreview: body.substring(0, 200),
+          csvFallback: `${CSV_BASE}/${datasetId}.csv`,
         },
         { status: 502 }
       );
@@ -229,25 +252,30 @@ export async function GET(req: NextRequest) {
     const dataArray: unknown[] = Array.isArray(parsed) ? parsed : parsed?.data ?? [];
 
     if (dataArray.length === 0) {
-      // Empty data likely means wrong dataset ID
       const suggestion = WRONG_ID_SUGGESTIONS[datasetId];
       console.warn(`[DoSM Proxy] Empty response for "${datasetId}" — dataset ID likely does not exist or filters excluded all rows`);
 
       return NextResponse.json(
         {
-          error: `Empty response for dataset "${datasetId}" — dataset ID likely does not exist, or applied filters excluded all rows`,
+          error: `Empty response for dataset "${datasetId}" — ID may not exist or filters excluded all rows`,
           suggestion: suggestion ?? 'Verify the dataset ID at https://data.gov.my/data-catalogue',
           dataset: datasetId,
           recordCount: 0,
+          csvFallback: `${CSV_BASE}/${datasetId}.csv`,
         },
         { status: 404 }
       );
     }
 
-    // ── 2 & 3. Extract fields and record count ────────────
+    // ── Extract fields and record count ───────────────────
     const { fields, recordCount } = extractFieldsFromBody(body);
 
-    // ── 6. Cache the response with metadata ───────────────
+    // Log successful fetch with field info
+    console.log(
+      `[DoSM ✅] ${datasetId} | ${recordCount} records | fields: ${fields} | filters: ${JSON.stringify(Object.fromEntries(searchParams.entries()))}`
+    );
+
+    // ── Cache the response with metadata ──────────────────
     memCache.set(cacheKey, {
       body,
       fields,
@@ -274,10 +302,15 @@ export async function GET(req: NextRequest) {
       }),
     });
   } catch (err: unknown) {
-    // ── 4 & 7. Diagnose common failures ──────────────────
+    // ── Diagnose common failures ──────────────────────────
     const { message, status } = diagnoseError(err, datasetId);
     return NextResponse.json(
-      { error: message, dataset: datasetId },
+      {
+        error: message,
+        dataset: datasetId,
+        csvFallback: `${CSV_BASE}/${datasetId}.csv`,
+        note: 'If API is unreachable, try the CSV fallback URL or use client-side fetchDosmCSV()',
+      },
       { status }
     );
   } finally {

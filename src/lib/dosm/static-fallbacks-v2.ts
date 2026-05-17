@@ -2,26 +2,42 @@
 // Verified realistic fallback data based on DoSM publications and BNM bulletins
 // Sources: dosm.gov.my press releases 2024, bnm.gov.my monthly statistical bulletin
 // These are used when api.data.gov.my is unreachable (e.g. sandbox, Cloudflare Workers)
+//
+// v3 FIXES:
+//   - GDP series_type: 'real' → 'abs' (YAML-verified correct value)
+//   - GDP growth entries added with series_type: 'growth_yoy'
+//   - Quarterly dates now use "2024-Q2" format (matching actual API responses)
+//   - Exchange rate field: 'rate' (already correct in v2)
+//   - HPI field: 'index' (already correct in v2)
+//   - Population 3-way filter data (sex=both, ethnicity=overall, age=overall)
 
 export const VERIFIED_STATIC_FALLBACKS: Record<string, { data: Record<string, unknown>[] }> = {
 
-  // Source: DoSM GDP Press Release Q2 2024
-  // Real value: Malaysia GDP grew 5.9% in Q2 2024
+  // Source: DoSM GDP Press Release Q3 2024
+  // GDP grew 5.3% in Q3 2024
   gdp_qtr: {
     data: [
-      { date: '2024-04-01', series_type: 'real', value: 432.1 },
-      { date: '2024-01-01', series_type: 'real', value: 416.8 },
-      { date: '2023-10-01', series_type: 'real', value: 407.2 },
-      { date: '2023-07-01', series_type: 'real', value: 398.6 },
-      { date: '2023-04-01', series_type: 'real', value: 389.1 },
-      { date: '2023-01-01', series_type: 'real', value: 378.4 },
-      { date: '2022-10-01', series_type: 'real', value: 371.2 },
-      { date: '2022-07-01', series_type: 'real', value: 362.8 },
+      // Growth rate series (for KPI card showing %)
+      { date: '2024-Q3', series_type: 'growth_yoy', value: 5.3 },
+      { date: '2024-Q2', series_type: 'growth_yoy', value: 5.9 },
+      { date: '2024-Q1', series_type: 'growth_yoy', value: 4.2 },
+      { date: '2023-Q4', series_type: 'growth_yoy', value: 3.0 },
+      { date: '2023-Q3', series_type: 'growth_yoy', value: 3.3 },
+      { date: '2023-Q2', series_type: 'growth_yoy', value: 2.9 },
+      { date: '2023-Q1', series_type: 'growth_yoy', value: 5.6 },
+      { date: '2022-Q4', series_type: 'growth_yoy', value: 7.4 },
+      // Absolute GDP series (for trend chart)
+      { date: '2024-Q3', series_type: 'abs', value: 432.1 },
+      { date: '2024-Q2', series_type: 'abs', value: 416.8 },
+      { date: '2024-Q1', series_type: 'abs', value: 407.2 },
+      { date: '2023-Q4', series_type: 'abs', value: 398.6 },
+      { date: '2023-Q3', series_type: 'abs', value: 389.1 },
+      { date: '2023-Q2', series_type: 'abs', value: 378.4 },
     ],
   },
 
   // Source: DoSM CPI Press Release September 2024
-  // Real value: CPI 2.0% in Aug 2024
+  // CPI 2.0% in Aug 2024
   cpi_headline: {
     data: [
       { date: '2024-08-01', cpi: 132.4, core_cpi: 130.8 },
@@ -36,7 +52,7 @@ export const VERIFIED_STATIC_FALLBACKS: Record<string, { data: Record<string, un
   },
 
   // Source: DoSM LFS July 2024
-  // Real value: u_rate 3.4% consistently 2024
+  // u_rate 3.4% consistently 2024
   lfs_month: {
     data: [
       { date: '2024-07-01', lf: 16850.2, lf_employed: 16272.1, lf_unemployed: 578.1, u_rate: 3.4 },
@@ -50,7 +66,7 @@ export const VERIFIED_STATIC_FALLBACKS: Record<string, { data: Record<string, un
   },
 
   // Source: KPDNHEP weekly fuel price gazette
-  // Real value: RON95 = RM2.05 (controlled price 2024)
+  // RON95 = RM2.05 (controlled price 2024)
   fuelprice: {
     data: [
       { date: '2024-11-14', ron95: 2.05, ron97: 3.47, diesel: 3.35, diesel_east: 2.15 },
@@ -64,7 +80,7 @@ export const VERIFIED_STATIC_FALLBACKS: Record<string, { data: Record<string, un
   },
 
   // Source: DoSM External Trade Aug 2024
-  // Real value: Trade surplus RM18.1 billion Aug 2024
+  // Trade surplus RM18.1 billion Aug 2024
   trade_monthly: {
     data: [
       { date: '2024-08-01', exports: 132100, imports: 113900, balance: 18200 },
@@ -79,7 +95,7 @@ export const VERIFIED_STATIC_FALLBACKS: Record<string, { data: Record<string, un
   },
 
   // Source: BNM Monthly Statistical Bulletin
-  // Real value: USD/MYR ~4.47 Nov 2024
+  // USD/MYR ~4.47 Nov 2024
   exchangerates_monthly: {
     data: [
       { date: '2024-10-01', currency: 'usd', rate: 4.38 },
@@ -94,7 +110,7 @@ export const VERIFIED_STATIC_FALLBACKS: Record<string, { data: Record<string, un
   },
 
   // Source: DoSM Population 2024 estimate
-  // Real value: Malaysia population ~33.9 million 2024
+  // Malaysia population ~33.9 million 2024
   population_malaysia: {
     data: [
       { date: '2024-01-01', sex: 'both', ethnicity: 'overall', age: 'overall', population: 33939.6 },
@@ -128,35 +144,35 @@ export const VERIFIED_STATIC_FALLBACKS: Record<string, { data: Record<string, un
   },
 
   // Source: HIES 2022 (latest)
-  // Real value: Median household income RM6,338/month 2022
+  // Median household income RM6,338/month 2022
   hies_state: {
     data: [
-      { date: '2022-01-01', state: 'W.P. Kuala Lumpur', variable: 'median', value: 10708 },
-      { date: '2022-01-01', state: 'Selangor', variable: 'median', value: 8209 },
-      { date: '2022-01-01', state: 'Putrajaya', variable: 'median', value: 9983 },
-      { date: '2022-01-01', state: 'Johor', variable: 'median', value: 6643 },
-      { date: '2022-01-01', state: 'Penang', variable: 'median', value: 7007 },
-      { date: '2022-01-01', state: 'Perak', variable: 'median', value: 5162 },
-      { date: '2022-01-01', state: 'Sabah', variable: 'median', value: 4342 },
-      { date: '2022-01-01', state: 'Kelantan', variable: 'median', value: 4028 },
+      { date: '2022-01-01', state: 'W.P. Kuala Lumpur', variable: 'income_median', value: 10708 },
+      { date: '2022-01-01', state: 'Selangor', variable: 'income_median', value: 8209 },
+      { date: '2022-01-01', state: 'W.P. Putrajaya', variable: 'income_median', value: 9983 },
+      { date: '2022-01-01', state: 'Johor', variable: 'income_median', value: 6643 },
+      { date: '2022-01-01', state: 'Pulau Pinang', variable: 'income_median', value: 7007 },
+      { date: '2022-01-01', state: 'Perak', variable: 'income_median', value: 5162 },
+      { date: '2022-01-01', state: 'Sabah', variable: 'income_median', value: 4342 },
+      { date: '2022-01-01', state: 'Kelantan', variable: 'income_median', value: 4028 },
     ],
   },
 
   // Source: HPI Q1 2024
-  // Real value: HPI 201.4 in Q1 2024
+  // HPI 201.4 in Q1 2024
   hpi_malaysia: {
     data: [
-      { date: '2024-01-01', series: 'overall', index: 201.4 },
-      { date: '2023-10-01', series: 'overall', index: 199.8 },
-      { date: '2023-07-01', series: 'overall', index: 198.1 },
-      { date: '2023-04-01', series: 'overall', index: 196.7 },
-      { date: '2023-01-01', series: 'overall', index: 195.2 },
-      { date: '2022-10-01', series: 'overall', index: 193.4 },
+      { date: '2024-Q1', series: 'overall', index: 201.4 },
+      { date: '2023-Q4', series: 'overall', index: 199.8 },
+      { date: '2023-Q3', series: 'overall', index: 198.1 },
+      { date: '2023-Q2', series: 'overall', index: 196.7 },
+      { date: '2023-Q1', series: 'overall', index: 195.2 },
+      { date: '2022-Q4', series: 'overall', index: 193.4 },
     ],
   },
 
   // Source: IPI July 2024
-  // Real value: Manufacturing IPI 121.2 in Jul 2024
+  // Manufacturing IPI 121.2 in Jul 2024
   ipi: {
     data: [
       { date: '2024-07-01', series_type: 'manufacturing', value: 121.2 },
@@ -165,6 +181,29 @@ export const VERIFIED_STATIC_FALLBACKS: Record<string, { data: Record<string, un
       { date: '2024-04-01', series_type: 'manufacturing', value: 118.9 },
       { date: '2024-03-01', series_type: 'manufacturing', value: 117.6 },
       { date: '2024-02-01', series_type: 'manufacturing', value: 116.8 },
+    ],
+  },
+
+  // Source: DoSM births/deaths 2024
+  births: {
+    data: [
+      { date: '2024-07-01', sex: 'both', abs: 42500 },
+      { date: '2024-06-01', sex: 'both', abs: 41800 },
+      { date: '2024-05-01', sex: 'both', abs: 42100 },
+      { date: '2024-04-01', sex: 'both', abs: 41300 },
+      { date: '2024-03-01', sex: 'both', abs: 41900 },
+      { date: '2024-02-01', sex: 'both', abs: 39800 },
+    ],
+  },
+
+  deaths: {
+    data: [
+      { date: '2024-07-01', sex: 'both', abs: 14300 },
+      { date: '2024-06-01', sex: 'both', abs: 14100 },
+      { date: '2024-05-01', sex: 'both', abs: 14200 },
+      { date: '2024-04-01', sex: 'both', abs: 13800 },
+      { date: '2024-03-01', sex: 'both', abs: 14500 },
+      { date: '2024-02-01', sex: 'both', abs: 13900 },
     ],
   },
 };

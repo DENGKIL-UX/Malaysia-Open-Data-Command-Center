@@ -1,15 +1,28 @@
 // src/lib/dosm/client.ts
 // Client for api.data.gov.my/data-catalogue
-// Handles fetching, caching, error handling, ID correction, static fallbacks, and data enrichment
+// Three-tier fetch strategy:
+//   Tier 1: API proxy (fastest, cached)
+//   Tier 2: Direct CSV download from storage.data.gov.my (reliable, no rate limits)
+//   Tier 3: Static fallback (always works offline)
+//
+// v3 CHANGES:
+//   - Three-tier fallback: API → CSV → Static
+//   - parseDosmDate() for quarterly "2024-Q2" format
+//   - Correct sort syntax "-date" instead of "date desc"
+//   - CSV download integration from direct-download.ts
 
 import { DOSM_REGISTRY, STATIC_FALLBACKS, ID_CORRECTIONS, type DatasetId, type DatasetConfig } from './registry';
 import { guardFields, type FieldGuardResult } from './field-guard';
+import { parseDosmDate } from './yaml-reality';
+import { fetchDosmCSV } from './direct-download';
+import { VERIFIED_STATIC_FALLBACKS } from './static-fallbacks-v2';
 
 const BASE_URL = '/api/dosm'; // Proxied through our server route
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min default cache
 
 // ── TYPES ──
-export type DataStatus = 'loading' | 'live' | 'fallback' | 'error';
+export type DataStatus = 'loading' | 'live' | 'csv' | 'fallback' | 'error';
+export type FetchTier = 'api' | 'csv' | 'static';
 
 export interface DosmQueryOptions {
   limit?: number;
@@ -33,8 +46,9 @@ export interface DosmDataResult<T = Record<string, unknown>> {
   max: number;
   avg: number;
   error?: string;
-  // NEW: Status tracking
+  // NEW: Status tracking with tier info
   status: DataStatus;
+  tier: FetchTier;
   fieldGuard?: FieldGuardResult;
   correctedId?: string;
 }
@@ -57,18 +71,26 @@ function resolveId(rawId: string): { id: string; corrected: boolean; originalId:
 }
 
 // ── STATIC FALLBACK ──
+// Tries v2 verified fallbacks first, then original registry fallbacks
 function getStaticFallback<T>(datasetId: string, config: DatasetConfig): DosmDataResult<T> | null {
-  const fallbackData = (STATIC_FALLBACKS as Record<string, { data: Record<string, unknown>[] }>)[datasetId];
-
-  if (!fallbackData?.data?.length) {
-    return null;
+  // Try v2 verified fallbacks first (correct series_type, quarterly date format)
+  const v2Fallback = (VERIFIED_STATIC_FALLBACKS as Record<string, { data: Record<string, unknown>[] }>)[datasetId];
+  if (v2Fallback?.data?.length) {
+    const dataArr = v2Fallback.data as T[];
+    return enrichData(dataArr, config, 'fallback');
   }
 
-  const dataArr = fallbackData.data as T[];
-  return enrichData(dataArr, config, 'fallback', undefined);
+  // Fall back to original registry static fallbacks
+  const fallbackData = (STATIC_FALLBACKS as Record<string, { data: Record<string, unknown>[] }>)[datasetId];
+  if (fallbackData?.data?.length) {
+    const dataArr = fallbackData.data as T[];
+    return enrichData(dataArr, config, 'fallback');
+  }
+
+  return null;
 }
 
-// ── MAIN FETCH FUNCTION ──
+// ── MAIN FETCH FUNCTION — THREE-TIER FALLBACK ──
 export async function fetchDosmData<T = Record<string, unknown>>(
   datasetId: DatasetId | string,
   options: DosmQueryOptions = {}
@@ -92,116 +114,150 @@ export async function fetchDosmData<T = Record<string, unknown>>(
     return cached.data as DosmDataResult<T>;
   }
 
-  // Build query params for our proxy
-  const params = new URLSearchParams();
-  params.set('id', resolvedId);
-  params.set('limit', String(options.limit ?? config.defaultLimit));
-  if (options.sort) {
-    params.set('sort', options.sort);
-  }
-
-  // Apply defaultFilter from config if not overridden
-  const filters = {
-    ...(config.defaultFilter ?? {}),
-    ...(options.filters ?? {}),
-  };
-  Object.entries(filters).forEach(([k, v]) => {
-    params.set(k, String(v));
-  });
-
+  // ── TIER 1: API Proxy ──
   try {
+    const params = new URLSearchParams();
+    params.set('id', resolvedId);
+    params.set('limit', String(options.limit ?? config.defaultLimit));
+    // CORRECT SORT SYNTAX: use "-date" prefix for descending
+    const sortDir = options.sort ?? 'desc';
+    params.set('sort', sortDir === 'desc' ? `-${config.dateField}` : config.dateField);
+
+    // Apply defaultFilter from config if not overridden
+    const filters = {
+      ...(config.defaultFilter ?? {}),
+      ...(options.filters ?? {}),
+    };
+    Object.entries(filters).forEach(([k, v]) => {
+      params.set(k, String(v));
+    });
+
     const res = await fetch(`${BASE_URL}?${params}`, {
-      headers: { 'Accept': 'application/json' },
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(8000),
     });
 
     // Get X-Fields from response header for field validation
     const actualFields = res.headers.get('X-Fields')?.split(',') ?? [];
     const correctedFromProxy = res.headers.get('X-ID-Corrected');
 
-    if (!res.ok) {
-      const errJson = await res.json().catch(() => ({ error: res.statusText }));
-      const errMsg = (errJson as Record<string, string>).diagnosis
-        ?? (errJson as Record<string, string>).error
-        ?? `HTTP ${res.status}`;
+    if (res.ok) {
+      const json = await res.json();
+      const dataArr: T[] = Array.isArray(json) ? json : (json.data ?? []);
 
-      console.warn(`[DoSM Client] API error for "${datasetId}": ${errMsg}`);
+      if (dataArr.length > 0) {
+        // Run field guard validation
+        const fieldGuard = guardFields(
+          dataArr as Record<string, unknown>[],
+          String(datasetId),
+          { valueField: config.valueField, dateField: config.dateField, groupField: config.groupField }
+        );
 
-      // Try static fallback
-      const fallback = getStaticFallback<T>(resolvedId, config);
-      if (fallback) {
-        return { ...fallback, error: errMsg, status: 'fallback' } as DosmDataResult<T>;
+        if (!fieldGuard.safe) {
+          console.warn(
+            `[DoSM Client] Field mismatch for "${datasetId}":`,
+            fieldGuard.suggestion
+          );
+        }
+
+        // Sort using DoSM-aware date parser (handles "2024-Q2" format)
+        const sorted = [...dataArr].sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+          const dateA = parseDosmDate(String(a[config.dateField] ?? '')).getTime();
+          const dateB = parseDosmDate(String(b[config.dateField] ?? '')).getTime();
+          return dateB - dateA;
+        });
+
+        const result = enrichData<T>(sorted, config, 'live', fieldGuard);
+        if (wasCorrected || correctedFromProxy) {
+          (result as DosmDataResult).correctedId = correctedFromProxy ?? resolvedId;
+        }
+        (result as DosmDataResult).tier = 'api';
+
+        // Cache the result
+        cache.set(cacheKey, {
+          data: result,
+          expires: Date.now() + Math.min(config.refreshMs, CACHE_TTL_MS),
+        });
+
+        return result as DosmDataResult<T>;
       }
-
-      // No fallback available
-      const emptyResult = createEmptyResult(config, errMsg);
-      cache.set(cacheKey, { data: emptyResult, expires: Date.now() + CACHE_TTL_MS });
-      return emptyResult as DosmDataResult<T>;
     }
 
-    const json = await res.json();
-    const dataArr: T[] = Array.isArray(json) ? json : (json.data ?? []);
-
-    if (dataArr.length === 0) {
-      // API returned empty data — try static fallback
-      const fallback = getStaticFallback<T>(resolvedId, config);
-      if (fallback) {
-        return { ...fallback, status: 'fallback', error: 'API returned empty data, using static fallback' } as DosmDataResult<T>;
-      }
-
-      const emptyResult = createEmptyResult(config, 'No data returned from API');
-      cache.set(cacheKey, { data: emptyResult, expires: Date.now() + CACHE_TTL_MS });
-      return emptyResult as DosmDataResult<T>;
-    }
-
-    // Run field guard validation
-    const fieldGuard = guardFields(
-      dataArr as Record<string, unknown>[],
-      String(datasetId),
-      { valueField: config.valueField, dateField: config.dateField, groupField: config.groupField }
-    );
-
-    if (!fieldGuard.safe) {
-      console.warn(
-        `[DoSM Client] Field mismatch for "${datasetId}":`,
-        fieldGuard.suggestion
-      );
-    }
-
-    // Sort by date descending (latest first)
-    const sorted = [...dataArr].sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
-      const dateA = new Date(String(a[config.dateField] ?? 0)).getTime();
-      const dateB = new Date(String(b[config.dateField] ?? 0)).getTime();
-      return dateB - dateA;
-    });
-
-    const result = enrichData<T>(sorted, config, 'live', fieldGuard);
-    if (wasCorrected || correctedFromProxy) {
-      (result as DosmDataResult).correctedId = correctedFromProxy ?? resolvedId;
-    }
-
-    // Cache the result
-    cache.set(cacheKey, {
-      data: result,
-      expires: Date.now() + Math.min(config.refreshMs, CACHE_TTL_MS),
-    });
-
-    return result as DosmDataResult<T>;
-  } catch (err) {
-    if (err instanceof DosmApiError) throw err;
-
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    console.warn(`[DoSM Client] Network error for "${datasetId}": ${message}`);
-
-    // Try static fallback
-    const fallback = getStaticFallback<T>(resolvedId, config);
-    if (fallback) {
-      return { ...fallback, error: message, status: 'fallback' } as DosmDataResult<T>;
-    }
-
-    const emptyResult = createEmptyResult(config, message);
-    cache.set(cacheKey, { data: emptyResult, expires: Date.now() + CACHE_TTL_MS });
-    return emptyResult as DosmDataResult<T>;
+    // API returned non-OK or empty data — fall through to Tier 2
+    const errJson = await res.json().catch(() => ({ error: res.statusText }));
+    console.warn(`[DoSM Client] API tier failed for "${datasetId}": HTTP ${res.status}`);
+  } catch (apiErr: unknown) {
+    const message = apiErr instanceof Error ? apiErr.message : 'API fetch error';
+    console.warn(`[DoSM Client] API tier failed for "${datasetId}": ${message}`);
   }
+
+  // ── TIER 2: Direct CSV Download ──
+  try {
+    const csvFilters: Record<string, string> = {};
+    const filters = {
+      ...(config.defaultFilter ?? {}),
+      ...(options.filters ?? {}),
+    };
+    Object.entries(filters).forEach(([k, v]) => {
+      csvFilters[k] = String(v);
+    });
+
+    const csvResult = await fetchDosmCSV(resolvedId, config.valueField, config.dateField, {
+      limit: options.limit ?? config.defaultLimit,
+      filters: csvFilters,
+    });
+
+    if (csvResult.data.length > 0) {
+      console.log(`[DoSM Client] CSV tier success for "${datasetId}": ${csvResult.data.length} rows from ${csvResult.url}`);
+
+      const result = enrichData(csvResult.data as T[], config, 'csv');
+      (result as DosmDataResult).tier = 'csv';
+
+      cache.set(cacheKey, {
+        data: result,
+        expires: Date.now() + Math.min(config.refreshMs, CACHE_TTL_MS),
+      });
+
+      return result as DosmDataResult<T>;
+    }
+  } catch (csvErr: unknown) {
+    const message = csvErr instanceof Error ? csvErr.message : 'CSV fetch error';
+    console.warn(`[DoSM Client] CSV tier failed for "${datasetId}": ${message}`);
+  }
+
+  // ── TIER 3: Static Fallback ──
+  const fallback = getStaticFallback<T>(resolvedId, config);
+  if (fallback) {
+    console.warn(`[DoSM Client] Using static fallback for "${datasetId}"`);
+
+    // Apply filters to static data
+    let data = fallback.raw as T[];
+    if (options.filters || config.defaultFilter) {
+      const filters = {
+        ...(config.defaultFilter ?? {}),
+        ...(options.filters ?? {}),
+      };
+      data = data.filter((row: Record<string, unknown>) =>
+        Object.entries(filters).every(
+          ([k, v]) => String(row[k]).toLowerCase() === String(v).toLowerCase()
+        )
+      ) as T[];
+
+      if (data.length > 0) {
+        const enriched = enrichData(data, config, 'fallback');
+        (enriched as DosmDataResult).tier = 'static';
+        return enriched as DosmDataResult<T>;
+      }
+    }
+
+    (fallback as DosmDataResult).tier = 'static';
+    return { ...fallback, error: 'API and CSV unavailable, using static fallback' } as DosmDataResult<T>;
+  }
+
+  // Total failure — no data available at any tier
+  const emptyResult = createEmptyResult(config, 'All fetch tiers failed — API, CSV, and static fallback unavailable');
+  cache.set(cacheKey, { data: emptyResult, expires: Date.now() + CACHE_TTL_MS });
+  return emptyResult as DosmDataResult<T>;
 }
 
 // ── FETCH MULTIPLE DATASETS IN PARALLEL ──
@@ -269,6 +325,7 @@ function enrichData<T>(
     max,
     avg,
     status,
+    tier: status === 'live' ? 'api' : status === 'csv' ? 'csv' : 'static',
     fieldGuard,
   };
 }
@@ -294,6 +351,7 @@ function createEmptyResult(config: DatasetConfig, error?: string): DosmDataResul
     avg: 0,
     error: error ?? 'No data returned from API',
     status: 'error',
+    tier: 'static',
   };
 }
 

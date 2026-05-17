@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion';
 
 // ─── Types ──────────────────────────────────────────────────────────
-type DataStatus = 'loading' | 'live' | 'fallback' | 'error';
+type DataStatus = 'loading' | 'live' | 'csv' | 'fallback' | 'error';
 
 interface DataStatusBadgeProps {
   status: DataStatus;
@@ -27,6 +27,11 @@ const STATUS_CONFIG: Record<DataStatus, {
   live: {
     color: '#10B981',
     label: 'DATA LANGSUNG',
+    dotStyle: 'pulse',
+  },
+  csv: {
+    color: '#06B6D4',
+    label: 'CSV LANGSUNG',
     dotStyle: 'pulse',
   },
   fallback: {
@@ -164,7 +169,7 @@ export function DataStatusBadge({
             textShadow: `0 0 6px ${config.color}40`,
           }}
         >
-          {status === 'loading' ? 'MUAT' : status === 'live' ? 'LANGSUNG' : status === 'fallback' ? 'STATIK' : 'RALAT'}
+          {status === 'loading' ? 'MUAT' : status === 'live' ? 'LANGSUNG' : status === 'csv' ? 'CSV' : status === 'fallback' ? 'STATIK' : 'RALAT'}
         </span>
       </span>
     );
