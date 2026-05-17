@@ -94,11 +94,32 @@ export async function POST(request: NextRequest) {
       : OverviewTemplate9x16({ data: infographicData });
 
     // Render to PNG or SVG (depends on runtime)
-    const result = await render({
-      width: dimensions.width,
-      height: dimensions.height,
-      element: template,
-    });
+    let result;
+    try {
+      result = await render({
+        width: dimensions.width,
+        height: dimensions.height,
+        element: template,
+      });
+    } catch (renderError) {
+      // Satori/sharp may fail on Cloudflare Workers or other edge runtimes
+      const msg = renderError instanceof Error ? renderError.message : String(renderError);
+      const isRuntimeError =
+        msg.includes('not supported in this environment') ||
+        msg.includes('runtime environment') ||
+        msg.includes('Satori rendering') ||
+        msg.includes('Font loading failed');
+      if (isRuntimeError) {
+        return NextResponse.json(
+          {
+            error: 'Infographic generation is not supported in this environment',
+            details: msg,
+          },
+          { status: 501 }
+        );
+      }
+      throw renderError; // re-throw unexpected errors
+    }
 
     // Build filename with appropriate extension
     const ext = result.format === 'png' ? 'png' : 'svg';

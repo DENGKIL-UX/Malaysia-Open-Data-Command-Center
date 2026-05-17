@@ -62,20 +62,34 @@ export async function render(options: RenderOptions): Promise<RenderResult> {
   const { width, height, element } = options;
 
   // Load fonts for Satori
-  const fonts = await loadFonts();
+  let fonts: Awaited<ReturnType<typeof loadFonts>>;
+  try {
+    fonts = await loadFonts();
+  } catch (err) {
+    throw new Error(
+      `Font loading failed in this runtime environment: ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
 
   // Step 1: Render JSX → SVG using Satori
-  const svg = await satori(element as Parameters<typeof satori>[0], {
-    width,
-    height,
-    fonts: fonts.length > 0 ? fonts.map(f => ({
-      name: f.name,
-      data: f.data,
-      weight: f.weight as 400 | 600 | 700 | 800,
-      style: f.style as 'normal',
-    })) : undefined,
-    embedFont: true,
-  });
+  let svg: string;
+  try {
+    svg = await satori(element as Parameters<typeof satori>[0], {
+      width,
+      height,
+      fonts: fonts.length > 0 ? fonts.map(f => ({
+        name: f.name,
+        data: f.data,
+        weight: f.weight as 400 | 600 | 700 | 800,
+        style: f.style as 'normal',
+      })) : undefined,
+      embedFont: true,
+    });
+  } catch (err) {
+    throw new Error(
+      `Satori rendering is not supported in this environment: ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
 
   // Step 2: Try Sharp SVG → PNG conversion (Node.js only)
   const sharpModule = await loadSharp();

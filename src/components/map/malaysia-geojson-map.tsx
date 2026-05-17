@@ -29,6 +29,15 @@ const STATE_ID_TO_CODE: Record<string, number> = Object.fromEntries(
 // ─── Zoom Level Type ────────────────────────────────────────────────
 type ZoomLevel = 'states' | 'districts' | 'parlimen' | 'dun';
 
+// ─── Fallback center coordinates for small/federal territory states ────
+const STATE_CENTER_FALLBACKS: Record<string, [number, number]> = {
+  'wp-kuala-lumpur': [101.6873, 3.1390],
+  'wp-putrajaya': [101.6935, 2.9211],
+  'wp-labuan': [115.2436, 5.2833],
+};
+
+const MIN_ZOOM_FOR_STATE = 7;
+
 // ─── Format helpers ─────────────────────────────────────────────────
 function formatValue(value: number, layer: string): string {
   switch (layer) {
@@ -272,7 +281,7 @@ export default function MalaysiaGeoJSONMap({
           minzoom: 6,
         },
       ],
-      glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+      glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
     };
 
     const map = new maplibregl.Map({
@@ -377,24 +386,34 @@ export default function MalaysiaGeoJSONMap({
       selectedCodeRef.current = codeState;
 
       // Fly to the clicked state
-      const bounds = { minLng: 180, minLat: 90, maxLng: -180, maxLat: -90 };
-      const geom = feature.geometry as GeoJSON.MultiPolygon;
-      if (geom.coordinates) {
-        geom.coordinates.forEach(polygon => {
-          polygon.forEach(ring => {
-            ring.forEach(([lng, lat]: [number, number]) => {
-              bounds.minLng = Math.min(bounds.minLng, lng);
-              bounds.maxLng = Math.max(bounds.maxLng, lng);
-              bounds.minLat = Math.min(bounds.minLat, lat);
-              bounds.maxLat = Math.max(bounds.maxLat, lat);
+      // For small federal territories, use flyTo with fallback center + minimum zoom
+      const fallbackCenter = STATE_CENTER_FALLBACKS[stateId];
+      if (fallbackCenter) {
+        map.flyTo({
+          center: fallbackCenter,
+          zoom: Math.max(MIN_ZOOM_FOR_STATE, map.getZoom()),
+          duration: 800,
+        });
+      } else {
+        const bounds = { minLng: 180, minLat: 90, maxLng: -180, maxLat: -90 };
+        const geom = feature.geometry as GeoJSON.MultiPolygon;
+        if (geom.coordinates) {
+          geom.coordinates.forEach(polygon => {
+            polygon.forEach(ring => {
+              ring.forEach(([lng, lat]: [number, number]) => {
+                bounds.minLng = Math.min(bounds.minLng, lng);
+                bounds.maxLng = Math.max(bounds.maxLng, lng);
+                bounds.minLat = Math.min(bounds.minLat, lat);
+                bounds.maxLat = Math.max(bounds.maxLat, lat);
+              });
             });
           });
-        });
+        }
+        map.fitBounds(
+          [[bounds.minLng, bounds.minLat], [bounds.maxLng, bounds.maxLat]],
+          { padding: 60, duration: 800, maxZoom: 8, minZoom: MIN_ZOOM_FOR_STATE }
+        );
       }
-      map.fitBounds(
-        [[bounds.minLng, bounds.minLat], [bounds.maxLng, bounds.maxLat]],
-        { padding: 60, duration: 800, maxZoom: 8 }
-      );
     });
 
     // Track zoom level
