@@ -2,8 +2,9 @@
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Printer, X, Download, Monitor, Smartphone, Maximize2, Loader2, RefreshCw, ZoomIn, ZoomOut } from 'lucide-react';
-import { STATES, MALAYSIA_TOTALS } from '@/lib/data/malaysia-data';
+import { Printer, X, Download, Monitor, Smartphone, Maximize2, Loader2, ZoomIn, ZoomOut } from 'lucide-react';
+import { toPng } from 'html-to-image';
+import { InfographicPreview } from '@/components/dashboard/infographic-preview';
 import type { Lang } from '@/lib/dashboard-types';
 
 // ─── Layer icon mapping ──────────────────────────────────────────────
@@ -16,17 +17,14 @@ const LAYER_ICONS: Record<string, string> = {
   education: '🎓',
 };
 
-// ─── Infographic Export Modal (Satori + Sharp Engine) ────────────────
+// ─── Infographic Export Modal (Client-Side Rendering) ────────────────
 export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () => void }) {
   const [selectedLayers, setSelectedLayers] = useState<string[]>(['population', 'gdp', 'demography']);
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16' | 'auto'>('16:9');
   const [exporting, setExporting] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
-  const [previewError, setPreviewError] = useState<string | null>(null);
-  const [isWorkerEnv, setIsWorkerEnv] = useState(false);
   const [previewZoom, setPreviewZoom] = useState(1);
   const previewContainerRef = useRef<HTMLDivElement>(null);
+  const renderRef = useRef<HTMLDivElement>(null);
 
   const layers = [
     { id: 'population', label_en: 'Population', label_ms: 'Penduduk', color: '#06b6d4' },
@@ -53,119 +51,70 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
     return 'auto';
   }, [aspectRatio]);
 
-  // Generate preview
-  const generatePreview = useCallback(async () => {
-    if (isAuto) {
-      setPreviewUrl(null);
-      return;
-    }
-    setPreviewLoading(true);
-    setPreviewError(null);
-    try {
-      const format = aspectRatio === '9:16' ? '9:16' : '16:9';
-      const response = await fetch('/api/infographic/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          lang,
-          selectedLayers,
-          format,
-        }),
-      });
+  // Native dimensions for the render container
+  const nativeWidth = isPortrait ? 1080 : 1920;
+  const nativeHeight = isPortrait ? 1920 : 1080;
 
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        // Detect Cloudflare Workers environment limitation
-        if (response.status === 501 || errData.error?.includes('not supported in this environment')) {
-          setIsWorkerEnv(true);
-          throw new Error(lang === 'ms'
-            ? 'Eksport infografik tidak disokong pada persekitaran Cloudflare Workers. Coba pada pelayan Node.js tempatan.'
-            : 'Infographic export is not supported on Cloudflare Workers. Try on a local Node.js server.'
-          );
-        }
-        throw new Error(errData.error || `HTTP ${response.status}`);
-      }
+  // Compute scale factor to fit the preview area
+  const [scaleFactor, setScaleFactor] = useState(0.3);
 
-      const contentType = response.headers.get('Content-Type') || '';
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-
-      // Clean up previous preview URL
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-      }
-      setPreviewUrl(url);
-      setIsWorkerEnv(false);
-    } catch (err) {
-      console.error('Preview generation failed:', err);
-      setPreviewError(err instanceof Error ? err.message : 'Preview failed');
-    } finally {
-      setPreviewLoading(false);
-    }
-  }, [aspectRatio, isAuto, lang, selectedLayers, previewUrl]);
-
-  // Auto-generate preview when settings change
   useEffect(() => {
-    if (isAuto || isWorkerEnv) return; // Don't auto-retry on Workers
+    if (!previewContainerRef.current || isAuto) return;
 
-    const timer = setTimeout(() => {
-      generatePreview();
-    }, 500); // Debounce 500ms
-
-    return () => clearTimeout(timer);
-  }, [aspectRatio, isAuto, lang, selectedLayers, generatePreview, isWorkerEnv]);
-
-  // Clean up preview URL on unmount
-  useEffect(() => {
-    return () => {
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
+    const observer = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        const containerWidth = entry.contentRect.width - 32; // padding
+        const containerHeight = entry.contentRect.height - 32;
+        const scaleX = containerWidth / nativeWidth;
+        const scaleY = containerHeight / nativeHeight;
+        setScaleFactor(Math.min(scaleX, scaleY, 1));
       }
-    };
-  }, [previewUrl]);
+    });
+
+    observer.observe(previewContainerRef.current);
+    return () => observer.disconnect();
+  }, [nativeWidth, nativeHeight, isAuto]);
 
   // Handle export (download the full-res PNG)
-  const handleExport = async () => {
-    if (isAuto) return;
+  const handleExport = useCallback(async () => {
+    if (isAuto || !renderRef.current) return;
     setExporting(true);
+
     try {
+      // Wait for fonts to be ready before capturing
+      await document.fonts.ready;
+
       const format = aspectRatio === '9:16' ? '9:16' : '16:9';
-      const response = await fetch('/api/infographic/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          lang,
-          selectedLayers,
-          format,
-        }),
+      const dataUrl = await toPng(renderRef.current, {
+        width: nativeWidth,
+        height: nativeHeight,
+        pixelRatio: 2,
+        style: {
+          transform: 'none',
+        },
       });
 
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(errData.error || `HTTP ${response.status}`);
-      }
-
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       const ratioStr = format === '16:9' ? '16x9' : '9x16';
       link.download = `malaysia-open-data-infographic-${ratioStr}-${Date.now()}.png`;
-      link.href = url;
+      link.href = dataUrl;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Export failed:', err);
       alert(`Export failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setExporting(false);
     }
-  };
+  }, [isAuto, aspectRatio, nativeWidth, nativeHeight]);
 
   // Zoom controls
   const handleZoomIn = () => setPreviewZoom(prev => Math.min(prev + 0.25, 3));
   const handleZoomOut = () => setPreviewZoom(prev => Math.max(prev - 0.25, 0.25));
+
+  // The format for the preview component
+  const format = isPortrait ? '9:16' : '16:9';
 
   return (
     <motion.div
@@ -197,7 +146,7 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
               color: '#06b6d4',
               background: 'rgba(6,182,212,0.06)',
             }}>
-              SATORI + SHARP
+              CLIENT-SIDE
             </span>
             <span className="text-[9px] font-mono px-1.5 py-0.5 rounded border" style={{
               borderColor: 'rgba(6,182,212,0.3)',
@@ -280,13 +229,9 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
                 {lang === 'ms' ? 'ENJIN RENDER' : 'RENDER ENGINE'}
               </div>
               <div className="text-[8px] font-mono leading-relaxed" style={{ color: '#94a3b8' }}>
-                {isWorkerEnv
-                  ? (lang === 'ms'
-                      ? '⚠️ Satori + Sharp tidak tersedia pada Cloudflare Workers. Eksport hanya berfungsi pada pelayan Node.js.'
-                      : '⚠️ Satori + Sharp is unavailable on Cloudflare Workers. Export only works on Node.js servers.')
-                  : (lang === 'ms'
-                      ? 'Satori (JSX→SVG) + Sharp (SVG→PNG). Render sisi pelayan, tiada isu CSS, eksport pixel-sempurna setiap kali.'
-                      : 'Satori (JSX→SVG) + Sharp (SVG→PNG). Server-side rendering, no CSS issues, pixel-perfect export every time.')
+                {lang === 'ms'
+                  ? 'Render sisi klien menggunakan html-to-image. Tiada kebergantungan pelayan, berfungsi pada semua persekitaran termasuk Cloudflare Workers.'
+                  : 'Client-side rendering using html-to-image. No server dependency, works on all environments including Cloudflare Workers.'
                 }
               </div>
             </div>
@@ -294,7 +239,7 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
             {/* Export Button */}
             <button
               onClick={handleExport}
-              disabled={exporting || selectedLayers.length === 0 || isAuto || isWorkerEnv}
+              disabled={exporting || selectedLayers.length === 0 || isAuto}
               className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md border text-xs font-mono font-bold disabled:opacity-30 transition-all"
               style={{
                 background: 'linear-gradient(135deg, rgba(6,182,212,0.2), rgba(16,185,129,0.1))',
@@ -310,11 +255,9 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
               ) : (
                 <>
                   <Download size={14} />
-                  {isWorkerEnv
-                    ? (lang === 'ms' ? 'TIDAK TERSEDIA DI WORKERS' : 'UNAVAILABLE ON WORKERS')
-                    : isAuto
-                      ? (lang === 'ms' ? 'PILIH NISBAH ASPEK DAHULU' : 'SELECT ASPECT RATIO FIRST')
-                      : `EXPORT PNG ${aspectRatio} (${exportDimLabel})`
+                  {isAuto
+                    ? (lang === 'ms' ? 'PILIH NISBAH ASPEK DAHULU' : 'SELECT ASPECT RATIO FIRST')
+                    : `EXPORT PNG ${aspectRatio} (${exportDimLabel})`
                   }
                 </>
               )}
@@ -337,7 +280,7 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {!isAuto && previewUrl && (
+                {!isAuto && (
                   <>
                     <button onClick={handleZoomOut} className="p-1 rounded hover:bg-cyan-950/30 transition-colors" title="Zoom out">
                       <ZoomOut size={12} style={{ color: '#94a3b8' }} />
@@ -351,19 +294,6 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
                     <div className="w-px h-3 mx-1" style={{ background: 'rgba(6,182,212,0.15)' }} />
                   </>
                 )}
-                <button
-                  onClick={generatePreview}
-                  disabled={previewLoading || isAuto}
-                  className="flex items-center gap-1 px-2 py-1 rounded border text-[9px] font-mono disabled:opacity-30 transition-all"
-                  style={{
-                    borderColor: 'rgba(6,182,212,0.2)',
-                    color: '#06b6d4',
-                    background: 'rgba(6,182,212,0.05)',
-                  }}
-                >
-                  <RefreshCw size={10} className={previewLoading ? 'animate-spin' : ''} />
-                  {lang === 'ms' ? 'Muat Semula' : 'Refresh'}
-                </button>
               </div>
             </div>
 
@@ -383,80 +313,40 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
                     }
                   </div>
                 </div>
-              ) : previewLoading && !previewUrl ? (
-                <div className="flex flex-col items-center justify-center h-full">
-                  <Loader2 size={24} className="animate-spin" style={{ color: '#06b6d4' }} />
-                  <div className="text-[10px] font-mono mt-3" style={{ color: '#94a3b8' }}>
-                    {lang === 'ms' ? 'Menjana pratonton...' : 'Generating preview...'}
-                  </div>
-                  <div className="text-[8px] font-mono mt-1" style={{ color: '#64748b' }}>
-                    Satori + Sharp engine
-                  </div>
-                </div>
-              ) : previewError ? (
-                <div className="flex flex-col items-center justify-center h-full max-w-md mx-auto text-center">
-                  {isWorkerEnv ? (
-                    <>
-                      <div className="w-12 h-12 rounded-full flex items-center justify-center mb-4" style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)' }}>
-                        <Printer size={20} style={{ color: '#f59e0b' }} />
-                      </div>
-                      <div className="text-sm font-mono font-semibold mb-2" style={{ color: '#f59e0b' }}>
-                        {lang === 'ms' ? 'Persekitaran Tidak Disokong' : 'Unsupported Environment'}
-                      </div>
-                      <div className="text-xs font-mono leading-relaxed mb-3" style={{ color: '#94a3b8' }}>
-                        {lang === 'ms'
-                          ? 'Eksport infografik memerlukan enjin Satori + Sharp yang hanya berfungsi pada pelayan Node.js. Cloudflare Workers tidak menyokong ciri ini.'
-                          : 'Infographic export requires the Satori + Sharp engine which only runs on Node.js servers. Cloudflare Workers does not support this feature.'
-                        }
-                      </div>
-                      <div className="text-[10px] font-mono px-3 py-2 rounded-md border" style={{ background: 'rgba(6,182,212,0.05)', borderColor: 'rgba(6,182,212,0.15)', color: 'rgba(6,182,212,0.6)' }}>
-                        💡 {lang === 'ms' ? 'Jalankan secara tempatan: bun run dev' : 'Run locally: bun run dev'}
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="text-xs font-mono" style={{ color: '#ef4444' }}>
-                        {lang === 'ms' ? 'Ralat:' : 'Error:'} {previewError}
-                      </div>
-                      <button
-                        onClick={generatePreview}
-                        className="mt-3 px-3 py-1.5 rounded border text-[10px] font-mono"
-                        style={{ borderColor: 'rgba(239,68,68,0.3)', color: '#ef4444', background: 'rgba(239,68,68,0.1)' }}
-                      >
-                        {lang === 'ms' ? 'Cuba Lagi' : 'Retry'}
-                      </button>
-                    </>
-                  )}
-                </div>
-              ) : previewUrl ? (
+              ) : (
                 <div
                   style={{
-                    transform: `scale(${previewZoom})`,
+                    transform: `scale(${scaleFactor * previewZoom})`,
                     transformOrigin: 'top center',
                     transition: 'transform 0.2s ease',
                   }}
                 >
-                  <img
-                    src={previewUrl}
-                    alt="Infographic Preview"
+                  <div
+                    ref={renderRef}
                     style={{
-                      maxWidth: '100%',
                       borderRadius: 4,
                       border: '1px solid rgba(6,182,212,0.12)',
                       boxShadow: '0 0 30px rgba(6,182,212,0.08)',
+                      overflow: 'hidden',
                     }}
-                  />
+                  >
+                    <InfographicPreview
+                      lang={lang}
+                      selectedLayers={selectedLayers}
+                      format={format as '16:9' | '9:16'}
+                    />
+                  </div>
                 </div>
-              ) : null}
+              )}
             </div>
 
             {/* Preview Footer */}
             <div className="flex items-center justify-between px-4 py-2 border-t shrink-0" style={{ borderColor: 'rgba(6,182,212,0.08)' }}>
               <div className="text-[8px] font-mono" style={{ color: '#64748b' }}>
-                {lang === 'ms' ? 'Enjin render sisi pelayan' : 'Server-side render engine'} • Satori v0.26 + Sharp v0.34
+                {lang === 'ms' ? 'Enjin render sisi klien' : 'Client-side render engine'} • html-to-image
               </div>
               <div className="text-[8px] font-mono" style={{ color: '#64748b' }}>
-                {previewUrl ? `✅ ${exportDimLabel} PNG` : '—'}
+                {!isAuto ? `✅ ${exportDimLabel} PNG @2x` : '—'}
               </div>
             </div>
           </div>

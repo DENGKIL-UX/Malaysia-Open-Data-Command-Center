@@ -39,7 +39,10 @@ const STATE_CENTER_FALLBACKS: Record<string, [number, number]> = {
   'perlis': [100.2077, 6.4434],
 };
 
-const MIN_ZOOM_FOR_STATE = 8;
+const MIN_ZOOM_FOR_STATE = 10;
+
+// States that are too small to click at default zoom — need enlarged hit area
+const SMALL_STATES = new Set(['wp-kuala-lumpur', 'wp-putrajaya', 'wp-labuan']);
 
 // ─── Format helpers ─────────────────────────────────────────────────
 function formatValue(value: number, layer: string): string {
@@ -253,10 +256,11 @@ export default function MalaysiaGeoJSONMap({
           layout: {
             'text-field': ['get', 'state'],
             'text-font': ['Open Sans Regular'],
-            'text-size': 11,
+            'text-size': ['interpolate', ['linear'], ['zoom'], 3, 8, 6, 11, 8, 13],
             'text-max-width': 6,
             'text-anchor': 'center',
             'text-allow-overlap': false,
+            'text-ignore-placement': false,
           },
           paint: {
             'text-color': 'rgba(6, 182, 212, 0.7)',
@@ -284,6 +288,8 @@ export default function MalaysiaGeoJSONMap({
           minzoom: 6,
         },
       ],
+      // Primary: OpenMapTiles font CDN (serves Open Sans Regular with CORS)
+      // Fallback: If fonts fail, labels simply won't render (graceful degradation)
       glyphs: 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf',
     };
 
@@ -391,19 +397,25 @@ export default function MalaysiaGeoJSONMap({
       // Fly to the clicked state
       // For small states/territories, use flyTo with known center + forced zoom
       const fallbackCenter = STATE_CENTER_FALLBACKS[stateId];
+      const isSmallState = SMALL_STATES.has(stateId);
+
       if (fallbackCenter) {
+        // Small states: fly to known center with high zoom
         map.flyTo({
           center: fallbackCenter,
-          zoom: MIN_ZOOM_FOR_STATE,
-          duration: 800,
+          zoom: Math.max(MIN_ZOOM_FOR_STATE, map.getZoom()),
+          duration: 1000,
+          essential: true,
         });
       } else {
         // For larger states, compute bounds from geometry and fit
         const bounds = { minLng: 180, minLat: 90, maxLng: -180, maxLat: -90 };
-        const geom = feature.geometry as GeoJSON.MultiPolygon;
+        const geom = feature.geometry as GeoJSON.MultiPolygon | GeoJSON.Polygon;
         if (geom.coordinates) {
-          geom.coordinates.forEach(polygon => {
-            polygon.forEach(ring => {
+          // Handle both Polygon and MultiPolygon geometry types
+          const polygons = geom.type === 'Polygon' ? [geom.coordinates] : geom.coordinates;
+          polygons.forEach(polygon => {
+            (polygon as [number, number][][]).forEach(ring => {
               ring.forEach(([lng, lat]: [number, number]) => {
                 bounds.minLng = Math.min(bounds.minLng, lng);
                 bounds.maxLng = Math.max(bounds.maxLng, lng);
@@ -413,9 +425,10 @@ export default function MalaysiaGeoJSONMap({
             });
           });
         }
+        const boundsPadding = isSmallState ? 20 : 60;
         map.fitBounds(
           [[bounds.minLng, bounds.minLat], [bounds.maxLng, bounds.maxLat]],
-          { padding: 60, duration: 800, maxZoom: 10, minZoom: 5 }
+          { padding: boundsPadding, duration: 1000, maxZoom: 10, minZoom: MIN_ZOOM_FOR_STATE }
         );
       }
     });
@@ -456,7 +469,7 @@ export default function MalaysiaGeoJSONMap({
     map.setPaintProperty('state-fills', 'fill-color', expr as any);
   }, [activeLayer, minVal, maxVal]);
 
-  // ─── Update selected state highlighting ───────────────────────────
+  // ─── Update selected state highlighting + fly to state ────────────
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !map.getSource('states')) return;
@@ -467,11 +480,53 @@ export default function MalaysiaGeoJSONMap({
       }
     });
     if (selectedCode !== null) {
-      features.filter(f => f.properties?.code_state === selectedCode).forEach(f => {
+      const matchingFeatures = features.filter(f => f.properties?.code_state === selectedCode);
+      matchingFeatures.forEach(f => {
         if (f.id !== undefined) {
           map.setFeatureState({ source: 'states', id: f.id }, { selected: true });
         }
       });
+
+      // Fly to the selected state (especially important for small states
+      // selected from the ranking list, not by clicking on the map)
+      const stateId = STATE_CODE_TO_ID[selectedCode];
+      if (stateId) {
+        const fallbackCenter = STATE_CENTER_FALLBACKS[stateId];
+        const isSmall = SMALL_STATES.has(stateId);
+
+        if (fallbackCenter) {
+          // Small/federal territory states: fly to known center
+          map.flyTo({
+            center: fallbackCenter,
+            zoom: Math.max(MIN_ZOOM_FOR_STATE, map.getZoom()),
+            duration: 1000,
+            essential: true,
+          });
+        } else if (matchingFeatures.length > 0) {
+          // Larger states: compute bounds from geometry
+          const feature = matchingFeatures[0];
+          const bounds = { minLng: 180, minLat: 90, maxLng: -180, maxLat: -90 };
+          const geom = feature.geometry as GeoJSON.MultiPolygon | GeoJSON.Polygon;
+          if (geom.coordinates) {
+            const polygons = geom.type === 'Polygon' ? [geom.coordinates] : geom.coordinates;
+            polygons.forEach(polygon => {
+              (polygon as [number, number][][]).forEach(ring => {
+                ring.forEach(([lng, lat]: [number, number]) => {
+                  bounds.minLng = Math.min(bounds.minLng, lng);
+                  bounds.maxLng = Math.max(bounds.maxLng, lng);
+                  bounds.minLat = Math.min(bounds.minLat, lat);
+                  bounds.maxLat = Math.max(bounds.maxLat, lat);
+                });
+              });
+            });
+          }
+          const boundsPadding = isSmall ? 20 : 60;
+          map.fitBounds(
+            [[bounds.minLng, bounds.minLat], [bounds.maxLng, bounds.maxLat]],
+            { padding: boundsPadding, duration: 1000, maxZoom: 10, minZoom: MIN_ZOOM_FOR_STATE }
+          );
+        }
+      }
     }
   }, [selectedCode]);
 
