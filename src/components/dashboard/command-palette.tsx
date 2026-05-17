@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
   Database, BarChart3, Map, LayoutDashboard, FileText,
-  Printer, Info, Languages, Search, Command, ArrowUp,
+  Printer, Languages, Search, Command, ArrowUp,
   ArrowDown, CornerDownLeft, X, HelpCircle,
 } from 'lucide-react';
 import { DATASETS } from '@/lib/data/datasets';
@@ -26,7 +26,7 @@ export function CommandPalette({ lang, onClose, onAction }: {
     { id: 'tab-analytics', label_en: 'Go to Analytics', label_ms: 'Pergi ke Analitik', icon: BarChart3, shortcut: '4' },
     { id: 'toggle-lang', label_en: 'Toggle Language', label_ms: 'Tukar Bahasa', icon: Languages, shortcut: 'L' },
     { id: 'open-infographic', label_en: 'Open Infographic Export', label_ms: 'Buka Eksport Infografik', icon: Printer, shortcut: 'E' },
-    { id: 'toggle-info', label_en: 'Toggle Info Panel', label_ms: 'Togol Panel Maklumat', icon: Info, shortcut: 'I' },
+
   ];
 
   const datasetCommands = useMemo(() => {
@@ -216,7 +216,7 @@ export function KeyboardShortcutsModal({ lang, onClose }: { lang: Lang; onClose:
     { key: '3', action_en: 'Go to Datasets', action_ms: 'Pergi ke Set Data' },
     { key: '4', action_en: 'Go to Analytics', action_ms: 'Pergi ke Analitik' },
     { key: 'L', action_en: 'Toggle Language (EN/MS)', action_ms: 'Tukar Bahasa (EN/MS)' },
-    { key: 'I', action_en: 'Toggle Info Panel', action_ms: 'Togol Panel Maklumat' },
+
     { key: 'E', action_en: 'Open Infographic Export', action_ms: 'Buka Eksport Infografik' },
     { key: '⌘K / Ctrl+K', action_en: 'Open Command Palette', action_ms: 'Buka Palet Arahan' },
     { key: 'ESC', action_en: 'Close Modal / Palette', action_ms: 'Tutup Modal / Palet' },
