@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import type { Lang } from '@/lib/dashboard-types';
 import { HUDBracket, SectionHeaderLine } from '@/components/dashboard/particle-background';
-import { OntologyGraph } from '@/components/dashboard/ontology-graph';
+import { EnhancedOntologyGraph } from '@/components/dashboard/enhanced-ontology-graph';
 import { useLiveData, type LiveAnomaly } from '@/components/dashboard/live-data-provider';
 
 // ─── Premium Card Style Helper ───────────────────────────────────
@@ -378,6 +378,9 @@ export function IntelligenceSection({ lang }: { lang: Lang }) {
               <span className="text-[10px] font-mono font-bold tracking-wider" style={{ color: '#00D4FF' }}>
                 {lang === 'ms' ? 'GRAF ONTOLOGI DATA' : 'DATA ONTOLOGY GRAPH'}
               </span>
+              <span className="text-[8px] font-mono" style={{ color: '#6b7280' }}>
+                {lang === 'ms' ? '47 dataset · 8 kategori · kausal' : '47 datasets · 8 categories · causal'}
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-[8px] font-mono px-1.5 py-0.5 rounded" style={{
@@ -385,7 +388,7 @@ export function IntelligenceSection({ lang }: { lang: Lang }) {
                 border: '1px solid rgba(0,212,255,0.15)',
                 color: '#00D4FF',
               }}>
-                v2.0
+                v3.0
               </span>
               <span className="text-[8px] font-mono px-1.5 py-0.5 rounded flex items-center gap-1" style={{
                 background: liveData.isLive ? 'rgba(16,185,129,0.08)' : 'rgba(245,158,11,0.08)',
@@ -398,7 +401,7 @@ export function IntelligenceSection({ lang }: { lang: Lang }) {
             </div>
           </div>
 
-          <OntologyGraph lang={lang} height={500} />
+          <EnhancedOntologyGraph lang={lang} height={500} />
         </div>
       </motion.div>
 
