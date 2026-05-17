@@ -24,6 +24,7 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [isWorkerEnv, setIsWorkerEnv] = useState(false);
   const [previewZoom, setPreviewZoom] = useState(1);
   const previewContainerRef = useRef<HTMLDivElement>(null);
 
@@ -74,9 +75,18 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        // Detect Cloudflare Workers environment limitation
+        if (response.status === 501 || errData.error?.includes('not supported in this environment')) {
+          setIsWorkerEnv(true);
+          throw new Error(lang === 'ms'
+            ? 'Eksport infografik tidak disokong pada persekitaran Cloudflare Workers. Coba pada pelayan Node.js tempatan.'
+            : 'Infographic export is not supported on Cloudflare Workers. Try on a local Node.js server.'
+          );
+        }
         throw new Error(errData.error || `HTTP ${response.status}`);
       }
 
+      const contentType = response.headers.get('Content-Type') || '';
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
 
@@ -85,6 +95,7 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
         URL.revokeObjectURL(previewUrl);
       }
       setPreviewUrl(url);
+      setIsWorkerEnv(false);
     } catch (err) {
       console.error('Preview generation failed:', err);
       setPreviewError(err instanceof Error ? err.message : 'Preview failed');
@@ -95,14 +106,14 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
 
   // Auto-generate preview when settings change
   useEffect(() => {
-    if (isAuto) return;
+    if (isAuto || isWorkerEnv) return; // Don't auto-retry on Workers
 
     const timer = setTimeout(() => {
       generatePreview();
     }, 500); // Debounce 500ms
 
     return () => clearTimeout(timer);
-  }, [aspectRatio, isAuto, lang, selectedLayers, generatePreview]);
+  }, [aspectRatio, isAuto, lang, selectedLayers, generatePreview, isWorkerEnv]);
 
   // Clean up preview URL on unmount
   useEffect(() => {
@@ -269,9 +280,13 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
                 {lang === 'ms' ? 'ENJIN RENDER' : 'RENDER ENGINE'}
               </div>
               <div className="text-[8px] font-mono leading-relaxed" style={{ color: '#94a3b8' }}>
-                {lang === 'ms'
-                  ? 'Satori (JSX→SVG) + Sharp (SVG→PNG). Render sisi pelayan, tiada isu CSS, eksport pixel-sempurna setiap kali.'
-                  : 'Satori (JSX→SVG) + Sharp (SVG→PNG). Server-side rendering, no CSS issues, pixel-perfect export every time.'
+                {isWorkerEnv
+                  ? (lang === 'ms'
+                      ? '⚠️ Satori + Sharp tidak tersedia pada Cloudflare Workers. Eksport hanya berfungsi pada pelayan Node.js.'
+                      : '⚠️ Satori + Sharp is unavailable on Cloudflare Workers. Export only works on Node.js servers.')
+                  : (lang === 'ms'
+                      ? 'Satori (JSX→SVG) + Sharp (SVG→PNG). Render sisi pelayan, tiada isu CSS, eksport pixel-sempurna setiap kali.'
+                      : 'Satori (JSX→SVG) + Sharp (SVG→PNG). Server-side rendering, no CSS issues, pixel-perfect export every time.')
                 }
               </div>
             </div>
@@ -279,7 +294,7 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
             {/* Export Button */}
             <button
               onClick={handleExport}
-              disabled={exporting || selectedLayers.length === 0 || isAuto}
+              disabled={exporting || selectedLayers.length === 0 || isAuto || isWorkerEnv}
               className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md border text-xs font-mono font-bold disabled:opacity-30 transition-all"
               style={{
                 background: 'linear-gradient(135deg, rgba(6,182,212,0.2), rgba(16,185,129,0.1))',
@@ -295,9 +310,11 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
               ) : (
                 <>
                   <Download size={14} />
-                  {isAuto
-                    ? (lang === 'ms' ? 'PILIH NISBAH ASPEK DAHULU' : 'SELECT ASPECT RATIO FIRST')
-                    : `EXPORT PNG ${aspectRatio} (${exportDimLabel})`
+                  {isWorkerEnv
+                    ? (lang === 'ms' ? 'TIDAK TERSEDIA DI WORKERS' : 'UNAVAILABLE ON WORKERS')
+                    : isAuto
+                      ? (lang === 'ms' ? 'PILIH NISBAH ASPEK DAHULU' : 'SELECT ASPECT RATIO FIRST')
+                      : `EXPORT PNG ${aspectRatio} (${exportDimLabel})`
                   }
                 </>
               )}
@@ -377,17 +394,39 @@ export function InfographicModal({ lang, onClose }: { lang: Lang; onClose: () =>
                   </div>
                 </div>
               ) : previewError ? (
-                <div className="flex flex-col items-center justify-center h-full">
-                  <div className="text-xs font-mono" style={{ color: '#ef4444' }}>
-                    {lang === 'ms' ? 'Ralat:' : 'Error:'} {previewError}
-                  </div>
-                  <button
-                    onClick={generatePreview}
-                    className="mt-3 px-3 py-1.5 rounded border text-[10px] font-mono"
-                    style={{ borderColor: 'rgba(239,68,68,0.3)', color: '#ef4444', background: 'rgba(239,68,68,0.1)' }}
-                  >
-                    {lang === 'ms' ? 'Cuba Lagi' : 'Retry'}
-                  </button>
+                <div className="flex flex-col items-center justify-center h-full max-w-md mx-auto text-center">
+                  {isWorkerEnv ? (
+                    <>
+                      <div className="w-12 h-12 rounded-full flex items-center justify-center mb-4" style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)' }}>
+                        <Printer size={20} style={{ color: '#f59e0b' }} />
+                      </div>
+                      <div className="text-sm font-mono font-semibold mb-2" style={{ color: '#f59e0b' }}>
+                        {lang === 'ms' ? 'Persekitaran Tidak Disokong' : 'Unsupported Environment'}
+                      </div>
+                      <div className="text-xs font-mono leading-relaxed mb-3" style={{ color: '#94a3b8' }}>
+                        {lang === 'ms'
+                          ? 'Eksport infografik memerlukan enjin Satori + Sharp yang hanya berfungsi pada pelayan Node.js. Cloudflare Workers tidak menyokong ciri ini.'
+                          : 'Infographic export requires the Satori + Sharp engine which only runs on Node.js servers. Cloudflare Workers does not support this feature.'
+                        }
+                      </div>
+                      <div className="text-[10px] font-mono px-3 py-2 rounded-md border" style={{ background: 'rgba(6,182,212,0.05)', borderColor: 'rgba(6,182,212,0.15)', color: 'rgba(6,182,212,0.6)' }}>
+                        💡 {lang === 'ms' ? 'Jalankan secara tempatan: bun run dev' : 'Run locally: bun run dev'}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-xs font-mono" style={{ color: '#ef4444' }}>
+                        {lang === 'ms' ? 'Ralat:' : 'Error:'} {previewError}
+                      </div>
+                      <button
+                        onClick={generatePreview}
+                        className="mt-3 px-3 py-1.5 rounded border text-[10px] font-mono"
+                        style={{ borderColor: 'rgba(239,68,68,0.3)', color: '#ef4444', background: 'rgba(239,68,68,0.1)' }}
+                      >
+                        {lang === 'ms' ? 'Cuba Lagi' : 'Retry'}
+                      </button>
+                    </>
+                  )}
                 </div>
               ) : previewUrl ? (
                 <div

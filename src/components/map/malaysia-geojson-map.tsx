@@ -34,9 +34,12 @@ const STATE_CENTER_FALLBACKS: Record<string, [number, number]> = {
   'wp-kuala-lumpur': [101.6873, 3.1390],
   'wp-putrajaya': [101.6935, 2.9211],
   'wp-labuan': [115.2436, 5.2833],
+  'pulau-pinang': [100.3364, 5.4164],
+  'melaka': [102.2511, 2.3294],
+  'perlis': [100.2077, 6.4434],
 };
 
-const MIN_ZOOM_FOR_STATE = 7;
+const MIN_ZOOM_FOR_STATE = 8;
 
 // ─── Format helpers ─────────────────────────────────────────────────
 function formatValue(value: number, layer: string): string {
@@ -281,7 +284,7 @@ export default function MalaysiaGeoJSONMap({
           minzoom: 6,
         },
       ],
-      glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
+      glyphs: 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf',
     };
 
     const map = new maplibregl.Map({
@@ -386,15 +389,16 @@ export default function MalaysiaGeoJSONMap({
       selectedCodeRef.current = codeState;
 
       // Fly to the clicked state
-      // For small federal territories, use flyTo with fallback center + minimum zoom
+      // For small states/territories, use flyTo with known center + forced zoom
       const fallbackCenter = STATE_CENTER_FALLBACKS[stateId];
       if (fallbackCenter) {
         map.flyTo({
           center: fallbackCenter,
-          zoom: Math.max(MIN_ZOOM_FOR_STATE, map.getZoom()),
+          zoom: MIN_ZOOM_FOR_STATE,
           duration: 800,
         });
       } else {
+        // For larger states, compute bounds from geometry and fit
         const bounds = { minLng: 180, minLat: 90, maxLng: -180, maxLat: -90 };
         const geom = feature.geometry as GeoJSON.MultiPolygon;
         if (geom.coordinates) {
@@ -411,7 +415,7 @@ export default function MalaysiaGeoJSONMap({
         }
         map.fitBounds(
           [[bounds.minLng, bounds.minLat], [bounds.maxLng, bounds.maxLat]],
-          { padding: 60, duration: 800, maxZoom: 8, minZoom: MIN_ZOOM_FOR_STATE }
+          { padding: 60, duration: 800, maxZoom: 10, minZoom: 5 }
         );
       }
     });
