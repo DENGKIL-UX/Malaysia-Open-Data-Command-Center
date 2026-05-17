@@ -32,7 +32,9 @@ import { AnimatedBorderCard } from '@/components/dashboard/animated-border-card'
 import { DataFlowLines } from '@/components/dashboard/data-flow-lines';
 import { DataExplorerModal } from '@/components/dashboard/data-explorer-modal';
 import { YoYComparisonPanel } from '@/components/dashboard/yoy-comparison-panel';
+import { DataFreshnessPanel } from '@/components/dashboard/data-freshness-panel';
 import { useLiveData } from '@/components/dashboard/live-data-provider';
+import type { DataStatus } from '@/lib/dosm/client';
 
 // ─── Animated Section Divider ────────────────────────────────────
 function AnimatedDivider() {
@@ -275,7 +277,7 @@ export function OverviewSection({ lang, onNavigateDatasets }: { lang: Lang; onNa
   const { kpiMap, anyLoading, isLive, status } = useLiveData();
 
   // Map live KPI data to display format, with static fallbacks
-  type KpiItem = { icon: typeof Users; label: string; value: number | string; unit: string; change: number; color: string; sparkline: number[]; trendValue: string };
+  type KpiItem = { icon: typeof Users; label: string; value: number | string; unit: string; change: number; color: string; sparkline: number[]; trendValue: string; status?: DataStatus };
 
   const kpis: KpiItem[] = useMemo(() => {
     // Live data mapping: registry ID → display KPI
@@ -297,23 +299,24 @@ export function OverviewSection({ lang, onNavigateDatasets }: { lang: Lang; onNa
         color: kpi.color,
         sparkline: kpi.sparkline,
         trendValue: `${kpi.changePct >= 0 ? '+' : ''}${kpi.changePct.toFixed(1)}%`,
+        status: kpi.status,
       };
     }
 
     // Build ordered KPI list: prefer live data, fallback to static
     return [
       // GDP Growth Rate (primary KPI)
-      liveMap.gdp_growth ?? { icon: TrendingUp, label: lang === 'ms' ? 'Pertumbuhan KDNK' : 'GDP Growth', value: '5.3', unit: '%', change: 5.3, color: '#00FFD4', sparkline: [3.0, 3.3, 2.9, 5.6, 7.4, 4.2, 5.9], trendValue: '+5.3%' },
+      liveMap.gdp_growth ?? { icon: TrendingUp, label: lang === 'ms' ? 'Pertumbuhan KDNK' : 'GDP Growth', value: '5.3', unit: '%', change: 5.3, color: '#00FFD4', sparkline: [3.0, 3.3, 2.9, 5.6, 7.4, 4.2, 5.9], trendValue: '+5.3%', status: 'fallback' as DataStatus },
       // Population
-      liveMap.population_malaysia ?? { icon: Users, label: lang === 'ms' ? 'Penduduk' : 'Population', value: '33.9M', unit: lang === 'ms' ? 'orang' : 'people', change: 1.1, color: '#06b6d4', sparkline: [32.4, 32.7, 33.0, 33.2, 33.4, 33.6, 33.9], trendValue: '+1.1%' },
+      liveMap.population_malaysia ?? { icon: Users, label: lang === 'ms' ? 'Penduduk' : 'Population', value: '33.9M', unit: lang === 'ms' ? 'orang' : 'people', change: 1.1, color: '#06b6d4', sparkline: [32.4, 32.7, 33.0, 33.2, 33.4, 33.6, 33.9], trendValue: '+1.1%', status: 'fallback' as DataStatus },
       // CPI / Inflation
-      liveMap.cpi_headline ?? { icon: BarChart3, label: lang === 'ms' ? 'IHP' : 'CPI', value: '132.4', unit: lang === 'ms' ? 'indeks' : 'index', change: 2.0, color: '#f59e0b', sparkline: [130.9, 131.0, 131.2, 131.3, 131.5, 131.8, 132.4], trendValue: '+2.0%' },
+      liveMap.cpi_headline ?? { icon: BarChart3, label: lang === 'ms' ? 'IHP' : 'CPI', value: '132.4', unit: lang === 'ms' ? 'indeks' : 'index', change: 2.0, color: '#f59e0b', sparkline: [130.9, 131.0, 131.2, 131.3, 131.5, 131.8, 132.4], trendValue: '+2.0%', status: 'fallback' as DataStatus },
       // Unemployment
-      liveMap.labour_monthly ?? { icon: Briefcase, label: lang === 'ms' ? 'Pengangguran' : 'Unemployment', value: '3.4', unit: '%', change: -0.3, color: '#8b5cf6', sparkline: [3.3, 3.4, 4.6, 4.7, 3.8, 3.6, 3.4], trendValue: '-3.4%' },
+      liveMap.labour_monthly ?? { icon: Briefcase, label: lang === 'ms' ? 'Pengangguran' : 'Unemployment', value: '3.4', unit: '%', change: -0.3, color: '#8b5cf6', sparkline: [3.3, 3.4, 4.6, 4.7, 3.8, 3.6, 3.4], trendValue: '-3.4%', status: 'fallback' as DataStatus },
       // Trade Balance
-      liveMap.trade_monthly ?? { icon: Globe, label: lang === 'ms' ? 'Imbangan Perdagangan' : 'Trade Balance', value: 'RM 18.2B', unit: '', change: 12.5, color: '#06b6d4', sparkline: [12.9, 13.2, 14.4, 14.5, 15.6, 16.7, 18.2], trendValue: '+12.5%' },
+      liveMap.trade_monthly ?? { icon: Globe, label: lang === 'ms' ? 'Imbangan Perdagangan' : 'Trade Balance', value: 'RM 18.2B', unit: '', change: 12.5, color: '#06b6d4', sparkline: [12.9, 13.2, 14.4, 14.5, 15.6, 16.7, 18.2], trendValue: '+12.5%', status: 'fallback' as DataStatus },
       // Fuel Price
-      liveMap.fuelprice ?? { icon: Zap, label: lang === 'ms' ? 'Harga Bahan Api' : 'Fuel Price', value: 'RM 2.05', unit: '/L', change: 0, color: '#84CC16', sparkline: [2.05, 2.05, 2.05, 2.05, 2.05, 2.05, 2.05], trendValue: '0.0%' },
+      liveMap.fuelprice ?? { icon: Zap, label: lang === 'ms' ? 'Harga Bahan Api' : 'Fuel Price', value: 'RM 2.05', unit: '/L', change: 0, color: '#84CC16', sparkline: [2.05, 2.05, 2.05, 2.05, 2.05, 2.05, 2.05], trendValue: '0.0%', status: 'fallback' as DataStatus },
     ];
   }, [kpiMap, lang]);
 
@@ -442,13 +445,18 @@ export function OverviewSection({ lang, onNavigateDatasets }: { lang: Lang; onNa
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3" role="group" aria-label="Key performance indicators">
         {kpis.map((kpi, i) => (
           <div key={i} data-flow={i === 0 ? 'kpi-population' : i === 1 ? 'kpi-gdp' : undefined}>
-            <KPICard {...kpi} lang={lang} onClick={() => {
+            <KPICard {...kpi} lang={lang} status={kpi.status} onClick={() => {
               const metricKeys: ('population' | 'gdp' | 'gdpGrowth' | 'births' | 'unemployment' | 'datasets')[] = ['population', 'gdp', 'gdpGrowth', 'births', 'unemployment', 'datasets'];
               setExplorerMetric(metricKeys[i]);
             }} />
           </div>
         ))}
       </div>
+
+      <AnimatedDivider />
+
+      {/* Data Freshness Panel — Command Center Status Board */}
+      <DataFreshnessPanel lang={lang} />
 
       <AnimatedDivider />
 

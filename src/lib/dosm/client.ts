@@ -2,19 +2,20 @@
 // Client for api.data.gov.my/data-catalogue
 // Three-tier fetch strategy:
 //   Tier 1: API proxy (fastest, cached)
-//   Tier 2: Direct CSV download from storage.data.gov.my (reliable, no rate limits)
+//   Tier 2: CSV proxy route /api/dosm/csv (server-side, avoids client-side revalidate issue)
 //   Tier 3: Static fallback (always works offline)
 //
 // v3 CHANGES:
 //   - Three-tier fallback: API → CSV → Static
 //   - parseDosmDate() for quarterly "2024-Q2" format
 //   - Correct sort syntax "-date" instead of "date desc"
-//   - CSV download integration from direct-download.ts
+//   - CSV proxy route /api/dosm/csv (replaces direct fetchDosmCSV)
 
 import { DOSM_REGISTRY, STATIC_FALLBACKS, ID_CORRECTIONS, type DatasetId, type DatasetConfig } from './registry';
 import { guardFields, type FieldGuardResult } from './field-guard';
 import { parseDosmDate } from './yaml-reality';
-import { fetchDosmCSV } from './direct-download';
+// fetchDosmCSV removed — CSV fetching now goes through server-side proxy route
+// /api/dosm/csv?id={id} to avoid client-side next: { revalidate } issue
 import { VERIFIED_STATIC_FALLBACKS } from './static-fallbacks-v2';
 
 const BASE_URL = '/api/dosm'; // Proxied through our server route
@@ -72,19 +73,30 @@ function resolveId(rawId: string): { id: string; corrected: boolean; originalId:
 
 // ── STATIC FALLBACK ──
 // Tries v2 verified fallbacks first, then original registry fallbacks
-function getStaticFallback<T>(datasetId: string, config: DatasetConfig): DosmDataResult<T> | null {
-  // Try v2 verified fallbacks first (correct series_type, quarterly date format)
-  const v2Fallback = (VERIFIED_STATIC_FALLBACKS as Record<string, { data: Record<string, unknown>[] }>)[datasetId];
-  if (v2Fallback?.data?.length) {
-    const dataArr = v2Fallback.data as T[];
-    return enrichData(dataArr, config, 'fallback');
+// Accepts both the registry key and the resolved API ID for lookup
+function getStaticFallback<T>(
+  registryKey: string,
+  resolvedId: string,
+  config: DatasetConfig
+): DosmDataResult<T> | null {
+  // Try v2 verified fallbacks — first by registry key, then by resolved API ID
+  // This is important for computed datasets like cpi_inflation which have their own
+  // fallback entries (with inflation_yoy field) under the registry key
+  for (const lookupKey of [registryKey, resolvedId]) {
+    const v2Fallback = (VERIFIED_STATIC_FALLBACKS as Record<string, { data: Record<string, unknown>[] }>)[lookupKey];
+    if (v2Fallback?.data?.length) {
+      const dataArr = v2Fallback.data as T[];
+      return enrichData(dataArr, config, 'fallback');
+    }
   }
 
   // Fall back to original registry static fallbacks
-  const fallbackData = (STATIC_FALLBACKS as Record<string, { data: Record<string, unknown>[] }>)[datasetId];
-  if (fallbackData?.data?.length) {
-    const dataArr = fallbackData.data as T[];
-    return enrichData(dataArr, config, 'fallback');
+  for (const lookupKey of [registryKey, resolvedId]) {
+    const fallbackData = (STATIC_FALLBACKS as Record<string, { data: Record<string, unknown>[] }>)[lookupKey];
+    if (fallbackData?.data?.length) {
+      const dataArr = fallbackData.data as T[];
+      return enrichData(dataArr, config, 'fallback');
+    }
   }
 
   return null;
@@ -167,7 +179,14 @@ export async function fetchDosmData<T = Record<string, unknown>>(
           return dateB - dateA;
         });
 
-        const result = enrichData<T>(sorted, config, 'live', fieldGuard);
+        // Apply computed dataset transforms (e.g., YoY inflation from CPI)
+        const { data: transformedData, config: effectiveConfig } = applyComputedTransform(
+          sorted as Record<string, unknown>[],
+          config,
+          String(datasetId)
+        );
+
+        const result = enrichData<T>(transformedData as T[], effectiveConfig, 'live', fieldGuard);
         if (wasCorrected || correctedFromProxy) {
           (result as DosmDataResult).correctedId = correctedFromProxy ?? resolvedId;
         }
@@ -191,34 +210,63 @@ export async function fetchDosmData<T = Record<string, unknown>>(
     console.warn(`[DoSM Client] API tier failed for "${datasetId}": ${message}`);
   }
 
-  // ── TIER 2: Direct CSV Download ──
+  // ── TIER 2: CSV Proxy Route ──
+  // Uses server-side proxy /api/dosm/csv instead of direct fetchDosmCSV
+  // to avoid client-side `next: { revalidate }` incompatibility and
+  // sandbox restrictions on storage.data.gov.my
   try {
-    const csvFilters: Record<string, string> = {};
+    const csvParams = new URLSearchParams();
+    csvParams.set('id', resolvedId);
+    csvParams.set('limit', String(options.limit ?? config.defaultLimit));
+    csvParams.set('sortField', config.dateField);
+
+    // Apply defaultFilter from config if not overridden
     const filters = {
       ...(config.defaultFilter ?? {}),
       ...(options.filters ?? {}),
     };
     Object.entries(filters).forEach(([k, v]) => {
-      csvFilters[k] = String(v);
+      csvParams.set(k, String(v));
     });
 
-    const csvResult = await fetchDosmCSV(resolvedId, config.valueField, config.dateField, {
-      limit: options.limit ?? config.defaultLimit,
-      filters: csvFilters,
+    const csvRes = await fetch(`/api/dosm/csv?${csvParams}`, {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(12_000),
     });
 
-    if (csvResult.data.length > 0) {
-      console.log(`[DoSM Client] CSV tier success for "${datasetId}": ${csvResult.data.length} rows from ${csvResult.url}`);
+    if (csvRes.ok) {
+      const csvData: Record<string, unknown>[] = await csvRes.json();
 
-      const result = enrichData(csvResult.data as T[], config, 'csv');
-      (result as DosmDataResult).tier = 'csv';
+      if (csvData.length > 0) {
+        console.log(`[DoSM Client] CSV tier success for "${datasetId}": ${csvData.length} rows via proxy`);
 
-      cache.set(cacheKey, {
-        data: result,
-        expires: Date.now() + Math.min(config.refreshMs, CACHE_TTL_MS),
-      });
+        // Sort using DoSM-aware date parser (proxy already sorts, but re-sort to be safe)
+        const sorted = [...csvData].sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+          const dateA = parseDosmDate(String(a[config.dateField] ?? '')).getTime();
+          const dateB = parseDosmDate(String(b[config.dateField] ?? '')).getTime();
+          return dateB - dateA;
+        });
 
-      return result as DosmDataResult<T>;
+        // Apply computed dataset transforms (e.g., YoY inflation from CPI)
+        const { data: csvTransformed, config: csvEffectiveConfig } = applyComputedTransform(
+          sorted as Record<string, unknown>[],
+          config,
+          String(datasetId)
+        );
+
+        const result = enrichData(csvTransformed as T[], csvEffectiveConfig, 'csv');
+        (result as DosmDataResult).tier = 'csv';
+
+        cache.set(cacheKey, {
+          data: result,
+          expires: Date.now() + Math.min(config.refreshMs, CACHE_TTL_MS),
+        });
+
+        return result as DosmDataResult<T>;
+      }
+    } else {
+      const errBody = await csvRes.json().catch(() => ({ error: csvRes.statusText }));
+      console.warn(`[DoSM Client] CSV tier failed for "${datasetId}": HTTP ${csvRes.status}`, errBody);
     }
   } catch (csvErr: unknown) {
     const message = csvErr instanceof Error ? csvErr.message : 'CSV fetch error';
@@ -226,7 +274,7 @@ export async function fetchDosmData<T = Record<string, unknown>>(
   }
 
   // ── TIER 3: Static Fallback ──
-  const fallback = getStaticFallback<T>(resolvedId, config);
+  const fallback = getStaticFallback<T>(String(datasetId), resolvedId, config);
   if (fallback) {
     console.warn(`[DoSM Client] Using static fallback for "${datasetId}"`);
 
@@ -274,6 +322,107 @@ export async function fetchMany(
       results[i].status === 'fulfilled' ? results[i].value : null,
     ])
   );
+}
+
+// ── CPI INFLATION COMPUTATION ──
+// Computes Year-over-Year inflation rate from raw CPI index values.
+// inflation_rate = ((CPI_this_month - CPI_same_month_last_year) / CPI_same_month_last_year) * 100
+
+function getSameMonthPreviousYear(dateStr: string): string | null {
+  // Handle monthly format "2024-08-01" or "2024-08"
+  const monthlyMatch = dateStr.match(/^(\d{4})-(\d{2})/);
+  if (monthlyMatch) {
+    const prevYear = parseInt(monthlyMatch[1]) - 1;
+    return `${prevYear}-${monthlyMatch[2]}`;
+  }
+  // Handle quarterly format "2024-Q2"
+  const quarterlyMatch = dateStr.match(/^(\d{4})-Q(\d)$/);
+  if (quarterlyMatch) {
+    const prevYear = parseInt(quarterlyMatch[1]) - 1;
+    return `${prevYear}-Q${quarterlyMatch[2]}`;
+  }
+  // Handle annual format "2024"
+  const annualMatch = dateStr.match(/^(\d{4})$/);
+  if (annualMatch) {
+    return `${parseInt(annualMatch[1]) - 1}`;
+  }
+  return null;
+}
+
+function computeYoYInflation(
+  data: Record<string, unknown>[],
+  config: DatasetConfig
+): Record<string, unknown>[] | null {
+  // Data is sorted latest-first (descending by date).
+  // We need at least 2 data points spanning 13+ months to compute YoY.
+  const sorted = [...data].sort((a, b) => {
+    const dateA = parseDosmDate(String(a[config.dateField] ?? '')).getTime();
+    const dateB = parseDosmDate(String(b[config.dateField] ?? '')).getTime();
+    return dateA - dateB; // Ascending for YoY computation
+  });
+
+  if (sorted.length < 2) return null;
+
+  // Determine the source field for CPI values.
+  // For cpi_inflation, the API returns 'cpi' field; we compute 'inflation_yoy' from it.
+  const sourceField = 'cpi'; // CPI index field in raw API data
+
+  // Build a date-keyed map for quick lookup of previous year values
+  const dateMap = new Map<string, number>();
+  for (const row of sorted) {
+    const dateStr = String(row[config.dateField] ?? '');
+    const value = parseFloat(String(row[sourceField] ?? 0));
+    if (!isNaN(value)) {
+      dateMap.set(dateStr, value);
+    }
+  }
+
+  // Compute YoY for each data point
+  const inflationData: Record<string, unknown>[] = [];
+  for (const row of sorted) {
+    const dateStr = String(row[config.dateField] ?? '');
+    const currentValue = parseFloat(String(row[sourceField] ?? 0));
+    if (isNaN(currentValue)) continue;
+
+    // Find same month in previous year
+    const prevYearDate = getSameMonthPreviousYear(dateStr);
+    const prevValue = prevYearDate ? dateMap.get(prevYearDate) : undefined;
+
+    if (prevValue !== undefined && prevValue !== 0) {
+      const inflationYoy = ((currentValue - prevValue) / prevValue) * 100;
+      inflationData.push({
+        ...row,
+        inflation_yoy: parseFloat(inflationYoy.toFixed(2)),
+      });
+    }
+  }
+
+  // Reverse back to latest-first order
+  return inflationData.length > 0 ? inflationData.reverse() : null;
+}
+
+// ── COMPUTED DATASET POST-PROCESSING ──
+// For datasets marked `computed: true`, applies derivation logic (e.g., YoY inflation from CPI).
+// Returns the processed data array and an optional modified config.
+function applyComputedTransform(
+  data: Record<string, unknown>[],
+  config: DatasetConfig,
+  registryKey: string
+): { data: Record<string, unknown>[]; config: DatasetConfig } {
+  if (!config.computed) return { data, config };
+
+  // CPI Inflation: compute YoY % change from raw CPI index
+  if (registryKey === 'cpi_inflation' && config.valueField === 'inflation_yoy') {
+    const inflationData = computeYoYInflation(data, config);
+    if (inflationData) {
+      return { data: inflationData, config };
+    }
+  }
+
+  // Future: other computed datasets can be added here
+  // e.g., trade balance = exports - imports
+
+  return { data, config };
 }
 
 // ── ENRICHMENT ──

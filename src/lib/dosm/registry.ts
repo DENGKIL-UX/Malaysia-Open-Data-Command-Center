@@ -258,9 +258,9 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
     labelBM: 'Kadar Inflasi IHP',
     category: 'Prices',
     categoryBM: 'Harga',
-    valueField: 'cpi',                         // FIXED: was 'inflation' which doesn't exist in API; inflation = YoY % change of cpi
+    valueField: 'inflation_yoy',               // FIXED: was 'cpi'; inflation_yoy is computed as YoY % change of cpi
     dateField: 'date',
-    computed: true,                            // Marked as derived — inflation is computed client-side
+    computed: true,                            // Marked as derived — inflation is computed client-side from cpi field
     unit: '%',
     granularity: 'monthly',
     priority: 'P0',

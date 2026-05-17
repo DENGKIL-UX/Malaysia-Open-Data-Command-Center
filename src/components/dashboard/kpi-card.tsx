@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowUpRight, ArrowDownRight, ArrowUp, ArrowDown } from 'lucide-react';
 import type { Lang } from '@/lib/dashboard-types';
+import type { DataStatus } from '@/lib/dosm/client';
 
 // ─── Sparkline SVG Component ───────────────────────────────────────
 function Sparkline({ data, color, width = 40, height = 16 }: {
@@ -40,13 +41,82 @@ function Sparkline({ data, color, width = 40, height = 16 }: {
   );
 }
 
+// ─── Data Tier Indicator ────────────────────────────────────────────
+const TIER_CONFIG: Record<DataStatus, { color: string; label: string; animate: boolean }> = {
+  loading: { color: '#6b7280', label: 'LOAD', animate: true },
+  live:    { color: '#10B981', label: 'LIVE', animate: true },
+  csv:     { color: '#06B6D4', label: 'CSV',  animate: true },
+  fallback:{ color: '#F59E0B', label: 'STATIC', animate: false },
+  error:   { color: '#EF4444', label: 'ERR',  animate: false },
+};
+
+function DataTierIndicator({ status }: { status?: DataStatus }) {
+  if (!status) return null;
+  const cfg = TIER_CONFIG[status];
+  return (
+    <span
+      className="absolute top-2 right-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm font-mono z-10"
+      style={{
+        background: `${cfg.color}10`,
+        border: `1px solid ${cfg.color}25`,
+      }}
+      role="status"
+      aria-label={`Data tier: ${cfg.label}`}
+    >
+      <span className="relative inline-flex items-center justify-center w-1.5 h-1.5 flex-shrink-0">
+        {cfg.animate ? (
+          <>
+            <motion.span
+              className="absolute w-1.5 h-1.5 rounded-full"
+              style={{ border: `1px solid ${cfg.color}40` }}
+              animate={{ scale: [1, 2, 1], opacity: [0.5, 0, 0.5] }}
+              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+            />
+            <motion.span
+              className="w-1.5 h-1.5 rounded-full"
+              style={{
+                backgroundColor: cfg.color,
+                boxShadow: `0 0 4px ${cfg.color}60`,
+              }}
+              animate={status === 'loading'
+                ? { rotate: 360 }
+                : { scale: [1, 1.15, 1], opacity: [1, 0.8, 1] }}
+              transition={status === 'loading'
+                ? { duration: 1, repeat: Infinity, ease: 'linear' }
+                : { duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+            />
+          </>
+        ) : (
+          <span
+            className="w-1.5 h-1.5 rounded-full"
+            style={{
+              backgroundColor: cfg.color,
+              boxShadow: `0 0 3px ${cfg.color}40`,
+            }}
+          />
+        )}
+      </span>
+      <span
+        className="text-[7px] font-bold tracking-wider"
+        style={{
+          color: cfg.color,
+          textShadow: `0 0 4px ${cfg.color}30`,
+        }}
+      >
+        {cfg.label}
+      </span>
+    </span>
+  );
+}
+
 // ─── KPI Card Component ─────────────────────────────────────────────
-export function KPICard({ icon: Icon, label, value, unit, change, color, lang, sparkline, trendValue, onClick }: {
+export function KPICard({ icon: Icon, label, value, unit, change, color, lang, sparkline, trendValue, onClick, status }: {
   icon: React.ElementType; label: string; value: string; unit: string;
   change?: number; color: string; lang: Lang;
   sparkline?: number[];
   trendValue?: string;
   onClick?: () => void;
+  status?: DataStatus;
 }) {
   const [hovered, setHovered] = useState(false);
 
@@ -77,6 +147,9 @@ export function KPICard({ icon: Icon, label, value, unit, change, color, lang, s
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
+      {/* Data Tier Indicator — top right corner */}
+      <DataTierIndicator status={status} />
+
       {/* Top-right radial glow */}
       <div className="absolute top-0 right-0 w-24 h-24 opacity-5" style={{
         background: `radial-gradient(circle at top right, ${color}, transparent)`,
