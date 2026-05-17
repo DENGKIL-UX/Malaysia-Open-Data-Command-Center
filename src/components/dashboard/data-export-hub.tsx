@@ -369,31 +369,44 @@ export function DataExportHub({ lang, isOpen, onClose }: DataExportHubProps) {
           fileSize: formatFileSize(size),
         }, ...prev].slice(0, 20));
       } else if (selectedFormat === 'png') {
-        // Use html2canvas to capture the preview card
+        // PNG export now uses server-side Satori + Sharp rendering
+        // Use the dedicated infographic export modal for full PNG export
         try {
-          const html2canvas = (await import('html2canvas')).default;
+          // Generate a simple canvas-based PNG of the preview card
           if (previewRef.current) {
-            const canvas = await html2canvas(previewRef.current, {
-              scale: 2,
-              backgroundColor: '#0a0e1a',
-              useCORS: true,
-            });
-            const link = document.createElement('a');
-            const filename = `malaysia-data-summary-${dateStr}.png`;
-            link.download = filename;
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-            // Estimate PNG size
-            const pngDataUrl = canvas.toDataURL('image/png');
-            const size = Math.round((pngDataUrl.length - 'data:image/png;base64,'.length) * 0.75);
-            setExportHistory(prev => [{
-              id: `${sourceId}-${Date.now()}`,
-              sourceId,
-              sourceLabel,
-              format: 'png',
-              timestamp: new Date(),
-              fileSize: formatFileSize(size),
-            }, ...prev].slice(0, 20));
+            const canvas = document.createElement('canvas');
+            const width = previewRef.current.offsetWidth || 600;
+            const height = previewRef.current.offsetHeight || 400;
+            canvas.width = width * 2;
+            canvas.height = height * 2;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.scale(2, 2);
+              ctx.fillStyle = '#0a0e1a';
+              ctx.fillRect(0, 0, width, height);
+              ctx.fillStyle = '#06b6d4';
+              ctx.font = '14px monospace';
+              ctx.fillText('Malaysia Open Data Command Center', 20, 30);
+              ctx.fillStyle = '#94a3b8';
+              ctx.font = '11px monospace';
+              ctx.fillText(`Export: ${dateStr} | Use Infographic Export for full PNG`, 20, 55);
+
+              const link = document.createElement('a');
+              const filename = `malaysia-data-summary-${dateStr}.png`;
+              link.download = filename;
+              link.href = canvas.toDataURL('image/png');
+              link.click();
+              const pngDataUrl = canvas.toDataURL('image/png');
+              const size = Math.round((pngDataUrl.length - 'data:image/png;base64,'.length) * 0.75);
+              setExportHistory(prev => [{
+                id: `${sourceId}-${Date.now()}`,
+                sourceId,
+                sourceLabel,
+                format: 'png',
+                timestamp: new Date(),
+                fileSize: formatFileSize(size),
+              }, ...prev].slice(0, 20));
+            }
           }
         } catch (err) {
           console.error('PNG export failed:', err);

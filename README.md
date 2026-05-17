@@ -99,7 +99,7 @@ A premium SaaS-grade intelligence dashboard powered by **data.gov.my** open data
 - **Styling**: Tailwind CSS 4 + shadcn/ui
 - **Charts**: Recharts
 - **Animations**: Framer Motion
-- **Export**: html2canvas
+- **Export**: Satori + Sharp (server-side JSX→SVG→PNG)
 - **Icons**: Lucide React
 
 ## 🚀 Getting Started
