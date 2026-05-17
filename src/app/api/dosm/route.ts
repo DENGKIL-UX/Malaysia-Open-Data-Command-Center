@@ -11,9 +11,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { ID_CORRECTIONS } from '@/lib/dosm/ground-truth-registry';
+import { getCsvUrl } from '@/lib/dosm/csv-urls';
 
 const UPSTREAM = 'https://api.data.gov.my/data-catalogue';
-const CSV_BASE = 'https://storage.data.gov.my/data-catalogue';
+const CSV_BASE_FALLBACK = 'https://storage.data.gov.my/data-catalogue'; // Legacy fallback URL
 const CACHE_SECS = 300; // 5 min server cache
 const TIMEOUT_MS = 10_000; // 10-second upstream timeout
 
@@ -99,12 +100,13 @@ function buildHeaders(opts: {
   fields?: string;
   recordCount?: number;
 }): Record<string, string> {
+  const csvUrl = getCsvUrl(opts.datasetId) ?? `https://storage.data.gov.my/data-catalogue/${opts.datasetId}.csv`;
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'X-Cache': opts.cacheStatus,
     'X-Dataset': opts.datasetId,
     'X-Source': 'api.data.gov.my/data-catalogue',
-    'X-CSV-Download': `${CSV_BASE}/${opts.datasetId}.csv`,
+    'X-CSV-Download': csvUrl,
     'Cache-Control': `public, s-maxage=${CACHE_SECS}`,
     'Access-Control-Allow-Origin': '*',
   };
@@ -197,7 +199,6 @@ export async function GET(req: NextRequest) {
         'User-Agent': 'MalaysiaOpenDataCommandCenter/3.0 (+data.gov.my)',
       },
       signal: controller.signal,
-      next: { revalidate: CACHE_SECS },
     });
 
     // ── Upstream returned non-2xx ─────────────────────────
@@ -207,12 +208,14 @@ export async function GET(req: NextRequest) {
 
       if (res.status === 404) {
         const suggestion = WRONG_ID_SUGGESTIONS[datasetId];
+        const csvUrl = getCsvUrl(datasetId);
         return NextResponse.json(
           {
             error: `Dataset "${datasetId}" not found on api.data.gov.my`,
             suggestion: suggestion ?? 'Check the dataset ID at https://data.gov.my/data-catalogue',
             dataset: datasetId,
-            csvFallback: `${CSV_BASE}/${datasetId}.csv`,
+            csvFallback: csvUrl ?? `${CSV_BASE_FALLBACK}/${datasetId}.csv`,
+            csvAvailable: csvUrl !== null,
           },
           { status: 404 }
         );
@@ -223,7 +226,7 @@ export async function GET(req: NextRequest) {
           error: `DoSM API returned HTTP ${res.status}`,
           dataset: datasetId,
           upstreamBody: text.substring(0, 200),
-          csvFallback: `${CSV_BASE}/${datasetId}.csv`,
+          csvFallback: getCsvUrl(datasetId) ?? `${CSV_BASE_FALLBACK}/${datasetId}.csv`,
         },
         { status: res.status }
       );
@@ -242,14 +245,14 @@ export async function GET(req: NextRequest) {
           error: 'Upstream returned invalid JSON — api.data.gov.my may be experiencing issues',
           dataset: datasetId,
           rawPreview: body.substring(0, 200),
-          csvFallback: `${CSV_BASE}/${datasetId}.csv`,
+          csvFallback: getCsvUrl(datasetId) ?? `${CSV_BASE_FALLBACK}/${datasetId}.csv`,
         },
         { status: 502 }
       );
     }
 
     // Determine the data array
-    const dataArray: unknown[] = Array.isArray(parsed) ? parsed : parsed?.data ?? [];
+    const dataArray: unknown[] = Array.isArray(parsed) ? parsed : (parsed as Record<string, unknown>)?.data ?? [];
 
     if (dataArray.length === 0) {
       const suggestion = WRONG_ID_SUGGESTIONS[datasetId];
@@ -261,7 +264,7 @@ export async function GET(req: NextRequest) {
           suggestion: suggestion ?? 'Verify the dataset ID at https://data.gov.my/data-catalogue',
           dataset: datasetId,
           recordCount: 0,
-          csvFallback: `${CSV_BASE}/${datasetId}.csv`,
+          csvFallback: getCsvUrl(datasetId) ?? `${CSV_BASE_FALLBACK}/${datasetId}.csv`,
         },
         { status: 404 }
       );
@@ -308,7 +311,7 @@ export async function GET(req: NextRequest) {
       {
         error: message,
         dataset: datasetId,
-        csvFallback: `${CSV_BASE}/${datasetId}.csv`,
+        csvFallback: getCsvUrl(datasetId) ?? `${CSV_BASE_FALLBACK}/${datasetId}.csv`,
         note: 'If API is unreachable, try the CSV fallback URL or use client-side fetchDosmCSV()',
       },
       { status }

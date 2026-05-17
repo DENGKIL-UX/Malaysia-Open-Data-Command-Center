@@ -364,8 +364,10 @@ function computeYoYInflation(
   if (sorted.length < 2) return null;
 
   // Determine the source field for CPI values.
-  // For cpi_inflation, the API returns 'cpi' field; we compute 'inflation_yoy' from it.
-  const sourceField = 'cpi'; // CPI index field in raw API data
+  // cpi_headline API returns 'index' field (not 'cpi'). Check which field is present in the data.
+  const sourceField = sorted[0] && 'index' in (sorted[0] as Record<string, unknown>)
+    ? 'index'    // cpi_headline from API or CSV (returns 'index' field)
+    : 'cpi';     // Fallback for old static data that uses 'cpi' field
 
   // Build a date-keyed map for quick lookup of previous year values
   const dateMap = new Map<string, number>();

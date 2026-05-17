@@ -91,14 +91,14 @@ export const VERIFIED_STATIC_FALLBACKS: Record<string, { data: Record<string, un
   // CPI 2.0% in Aug 2024
   cpi_headline: {
     data: [
-      { date: '2024-08-01', cpi: 132.4, core_cpi: 130.8 },
-      { date: '2024-07-01', cpi: 132.1, core_cpi: 130.5 },
-      { date: '2024-06-01', cpi: 131.8, core_cpi: 130.2 },
-      { date: '2024-05-01', cpi: 131.5, core_cpi: 129.9 },
-      { date: '2024-04-01', cpi: 131.3, core_cpi: 129.7 },
-      { date: '2024-03-01', cpi: 131.2, core_cpi: 129.5 },
-      { date: '2024-02-01', cpi: 131.0, core_cpi: 129.3 },
-      { date: '2024-01-01', cpi: 130.9, core_cpi: 129.1 },
+      { date: '2024-08-01', division: 'overall', index: 132.4 },
+      { date: '2024-07-01', division: 'overall', index: 132.1 },
+      { date: '2024-06-01', division: 'overall', index: 131.8 },
+      { date: '2024-05-01', division: 'overall', index: 131.5 },
+      { date: '2024-04-01', division: 'overall', index: 131.3 },
+      { date: '2024-03-01', division: 'overall', index: 131.2 },
+      { date: '2024-02-01', division: 'overall', index: 131.0 },
+      { date: '2024-01-01', division: 'overall', index: 130.9 },
     ],
   },
 
@@ -107,14 +107,14 @@ export const VERIFIED_STATIC_FALLBACKS: Record<string, { data: Record<string, un
   // Pre-computed fallback so the dashboard never needs live API for this derived metric
   cpi_inflation: {
     data: [
-      { date: '2024-08-01', inflation_yoy: 2.0, cpi: 132.4 },
-      { date: '2024-07-01', inflation_yoy: 2.1, cpi: 132.1 },
-      { date: '2024-06-01', inflation_yoy: 2.3, cpi: 131.8 },
-      { date: '2024-05-01', inflation_yoy: 2.4, cpi: 131.5 },
-      { date: '2024-04-01', inflation_yoy: 2.5, cpi: 131.3 },
-      { date: '2024-03-01', inflation_yoy: 2.4, cpi: 131.2 },
-      { date: '2024-02-01', inflation_yoy: 2.5, cpi: 131.0 },
-      { date: '2024-01-01', inflation_yoy: 2.5, cpi: 130.9 },
+      { date: '2024-08-01', inflation_yoy: 2.0, index: 132.4 },
+      { date: '2024-07-01', inflation_yoy: 2.1, index: 132.1 },
+      { date: '2024-06-01', inflation_yoy: 2.3, index: 131.8 },
+      { date: '2024-05-01', inflation_yoy: 2.4, index: 131.5 },
+      { date: '2024-04-01', inflation_yoy: 2.5, index: 131.3 },
+      { date: '2024-03-01', inflation_yoy: 2.4, index: 131.2 },
+      { date: '2024-02-01', inflation_yoy: 2.5, index: 131.0 },
+      { date: '2024-01-01', inflation_yoy: 2.5, index: 130.9 },
     ],
   },
 

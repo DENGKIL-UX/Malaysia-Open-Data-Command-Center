@@ -221,16 +221,17 @@ export const GROUND_TRUTH_REGISTRY = {
     priority: 'P0',
     fields: [
       { name: 'date', type: 'date', label: 'Month', required: true },
-      { name: 'cpi', type: 'number', label: 'CPI Index', required: true },
-      { name: 'core_cpi', type: 'number', label: 'Core CPI Index' },
+      { name: 'division', type: 'string', label: 'COICOP Division', required: true },
+      { name: 'index', type: 'number', label: 'CPI Index', required: true },
     ],
-    valueField: 'cpi',
+    valueField: 'index',
+    groupField: 'division',
     dateField: 'date',
-    defaultFilter: {},
+    defaultFilter: { division: 'overall' },
     unit: 'Index',
     priority_order: 2,
     status: 'VERIFIED',
-    notes: 'Inflation rate must be computed as YoY % change from CPI, not fetched as a separate dataset.',
+    notes: 'API returns fields: date, division, index. Division values include "overall", "food_beverage", etc. Inflation is computed as YoY % change from the index field.',
   } satisfies GroundTruthDataset,
 
   lfs_month: {
@@ -1574,10 +1575,10 @@ export const STATIC_FALLBACKS: Record<string, { data: Record<string, unknown>[] 
 
   cpi_headline: {
     data: [
-      { date: '2024-09', cpi: 132.4, core_cpi: 129.8 },
-      { date: '2024-08', cpi: 132.1, core_cpi: 129.5 },
-      { date: '2024-07', cpi: 131.8, core_cpi: 129.3 },
-      { date: '2024-06', cpi: 131.5, core_cpi: 129.0 },
+      { date: '2024-09', division: 'overall', index: 132.4 },
+      { date: '2024-08', division: 'overall', index: 132.1 },
+      { date: '2024-07', division: 'overall', index: 131.8 },
+      { date: '2024-06', division: 'overall', index: 131.5 },
     ],
   },
 

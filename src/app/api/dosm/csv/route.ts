@@ -1,17 +1,18 @@
 // src/app/api/dosm/csv/route.ts
-// Server-side CSV proxy for storage.data.gov.my
-// Fixes: fetchDosmCSV() was called from client-side but used `next: { revalidate }`
-// which only works in server components. This route fetches CSV on the server side
-// and returns parsed JSON, bypassing sandbox restrictions on storage.data.gov.my.
+// Server-side CSV proxy for storage.dosm.gov.my
+// Fetches CSV on the server side and returns parsed JSON.
 //
-// URL pattern: /api/dosm/csv?id={dataset_id}
-// Upstream: https://storage.data.gov.my/data-catalogue/{dataset_id}.csv
+// v4 CHANGES:
+//   - Use getCsvUrl() from csv-urls.ts for correct per-category URLs
+//   - Remove `next: { revalidate }` (not supported on Cloudflare Workers)
+//   - Fall back to legacy storage.data.gov.my URL when mapping URL fails
 
 import { NextRequest, NextResponse } from 'next/server';
 import { parseDosmDate } from '@/lib/dosm/yaml-reality';
 import { ID_CORRECTIONS } from '@/lib/dosm/ground-truth-registry';
+import { getCsvUrl } from '@/lib/dosm/csv-urls';
 
-const CSV_BASE = 'https://storage.data.gov.my/data-catalogue';
+const CSV_BASE_FALLBACK = 'https://storage.data.gov.my/data-catalogue'; // Legacy fallback
 const CACHE_SECS = 300; // 5 min server cache
 const TIMEOUT_MS = 15_000; // 15-second upstream timeout (CSV files can be large)
 
@@ -91,8 +92,8 @@ function buildHeaders(opts: {
     'Content-Type': 'application/json',
     'X-Cache': opts.cacheStatus,
     'X-Dataset': opts.datasetId,
-    'X-Source': 'storage.data.gov.my/csv-proxy',
-    'X-CSV-Original': `${CSV_BASE}/${opts.datasetId}.csv`,
+    'X-Source': 'storage.dosm.gov.my/csv-proxy',
+    'X-CSV-Original': getCsvUrl(opts.datasetId) ?? `${CSV_BASE_FALLBACK}/${opts.datasetId}.csv`,
     'Cache-Control': `public, s-maxage=${CACHE_SECS}`,
     'Access-Control-Allow-Origin': '*',
   };
@@ -108,6 +109,91 @@ function buildHeaders(opts: {
   }
 
   return headers;
+}
+
+// ── Process CSV text into a filtered, sorted, limited JSON response ──
+function processCsvResponse(
+  csvText: string,
+  datasetId: string,
+  correctedId: string | undefined,
+  filterParams: Record<string, string>,
+  sortFieldParam: string | null,
+  sortAscParam: string | null,
+  limitParam: string | null,
+  cacheKey: string,
+): NextResponse | null {
+  const allData = parseCSV(csvText);
+
+  if (allData.length === 0) {
+    return null; // Caller handles empty CSV
+  }
+
+  // ── Apply filters from query params ───────────────────
+  let filtered = allData;
+  if (Object.keys(filterParams).length > 0) {
+    filtered = allData.filter(row =>
+      Object.entries(filterParams).every(
+        ([k, v]) => String(row[k]).toLowerCase() === v.toLowerCase()
+      )
+    );
+  }
+
+  // ── Sort by date field (default: descending = latest first) ──
+  const sortField = sortFieldParam || 'date';
+  const sortAsc = sortAscParam === 'true';
+  const dateField = filtered.length > 0 && filtered[0][sortField] !== undefined
+    ? sortField
+    : 'date';
+
+  const sorted = [...filtered].sort((a, b) => {
+    try {
+      const dateA = parseDosmDate(String(a[dateField])).getTime();
+      const dateB = parseDosmDate(String(b[dateField])).getTime();
+      return sortAsc ? dateA - dateB : dateB - dateA;
+    } catch {
+      return 0;
+    }
+  });
+
+  // ── Apply limit ───────────────────────────────────────
+  const limit = limitParam ? parseInt(limitParam, 10) : undefined;
+  const limited = limit ? sorted.slice(0, limit) : sorted;
+
+  // ── Extract field names for diagnostic header ─────────
+  const fields = Object.keys(allData[0] ?? {}).sort().join(',');
+
+  const responseBody = JSON.stringify(limited);
+
+  // ── Cache the response ────────────────────────────────
+  memCache.set(cacheKey, {
+    body: responseBody,
+    fields,
+    recordCount: limited.length,
+    correctedId: correctedId ?? undefined,
+    expires: Date.now() + CACHE_SECS * 1000,
+  });
+
+  // Simple GC: evict expired entries when cache grows
+  if (memCache.size > 200) {
+    const now = Date.now();
+    for (const [k, v] of memCache.entries()) {
+      if (v.expires < now) memCache.delete(k);
+    }
+  }
+
+  console.log(
+    `[DoSM CSV ✅] ${datasetId} | ${limited.length}/${allData.length} records | fields: ${fields} | filters: ${JSON.stringify(filterParams)}`
+  );
+
+  return new NextResponse(responseBody, {
+    headers: buildHeaders({
+      cacheStatus: 'MISS',
+      datasetId,
+      correctedId: correctedId ?? undefined,
+      fields,
+      recordCount: limited.length,
+    }),
+  });
 }
 
 // ── Main handler ─────────────────────────────────────────────────
@@ -161,20 +247,33 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // ── Fetch CSV from storage.data.gov.my ─────────────────
-  const csvUrl = `${CSV_BASE}/${datasetId}.csv`;
+  // ── Resolve CSV URL: prefer storage.dosm.gov.my mapping, fall back to legacy URL ──
+  const csvUrl = getCsvUrl(datasetId) ?? `${CSV_BASE_FALLBACK}/${datasetId}.csv`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
   try {
-    const res = await fetch(csvUrl, {
+    // Try primary URL first (storage.dosm.gov.my if mapped, or legacy)
+    let res = await fetch(csvUrl, {
       headers: {
         Accept: 'text/csv, text/plain',
         'User-Agent': 'MalaysiaOpenDataCommandCenter/3.0 (+data.gov.my)',
       },
       signal: controller.signal,
-      next: { revalidate: CACHE_SECS },
     });
+
+    // ── If primary URL fails and we used the mapping, try the legacy URL as fallback ──
+    if (!res.ok && getCsvUrl(datasetId)) {
+      console.warn(`[DoSM CSV Proxy] Primary URL failed (${res.status}), trying legacy URL`);
+      const legacyUrl = `${CSV_BASE_FALLBACK}/${datasetId}.csv`;
+      res = await fetch(legacyUrl, {
+        headers: {
+          Accept: 'text/csv, text/plain',
+          'User-Agent': 'MalaysiaOpenDataCommandCenter/3.0 (+data.gov.my)',
+        },
+        signal: controller.signal,
+      });
+    }
 
     if (!res.ok) {
       console.error(`[DoSM CSV Proxy] Fetch failed: HTTP ${res.status} for ${csvUrl}`);
@@ -189,9 +288,12 @@ export async function GET(req: NextRequest) {
     }
 
     const csvText = await res.text();
-    const allData = parseCSV(csvText);
+    const result = processCsvResponse(
+      csvText, datasetId, corrected ?? undefined,
+      filterParams, sortFieldParam, sortAscParam, limitParam, cacheKey,
+    );
 
-    if (allData.length === 0) {
+    if (!result) {
       return NextResponse.json(
         {
           error: `Empty CSV for dataset "${datasetId}"`,
@@ -202,72 +304,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // ── Apply filters from query params ───────────────────
-    let filtered = allData;
-    if (Object.keys(filterParams).length > 0) {
-      filtered = allData.filter(row =>
-        Object.entries(filterParams).every(
-          ([k, v]) => String(row[k]).toLowerCase() === v.toLowerCase()
-        )
-      );
-    }
-
-    // ── Sort by date field (default: descending = latest first) ──
-    const sortField = sortFieldParam || 'date';
-    const sortAsc = sortAscParam === 'true';
-    const dateField = filtered.length > 0 && filtered[0][sortField] !== undefined
-      ? sortField
-      : 'date';
-
-    const sorted = [...filtered].sort((a, b) => {
-      try {
-        const dateA = parseDosmDate(String(a[dateField])).getTime();
-        const dateB = parseDosmDate(String(b[dateField])).getTime();
-        return sortAsc ? dateA - dateB : dateB - dateA;
-      } catch {
-        return 0;
-      }
-    });
-
-    // ── Apply limit ───────────────────────────────────────
-    const limit = limitParam ? parseInt(limitParam, 10) : undefined;
-    const limited = limit ? sorted.slice(0, limit) : sorted;
-
-    // ── Extract field names for diagnostic header ─────────
-    const fields = Object.keys(allData[0] ?? {}).sort().join(',');
-
-    const responseBody = JSON.stringify(limited);
-
-    // ── Cache the response ────────────────────────────────
-    memCache.set(cacheKey, {
-      body: responseBody,
-      fields,
-      recordCount: limited.length,
-      correctedId: corrected ?? undefined,
-      expires: Date.now() + CACHE_SECS * 1000,
-    });
-
-    // Simple GC: evict expired entries when cache grows
-    if (memCache.size > 200) {
-      const now = Date.now();
-      for (const [k, v] of memCache.entries()) {
-        if (v.expires < now) memCache.delete(k);
-      }
-    }
-
-    console.log(
-      `[DoSM CSV ✅] ${datasetId} | ${limited.length}/${allData.length} records | fields: ${fields} | filters: ${JSON.stringify(filterParams)}`
-    );
-
-    return new NextResponse(responseBody, {
-      headers: buildHeaders({
-        cacheStatus: 'MISS',
-        datasetId,
-        correctedId: corrected ?? undefined,
-        fields,
-        recordCount: limited.length,
-      }),
-    });
+    return result;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error fetching CSV';
     console.error(`[DoSM CSV Proxy] Error for "${datasetId}":`, message);

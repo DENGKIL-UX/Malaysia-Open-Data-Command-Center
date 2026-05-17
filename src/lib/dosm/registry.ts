@@ -238,14 +238,15 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
     labelBM: 'IHP Keseluruhan',
     category: 'Prices',
     categoryBM: 'Harga',
-    valueField: 'cpi',
+    valueField: 'index',                    // FIXED: API returns 'index', not 'cpi'
     dateField: 'date',
-    extraFields: ['core_cpi'],
+    groupField: 'division',                 // FIXED: API returns 'division' (e.g. 'overall', 'food_beverage')
+    defaultFilter: { division: 'overall' }, // Show overall CPI by default
     unit: 'Indeks',
     granularity: 'monthly',
     priority: 'P0',
-    description: 'Consumer Price Index headline and core index',
-    descriptionBM: 'Indeks Harga Pengguna keseluruhan dan teras',
+    description: 'Consumer Price Index headline by division (overall, food_beverage, etc.)',
+    descriptionBM: 'Indeks Harga Pengguna keseluruhan mengikut bahagian',
     defaultLimit: 24,
     refreshMs: P0_REFRESH,
     color: '#F59E0B',
