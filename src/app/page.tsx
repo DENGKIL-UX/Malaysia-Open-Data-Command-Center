@@ -8,6 +8,7 @@ import {
   HelpCircle, Languages, ArrowUp, Bell, Copyright,
   ExternalLink, Heart, Download, ChevronRight,
   Globe, Github, Twitter, Linkedin, FileText,
+  Brain,
 } from 'lucide-react';
 
 import BootSequence from '@/components/dashboard/boot-sequence';
@@ -17,6 +18,7 @@ import { OverviewSection } from '@/components/dashboard/overview-section';
 import { GeoMapSection } from '@/components/dashboard/geomap-section';
 import { DatasetsSection } from '@/components/dashboard/datasets-section';
 import { AnalyticsSection } from '@/components/dashboard/analytics-section';
+import { IntelligenceSection } from '@/components/dashboard/intelligence-section';
 import { InfographicModal } from '@/components/dashboard/infographic-modal';
 
 import { CommandPalette, KeyboardShortcutsModal } from '@/components/dashboard/command-palette';
@@ -267,6 +269,7 @@ export default function Home() {
       case 'tab-geomap': setActiveTab('geomap'); break;
       case 'tab-datasets': setActiveTab('datasets'); break;
       case 'tab-analytics': setActiveTab('analytics'); break;
+      case 'tab-intelligence': setActiveTab('intelligence'); break;
       case 'toggle-lang': setLang(l => l === 'en' ? 'ms' : 'en'); break;
       case 'open-infographic': setShowInfographic(true); break;
 
@@ -311,6 +314,7 @@ export default function Home() {
         case '2': setActiveTab('geomap'); break;
         case '3': setActiveTab('datasets'); break;
         case '4': setActiveTab('analytics'); break;
+        case '5': setActiveTab('intelligence'); break;
         case 'l': case 'L': setLang(l => l === 'en' ? 'ms' : 'en'); break;
 
         case 'e': case 'E': setShowInfographic(true); break;
@@ -326,6 +330,7 @@ export default function Home() {
     { id: 'geomap', icon: Map, label_en: 'GeoMap', label_ms: 'PetaGeo' },
     { id: 'datasets', icon: Database, label_en: 'Datasets', label_ms: 'Set Data' },
     { id: 'analytics', icon: BarChart3, label_en: 'Analytics', label_ms: 'Analitik' },
+    { id: 'intelligence', icon: Brain, label_en: 'Intel', label_ms: 'Intel' },
   ];
 
   return (
@@ -616,6 +621,7 @@ export default function Home() {
                 {activeTab === 'geomap' && <GeoMapSection lang={lang} onViewProfile={(id) => setProfileStateId(id)} />}
                 {activeTab === 'datasets' && <DatasetsSection lang={lang} />}
                 {activeTab === 'analytics' && <AnalyticsSection lang={lang} onNavigateGeoMap={(stateId, layer) => { setActiveTab('geomap'); }} />}
+                {activeTab === 'intelligence' && <IntelligenceSection lang={lang} />}
               </motion.div>
             </AnimatePresence>
 

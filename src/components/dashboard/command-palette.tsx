@@ -6,6 +6,7 @@ import {
   Database, BarChart3, Map, LayoutDashboard, FileText,
   Printer, Languages, Search, Command, ArrowUp,
   ArrowDown, CornerDownLeft, X, HelpCircle,
+  Brain,
 } from 'lucide-react';
 import { DATASETS } from '@/lib/data/datasets';
 import type { Lang } from '@/lib/dashboard-types';
@@ -24,6 +25,7 @@ export function CommandPalette({ lang, onClose, onAction }: {
     { id: 'tab-geomap', label_en: 'Go to GeoMap', label_ms: 'Pergi ke PetaGeo', icon: Map, shortcut: '2' },
     { id: 'tab-datasets', label_en: 'Go to Datasets', label_ms: 'Pergi ke Set Data', icon: Database, shortcut: '3' },
     { id: 'tab-analytics', label_en: 'Go to Analytics', label_ms: 'Pergi ke Analitik', icon: BarChart3, shortcut: '4' },
+    { id: 'tab-intelligence', label_en: 'Go to Intelligence', label_ms: 'Pergi ke Intel', icon: Brain, shortcut: '5' },
     { id: 'toggle-lang', label_en: 'Toggle Language', label_ms: 'Tukar Bahasa', icon: Languages, shortcut: 'L' },
     { id: 'open-infographic', label_en: 'Open Infographic Export', label_ms: 'Buka Eksport Infografik', icon: Printer, shortcut: 'E' },
 
