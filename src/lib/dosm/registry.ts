@@ -711,7 +711,7 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
     valueField: 'population',
     dateField: 'date',
     groupField: 'state',
-    defaultFilter: { sex: 'Both' },            // NEW
+    defaultFilter: { sex: 'both', ethnicity: 'overall', age: 'overall' }, // FIXED: 3-way filter to prevent 200x data duplication
     unit: 'ribu orang',
     granularity: 'annual',
     priority: 'P0',
@@ -733,7 +733,7 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
     dateField: 'date',
     groupField: 'sex',
     extraFields: ['age_group', 'ethnicity'],
-    defaultFilter: { sex: 'Both' },            // NEW
+    defaultFilter: { sex: 'both', ethnicity: 'overall', age: 'overall' }, // FIXED: 3-way filter to prevent 200x data duplication
     unit: 'ribu orang',
     granularity: 'annual',
     priority: 'P0',
@@ -774,7 +774,7 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
     valueField: 'abs',
     dateField: 'date',
     groupField: 'sex',                         // Ground truth: has sex grouping
-    defaultFilter: { sex: 'Both' },            // NEW
+    defaultFilter: { sex: 'both' },            // FIXED: was 'Both'; API uses lowercase
     unit: 'orang',
     granularity: 'monthly',                    // FIXED: was 'annual'; ground truth shows monthly
     priority: 'P1',
@@ -795,7 +795,7 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
     valueField: 'abs',
     dateField: 'date',
     groupField: 'sex',                         // Ground truth: has sex grouping
-    defaultFilter: { sex: 'Both' },            // NEW
+    defaultFilter: { sex: 'both' },            // FIXED: was 'Both'; API uses lowercase
     unit: 'orang',
     granularity: 'monthly',                    // FIXED: was 'annual'; ground truth shows monthly
     priority: 'P1',
@@ -856,7 +856,7 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
     valueField: 'tfr',
     dateField: 'date',
     groupField: 'sex',
-    defaultFilter: { sex: 'Female' },
+    defaultFilter: { sex: 'female' },          // FIXED: was 'Female'; API uses lowercase
     unit: 'kadar',
     granularity: 'annual',
     priority: 'P2',
@@ -1285,6 +1285,164 @@ export const DOSM_REGISTRY: Record<string, DatasetConfig> = {
     refreshMs: P3_REFRESH,
     color: '#0EA5E9',
     icon: 'Smartphone',
+  },
+
+  // ─── NEW: DEATHS BY CAUSE ───────────────────────────────────
+
+  deaths_cause: {
+    id: 'deaths_cause',
+    label: 'Deaths by Cause',
+    labelBM: 'Kematian mengikut Punca',
+    category: 'Demography',
+    categoryBM: 'Demografi',
+    valueField: 'abs',
+    dateField: 'date',
+    groupField: 'cause',
+    defaultFilter: { sex: 'both' },
+    unit: 'orang',
+    granularity: 'annual',
+    priority: 'P2',
+    description: 'Deaths by cause of death',
+    descriptionBM: 'Kematian mengikut punca kematian',
+    defaultLimit: 50,
+    refreshMs: P3_REFRESH,
+    color: '#9CA3AF',
+    icon: 'Activity',
+  },
+
+  // ─── NEW: LABOUR FORCE BY EDUCATION ─────────────────────────
+
+  lfs_edu: {
+    id: 'lfs_edu',
+    label: 'Labour Force by Education',
+    labelBM: 'Tenaga Buruh mengikut Pendidikan',
+    category: 'Labour',
+    categoryBM: 'Pasaran Buruh',
+    valueField: 'u_rate',
+    dateField: 'date',
+    groupField: 'edu',
+    unit: '%',
+    granularity: 'annual',
+    priority: 'P2',
+    description: 'Unemployment rate by education level',
+    descriptionBM: 'Kadar pengangguran mengikut tahap pendidikan',
+    defaultLimit: 50,
+    refreshMs: P2_REFRESH,
+    color: '#6EE7B7',
+    icon: 'GraduationCap',
+  },
+
+  // ─── NEW: TRADE BY COUNTRY ─────────────────────────────────
+
+  trade_country: {
+    id: 'trade_country',
+    label: 'Trade by Country',
+    labelBM: 'Perdagangan mengikut Negara',
+    category: 'Trade',
+    categoryBM: 'Perdagangan',
+    valueField: 'value',
+    dateField: 'date',
+    groupField: 'country',
+    extraFields: ['flow'],
+    unit: 'RM Juta',
+    granularity: 'monthly',
+    priority: 'P2',
+    description: 'Trade by partner country',
+    descriptionBM: 'Perdagangan mengikut negara rakan',
+    defaultLimit: 50,
+    refreshMs: P2_REFRESH,
+    color: '#0EA5E9',
+    icon: 'Globe',
+  },
+
+  // ─── NEW: POPULATION BY PARLIAMENT ─────────────────────────
+
+  population_parlimen: {
+    id: 'population_parlimen',
+    label: 'Population by Parliament',
+    labelBM: 'Penduduk mengikut Parlimen',
+    category: 'Demography',
+    categoryBM: 'Demografi',
+    valueField: 'population',
+    dateField: 'date',
+    groupField: 'parlimen',
+    unit: 'ribu orang',
+    granularity: 'annual',
+    priority: 'P3',
+    description: 'Population by parliament constituency',
+    descriptionBM: 'Penduduk mengikut kawasan parlimen',
+    defaultLimit: 300,
+    refreshMs: P3_REFRESH,
+    color: '#C4B5FD',
+    icon: 'Building',
+  },
+
+  // ─── NEW: POVERTY RATE BY STATE ────────────────────────────
+
+  poverty_state: {
+    id: 'poverty_state',
+    label: 'Poverty Rate by State',
+    labelBM: 'Kadar Kemiskinan mengikut Negeri',
+    category: 'Households',
+    categoryBM: 'Isi Rumah',
+    valueField: 'incidence',
+    dateField: 'date',
+    groupField: 'state',
+    extraFields: ['hardcore'],
+    unit: '%',
+    granularity: 'biennial',
+    priority: 'P1',
+    description: 'Poverty incidence rate by state',
+    descriptionBM: 'Kadar kemiskinan mengikut negeri',
+    defaultLimit: 50,
+    refreshMs: P3_REFRESH,
+    color: '#FB923C',
+    icon: 'AlertTriangle',
+  },
+
+  // ─── NEW: ROAD ACCIDENTS ───────────────────────────────────
+
+  road_accidents: {
+    id: 'road_accidents',
+    label: 'Road Accidents',
+    labelBM: 'Kemalangan Jalan Raya',
+    category: 'Safety',
+    categoryBM: 'Keselamatan',
+    valueField: 'accidents',
+    dateField: 'date',
+    groupField: 'state',
+    extraFields: ['deaths', 'injuries'],
+    unit: 'kes',
+    granularity: 'annual',
+    priority: 'P2',
+    description: 'Road accidents, deaths and injuries by state',
+    descriptionBM: 'Kemalangan, kematian dan kecederaan jalan raya mengikut negeri',
+    defaultLimit: 50,
+    refreshMs: P3_REFRESH,
+    color: '#EF4444',
+    icon: 'Car',
+  },
+
+  // ─── NEW: PALM OIL ─────────────────────────────────────────
+
+  palm_oil: {
+    id: 'palm_oil',
+    label: 'Palm Oil Statistics',
+    labelBM: 'Statistik Minyak Sawit',
+    category: 'Agriculture',
+    categoryBM: 'Pertanian',
+    valueField: 'value',
+    dateField: 'date',
+    groupField: 'series_type',
+    unit: 'tan',
+    granularity: 'monthly',
+    priority: 'P3',
+    description: "Malaysia's palm oil production, exports and prices",
+    descriptionBM: 'Pengeluaran, eksport dan harga minyak sawit Malaysia',
+    defaultLimit: 24,
+    refreshMs: P2_REFRESH,
+    color: '#84CC16',
+    icon: 'Leaf',
   },
 };
 

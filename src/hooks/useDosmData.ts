@@ -5,7 +5,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { fetchDosmData, type DosmDataResult, type DosmQueryOptions, type DataStatus } from '@/lib/dosm/client';
+import { fetchDosmData, fetchMany, type DosmDataResult, type DosmQueryOptions, type DataStatus } from '@/lib/dosm/client';
 import type { DatasetId } from '@/lib/dosm/registry';
 import { DOSM_REGISTRY, COMMAND_CENTER_KPIS, PRIORITY_DATASETS } from '@/lib/dosm/registry';
 
@@ -205,10 +205,10 @@ export const useTrade = (options?: DosmQueryOptions) =>
   useDosmData('trade_monthly', { limit: 24, ...options }, 300_000);
 
 export const usePopulation = (options?: DosmQueryOptions) =>
-  useDosmData('population_state', { limit: 100, ...options }, 86_400_000);
+  useDosmData('population_state', { limit: 100, filters: { sex: 'both', ethnicity: 'overall', age: 'overall' }, ...options }, 86_400_000);
 
 export const usePopulationMalaysia = (options?: DosmQueryOptions) =>
-  useDosmData('population_malaysia', { limit: 50, ...options }, 86_400_000);
+  useDosmData('population_malaysia', { limit: 50, filters: { sex: 'both', ethnicity: 'overall', age: 'overall' }, ...options }, 86_400_000);
 
 export const useBirths = (options?: DosmQueryOptions) =>
   useDosmData('births', { limit: 20, ...options }, 86_400_000);
@@ -257,3 +257,24 @@ export const useHiesMalaysia = (options?: DosmQueryOptions) =>
 
 export const useExchangeRateDaily = (options?: DosmQueryOptions) =>
   useDosmData('exchangerates_daily', { limit: 30, ...options }, 300_000);
+
+export const useDeathsCause = (options?: DosmQueryOptions) =>
+  useDosmData('deaths_cause', { limit: 50, ...options }, 86_400_000);
+
+export const useLabourByEducation = (options?: DosmQueryOptions) =>
+  useDosmData('lfs_edu', { limit: 50, ...options }, 600_000);
+
+export const useTradeByCountry = (options?: DosmQueryOptions) =>
+  useDosmData('trade_country', { limit: 50, ...options }, 600_000);
+
+export const usePovertyByState = (options?: DosmQueryOptions) =>
+  useDosmData('poverty_state', { limit: 50, ...options }, 86_400_000);
+
+export const useRoadAccidents = (options?: DosmQueryOptions) =>
+  useDosmData('road_accidents', { limit: 50, ...options }, 86_400_000);
+
+export const usePopulationParlimen = (options?: DosmQueryOptions) =>
+  useDosmData('population_parlimen', { limit: 300, ...options }, 86_400_000);
+
+export const usePalmOil = (options?: DosmQueryOptions) =>
+  useDosmData('palm_oil', { limit: 24, ...options }, 600_000);
