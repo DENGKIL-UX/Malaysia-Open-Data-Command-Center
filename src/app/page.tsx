@@ -615,7 +615,7 @@ export default function Home() {
                 {activeTab === 'overview' && <OverviewSection lang={lang} onNavigateDatasets={(category) => { setActiveTab('datasets'); }} />}
                 {activeTab === 'geomap' && <GeoMapSection lang={lang} onViewProfile={(id) => setProfileStateId(id)} />}
                 {activeTab === 'datasets' && <DatasetsSection lang={lang} />}
-                {activeTab === 'analytics' && <AnalyticsSection lang={lang} />}
+                {activeTab === 'analytics' && <AnalyticsSection lang={lang} onNavigateGeoMap={(stateId, layer) => { setActiveTab('geomap'); }} />}
               </motion.div>
             </AnimatePresence>
 
