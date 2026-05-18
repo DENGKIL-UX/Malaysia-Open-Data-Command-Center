@@ -340,7 +340,7 @@ export function OverviewSection({ lang, onNavigateDatasets }: { lang: Lang; onNa
     return Object.entries(counts)
       .map(([name, value]) => {
         const cat = DATASET_CATEGORIES.find(c => c.en === name);
-        return { name, value, color: cat?.color || '#64748b' };
+        return { name, name_ms: cat?.ms || name, value, color: cat?.color || '#64748b' };
       })
       .sort((a, b) => b.value - a.value);
   }, []);
@@ -411,15 +411,15 @@ export function OverviewSection({ lang, onNavigateDatasets }: { lang: Lang; onNa
             </div>
             <div className="flex items-center gap-1.5 px-2 py-1 rounded border" style={{ background: 'rgba(6,182,212,0.06)', borderColor: 'rgba(6,182,212,0.15)' }}>
               <MapPin size={10} style={{ color: '#06b6d4' }} />
-              <span className="text-[10px] font-mono" style={{ color: '#06b6d4' }}>16 STATES + 3 FT</span>
+              <span className="text-[10px] font-mono" style={{ color: '#06b6d4' }}>{lang === 'ms' ? '16 NEGERI + 3 WP' : '16 STATES + 3 FT'}</span>
             </div>
             <div className="flex items-center gap-1.5 px-2 py-1 rounded border" style={{ background: 'rgba(245,158,11,0.06)', borderColor: 'rgba(245,158,11,0.15)' }}>
               <Layers size={10} style={{ color: '#f59e0b' }} />
-              <span className="text-[10px] font-mono" style={{ color: '#f59e0b' }}>6 LAYERS</span>
+              <span className="text-[10px] font-mono" style={{ color: '#f59e0b' }}>{lang === 'ms' ? '6 LAPISAN' : '6 LAYERS'}</span>
             </div>
             <div className="flex items-center gap-1.5 px-2 py-1 rounded border" style={{ background: 'rgba(139,92,246,0.06)', borderColor: 'rgba(139,92,246,0.15)' }}>
               <Globe size={10} style={{ color: '#8b5cf6' }} />
-              <span className="text-[10px] font-mono" style={{ color: '#8b5cf6' }}>18 CATEGORIES</span>
+              <span className="text-[10px] font-mono" style={{ color: '#8b5cf6' }}>{lang === 'ms' ? '18 KATEGORI' : '18 CATEGORIES'}</span>
             </div>
           </div>
         </div>
@@ -617,7 +617,7 @@ export function OverviewSection({ lang, onNavigateDatasets }: { lang: Lang; onNa
             {/* Center label */}
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none" style={{ top: '-4px' }}>
               <span className="text-2xl font-bold font-mono" style={{ color: '#e0f7fa', textShadow: '0 0 12px rgba(6,182,212,0.4)' }}>287</span>
-              <span className="text-[8px] font-mono tracking-widest" style={{ color: '#06b6d4' }}>DATASETS</span>
+              <span className="text-[8px] font-mono tracking-widest" style={{ color: '#06b6d4' }}>{lang === 'ms' ? 'SET DATA' : 'DATASETS'}</span>
             </div>
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-2 mt-3 justify-center">
@@ -701,7 +701,7 @@ export function OverviewSection({ lang, onNavigateDatasets }: { lang: Lang; onNa
                 >
                   {cat.value}
                 </motion.div>
-                <div className="text-[7px] font-mono truncate" style={{ color: '#b0bec5' }}>{cat.name}</div>
+                <div className="text-[7px] font-mono truncate" style={{ color: '#b0bec5' }}>{lang === 'ms' ? cat.name_ms : cat.name}</div>
               </div>
             ))}
           </div>

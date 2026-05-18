@@ -42,7 +42,7 @@ function StateDetailPanel({ state, lang, onClose, onViewProfile }: { state: type
       <div className="flex items-center justify-between mb-3">
         <div>
           <div className="text-xs font-mono tracking-wider" style={{ color: 'rgba(6,182,212,0.5)' }}>
-            {state.region === 'east_malaysia' ? 'EAST MALAYSIA' : 'PENINSULAR'}
+            {state.region === 'east_malaysia' ? (lang === 'ms' ? 'MALAYSIA TIMUR' : 'EAST MALAYSIA') : (lang === 'ms' ? 'SEMENANJUNG' : 'PENINSULAR')}
           </div>
           <div className="text-lg font-bold" style={{ color: '#e0f7fa' }}>{state.name}</div>
           <div className="text-[10px] font-mono" style={{ color: 'rgba(6,182,212,0.4)' }}>{state.name_ms} • {state.abbr}</div>
@@ -203,7 +203,7 @@ function StateComparisonModal({ lang, stateA, stateB, setStateA, setStateB, onCl
             <div className="grid grid-cols-[1fr_60px_1fr] gap-2 mb-3">
               <div className="text-center p-2 rounded-md border" style={{ background: 'rgba(6,182,212,0.08)', borderColor: 'rgba(6,182,212,0.2)' }}>
                 <div className="text-xs font-mono tracking-wider" style={{ color: 'rgba(6,182,212,0.5)' }}>
-                  {dataA.region === 'east_malaysia' ? 'EAST MY' : 'PENINSULAR'}
+                  {dataA.region === 'east_malaysia' ? (lang === 'ms' ? 'TIMUR' : 'EAST MY') : (lang === 'ms' ? 'SEMENANJUNG' : 'PENINSULAR')}
                 </div>
                 <div className="text-sm font-bold" style={{ color: '#06b6d4' }}>{dataA.name}</div>
               </div>
@@ -212,7 +212,7 @@ function StateComparisonModal({ lang, stateA, stateB, setStateA, setStateB, onCl
               </div>
               <div className="text-center p-2 rounded-md border" style={{ background: 'rgba(245,158,11,0.08)', borderColor: 'rgba(245,158,11,0.2)' }}>
                 <div className="text-xs font-mono tracking-wider" style={{ color: 'rgba(245,158,11,0.5)' }}>
-                  {dataB.region === 'east_malaysia' ? 'EAST MY' : 'PENINSULAR'}
+                  {dataB.region === 'east_malaysia' ? (lang === 'ms' ? 'TIMUR' : 'EAST MY') : (lang === 'ms' ? 'SEMENANJUNG' : 'PENINSULAR')}
                 </div>
                 <div className="text-sm font-bold" style={{ color: '#f59e0b' }}>{dataB.name}</div>
               </div>
@@ -361,7 +361,7 @@ export function GeoMapSection({ lang, onViewProfile }: { lang: Lang; onViewProfi
             animate={{ opacity: [1, 0.3, 1] }}
             transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
           />
-          <span className="text-[9px] font-mono font-bold tracking-widest" style={{ color: '#10b981' }}>LIVE</span>
+          <span className="text-[9px] font-mono font-bold tracking-widest" style={{ color: '#10b981' }}>{lang === 'ms' ? 'LANGSUNG' : 'LIVE'}</span>
         </div>
 
         <AnimatePresence mode="wait">

@@ -438,7 +438,7 @@ export function DatasetsSection({ lang }: { lang: Lang }) {
                   {lang === 'ms' ? 'GEOGRAFI' : 'GEO'}
                 </th>
                 <th className="text-left px-3 py-2 font-mono tracking-wider hidden lg:table-cell" style={{ color: '#06b6d4' }}>
-                  YEARS
+                  {lang === 'ms' ? 'TAHUN' : 'YEARS'}
                 </th>
                 <th className="text-left px-3 py-2 font-mono tracking-wider" style={{ color: '#06b6d4' }}>
                   <ExternalLink size={10} />

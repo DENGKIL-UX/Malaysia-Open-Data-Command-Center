@@ -359,7 +359,7 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col relative" data-scan-lines={settings.showScanLines ? 'true' : 'false'} style={{ background: '#0a0e1a', zoom: settings.fontSize === 'small' ? 1 : settings.fontSize === 'medium' ? 1.15 : 1.3 }}>
       <a href="#main-content" className="skip-to-content">
-        Skip to main content
+        {lang === 'ms' ? 'Langkau ke kandungan utama' : 'Skip to main content'}
       </a>
       {settings.showParticles && <ParticleBackground />}
       {/* Boot Sequence */}
@@ -415,7 +415,7 @@ export default function Home() {
           <AlertTicker />
 
           {/* Header */}
-          <Header />
+          <Header lang={lang} />
 
           {/* Navigation Bar */}
           <nav
