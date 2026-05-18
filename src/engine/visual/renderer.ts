@@ -1,5 +1,7 @@
-// Satori + Sharp rendering pipeline — JSX → SVG → PNG
-// On Cloudflare Workers, sharp is unavailable, so we fall back to SVG output.
+// Visual rendering pipeline — JSX → SVG → PNG
+// On Cloudflare Workers / Edge Runtime, both satori and sharp may be unavailable.
+// Satori is imported statically (it IS edge-compatible as pure JS/WASM),
+// while sharp is loaded dynamically since it's a native C++ addon.
 // Fully compatible with Edge Runtime (Cloudflare Workers, Vercel Edge, etc.)
 
 import satori from 'satori';
@@ -15,31 +17,6 @@ export interface RenderResult {
   buffer: Uint8Array;
   contentType: 'image/png' | 'image/svg+xml';
   format: 'png' | 'svg';
-}
-
-/**
- * Dynamically load sharp at runtime without letting the bundler know about it.
- *
- * Sharp is a native C++ Node.js addon (libvips) that:
- * - Cannot be bundled by esbuild/Turbopack for edge/worker runtimes
- * - Won't exist in Cloudflare Workers environment
- * - Must be loaded completely dynamically to prevent build failures
- *
- * We use `new Function()` to construct the import at runtime,
- * which prevents static analysis by bundlers (Turbopack, webpack, esbuild).
- */
-async function loadSharp(): Promise<any> {
-  try {
-    // Use indirect dynamic import that bundlers cannot statically analyze.
-    // The `new Function` constructor creates a function at runtime,
-    // so the string 'sharp' never appears as a static import/require.
-    // On Cloudflare Workers / Edge Runtime, this will simply fail and return null.
-    const dynamicImport = new Function('module', 'return import(module)');
-    const mod = await dynamicImport('sharp');
-    return mod.default || mod;
-  } catch {
-    return null;
-  }
 }
 
 /**
@@ -93,25 +70,40 @@ export async function render(options: RenderOptions): Promise<RenderResult> {
     });
   } catch (err) {
     throw new Error(
-      `Satori rendering is not supported in this environment: ${err instanceof Error ? err.message : String(err)}`
+      `Satori rendering failed: ${err instanceof Error ? err.message : String(err)}`
     );
   }
 
   // Step 2: Try Sharp SVG → PNG conversion (Node.js only)
-  const sharpModule = await loadSharp();
-  if (sharpModule) {
-    const pngBuffer = await sharpModule(Buffer.from(svg))
-      .png({
-        quality: 100,
-        compressionLevel: 6,
-      })
-      .toBuffer();
+  // Sharp is a native C++ addon that cannot run on edge/worker runtimes.
+  // We check for Node.js at runtime to avoid loading it on Workers.
+  let sharpModule: any = null;
+  try {
+    if (typeof globalThis.process !== 'undefined') {
+      const sharp = await import('sharp');
+      sharpModule = sharp.default || sharp;
+    }
+  } catch {
+    // sharp not available (edge runtime or not installed)
+  }
 
-    return {
-      buffer: new Uint8Array(pngBuffer),
-      contentType: 'image/png',
-      format: 'png',
-    };
+  if (sharpModule) {
+    try {
+      const pngBuffer = await sharpModule(stringToUint8Array(svg))
+        .png({
+          quality: 100,
+          compressionLevel: 6,
+        })
+        .toBuffer();
+
+      return {
+        buffer: new Uint8Array(pngBuffer),
+        contentType: 'image/png',
+        format: 'png',
+      };
+    } catch {
+      // Sharp failed, fall back to SVG
+    }
   }
 
   // Fallback: Return raw SVG (Cloudflare Workers / edge runtime)
