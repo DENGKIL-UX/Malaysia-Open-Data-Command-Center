@@ -544,3 +544,183 @@ export function getStateByQuery(query: string): StateProfile | undefined {
     s.keyIndustries.some(i => i.toLowerCase().includes(q))
   );
 }
+
+// ─── Ontology Graph Knowledge ──────────────────────────────────────
+
+export interface OntologyEdgeKnowledge {
+  id: string;
+  source: string;
+  target: string;
+  sourceBM: string;
+  targetBM: string;
+  type: string;
+  strength: number;
+  lag?: string;
+  description: string;
+  descriptionBM: string;
+}
+
+export const ontologyEdges: OntologyEdgeKnowledge[] = [
+  {
+    id: "fuel-cpi", source: "fuelprice", target: "cpi_headline",
+    sourceBM: "Harga Bahan Api", targetBM: "IHP (Indeks Harga Pengguna)",
+    type: "DRIVES", strength: 0.74, lag: "1 bulan",
+    description: "Fuel price increases feed directly into consumer prices via transportation and energy costs.",
+    descriptionBM: "Kenaikan harga bahan api meningkatkan IHP melalui kos pengangkutan dan tenaga.",
+  },
+  {
+    id: "fx-cpi", source: "exchange_rate", target: "cpi_headline",
+    sourceBM: "Kadar Pertukaran", targetBM: "IHP",
+    type: "DRIVES", strength: 0.58, lag: "2 bulan",
+    description: "Ringgit weakness raises import prices, which pass through to consumer inflation.",
+    descriptionBM: "Ringgit lemah meningkatkan harga import, yang disalurkan ke inflasi pengguna.",
+  },
+  {
+    id: "gdp-unemp", source: "gdp_qtr", target: "labour_monthly",
+    sourceBM: "KDNK Suku Tahunan", targetBM: "Tenaga Buruh",
+    type: "DRIVES", strength: 0.87, lag: "2 bulan",
+    description: "GDP growth reduces unemployment via Okun's Law — 1% GDP growth ≈ 0.5% unemployment reduction.",
+    descriptionBM: "Pertumbuhan KDNK mengurangkan pengangguran mengikut Hukum Okun.",
+  },
+  {
+    id: "trade-fx", source: "trade_monthly", target: "exchange_rate",
+    sourceBM: "Perdagangan", targetBM: "Kadar Pertukaran",
+    type: "DRIVES", strength: 0.62, lag: "1 bulan",
+    description: "Trade surplus strengthens the Ringgit through higher foreign currency inflows.",
+    descriptionBM: "Lebihan dagangan menguatkan Ringgit melalui aliran mata wang asing.",
+  },
+  {
+    id: "ipi-gdp", source: "ipi", target: "gdp_qtr",
+    sourceBM: "Indeks Pengeluaran Perindustrian", targetBM: "KDNK",
+    type: "LEADS", strength: 0.82, lag: "1 bulan",
+    description: "IPI is a leading indicator for GDP — industrial output predicts economic growth.",
+    descriptionBM: "IPI adalah petunjuk awal KDNK — keluaran perindustrian meramalkan pertumbuhan ekonomi.",
+  },
+  {
+    id: "cpi-income", source: "cpi_headline", target: "household_income",
+    sourceBM: "IHP", targetBM: "Pendapatan Isi Rumah",
+    type: "DRIVES", strength: 0.55, lag: "6 bulan",
+    description: "Inflation erodes real household income unless wages adjust.",
+    descriptionBM: "Inflasi menghakis pendapatan isi rumah benar melainkan gaji diselaraskan.",
+  },
+  {
+    id: "pop-gdp", source: "population_malaysia", target: "gdp_qtr",
+    sourceBM: "Populasi", targetBM: "KDNK",
+    type: "CORRELATES_POSITIVE", strength: 0.71,
+    description: "Larger population drives domestic demand, supporting GDP growth.",
+    descriptionBM: "Populasi lebih besar memacu permintaan domestik, menyokong pertumbuhan KDNK.",
+  },
+  {
+    id: "hpi-debt", source: "hpi_malaysia", target: "household_income",
+    sourceBM: "Indeks Harga Rumah", targetBM: "Pendapatan Isi Rumah",
+    type: "DRIVES", strength: 0.65, lag: "4 bulan",
+    description: "Rising house prices increase household debt burden via larger mortgages.",
+    descriptionBM: "Harga rumah naik meningkatkan beban hutang isi rumah melalui pinjaman hipotek lebih besar.",
+  },
+  {
+    id: "unemp-crime", source: "labour_monthly", target: "crime_district",
+    sourceBM: "Pengangguran", targetBM: "Jenayah",
+    type: "CORRELATES_POSITIVE", strength: 0.48, lag: "3 bulan",
+    description: "Higher unemployment correlates with increased property crime rates.",
+    descriptionBM: "Pengangguran lebih tinggi berkait dengan kadar jenayah harta yang meningkat.",
+  },
+  {
+    id: "birth-school", source: "births", target: "school_enrolment",
+    sourceBM: "Kelahiran", targetBM: "Enrolmen Sekolah",
+    type: "LEADS", strength: 0.95, lag: "72 bulan (6 tahun)",
+    description: "Birth cohorts drive school enrolment with a 6-year lag (primary school age).",
+    descriptionBM: "Kohort kelahiran memacu enrolmen sekolah dengan kelewatan 6 tahun.",
+  },
+  {
+    id: "trade-gdp2", source: "trade_monthly", target: "gdp_qtr",
+    sourceBM: "Perdagangan", targetBM: "KDNK",
+    type: "DRIVES", strength: 0.52,
+    description: "Trade (exports + imports) directly contributes to GDP calculation.",
+    descriptionBM: "Perdagangan (eksport + import) menyumbang secara langsung kepada pengiraan KDNK.",
+  },
+  {
+    id: "tourism-trade", source: "tourism_arrivals", target: "trade_monthly",
+    sourceBM: "Ketibaan Pelancong", targetBM: "Perdagangan",
+    type: "CORRELATES_POSITIVE", strength: 0.52, lag: "1 bulan",
+    description: "Tourist spending boosts retail trade and service sector activity.",
+    descriptionBM: "Perbelanjaan pelancong meningkatkan perdagangan runcit dan aktiviti sektor perkhidmatan.",
+  },
+  {
+    id: "fuel-accident", source: "fuelprice", target: "road_accidents",
+    sourceBM: "Harga Bahan Api", targetBM: "Kemalangan Jalan Raya",
+    type: "CORRELATES_NEGATIVE", strength: 0.38, lag: "2 bulan",
+    description: "Higher fuel prices reduce driving frequency, lowering accident rates.",
+    descriptionBM: "Harga bahan api tinggi mengurangkan kekerapan pemanduan, menurunkan kadar kemalangan.",
+  },
+];
+
+export const ontologyRelationshipTypes = [
+  { type: "DRIVES", label: "Causal Driver", labelBM: "Pemacu Sebab", color: "#00D4FF", directed: true },
+  { type: "LEADS", label: "Leading Indicator", labelBM: "Petunjuk Awal", color: "#F59E0B", directed: true },
+  { type: "CORRELATES_POSITIVE", label: "Positive Correlation", labelBM: "Korelasi Positif", color: "#10B981", directed: false },
+  { type: "CORRELATES_NEGATIVE", label: "Negative Correlation", labelBM: "Korelasi Negatif", color: "#EF4444", directed: false },
+  { type: "CONTAINS", label: "Contains", labelBM: "Mengandungi", color: "#1F2937", directed: true },
+  { type: "SHARES_GEOGRAPHY", label: "Shared Geography", labelBM: "Geografi Bersama", color: "#1E3A5F", directed: false },
+  { type: "SHARES_FREQUENCY", label: "Shared Frequency", labelBM: "Kekerapan Bersama", color: "#0F172A", directed: false },
+  { type: "POLICY_TRANSMITS", label: "Policy Transmission", labelBM: "Penghantaran Dasar", color: "#8B5CF6", directed: true },
+];
+
+export const ontologyConcepts = [
+  {
+    name: "GRAF ONTOLOGI DATA",
+    nameBM: "Graf Ontologi Data",
+    description: "A D3.js force-directed graph visualizing causal and correlational relationships between Malaysia's 47+ open datasets.",
+    descriptionBM: "Graf berarah daya D3.js yang mengvisualkan hubungan sebab dan korelasi antara 47+ set data terbuka Malaysia.",
+  },
+  {
+    name: "Domain Knowledge Edge",
+    nameBM: "Tepi Pengetahuan Domain",
+    description: "Expert-defined causal links between datasets, such as 'fuel prices drive CPI' or 'GDP growth reduces unemployment'.",
+    descriptionBM: "Pautan sebab yang ditentukan pakar antara set data, seperti 'harga bahan api memacu IHP' atau 'pertumbuhan KDNK mengurangkan pengangguran'.",
+  },
+  {
+    name: "Confidence Score",
+    nameBM: "Skor Keyakinan",
+    description: "A 5-dimension weighted score (recency, sample size, source reliability, trend consistency, geographic coverage) grading data trustworthiness.",
+    descriptionBM: "Skor berwajaran 5 dimensi (kemas kini, saiz sampel, kebolehpercayaan sumber, konsistensi trend, liputan geografi) yang menaraf kebolehpercayaan data.",
+  },
+  {
+    name: "Anomaly Detection",
+    nameBM: "Pengesanan Anomali",
+    description: "Automated flagging of statistical outliers in the dataset registry, such as sudden unemployment spikes or GDP contractions.",
+    descriptionBM: "Penandaan automatik bagi outliers statistik dalam daftar set data, seperti lonjakan pengangguran mendadak atau pengecutan KDNK.",
+  },
+  {
+    name: "Force-Directed Graph",
+    nameBM: "Graf Berarah Daya",
+    description: "A physics-simulated layout where nodes repel each other and edges pull connected nodes together, revealing natural data clusters.",
+    descriptionBM: "Susunan simulasi fizik di mana nod menolak antara satu sama lain dan tepi menarik nod berkait rapat, mendedahkan kelompok data semula jadi.",
+  },
+];
+
+export function searchOntologyEdges(query: string): OntologyEdgeKnowledge[] {
+  const q = query.toLowerCase();
+  return ontologyEdges.filter(e =>
+    e.description.toLowerCase().includes(q) ||
+    e.descriptionBM.toLowerCase().includes(q) ||
+    e.source.toLowerCase().includes(q) ||
+    e.target.toLowerCase().includes(q) ||
+    e.sourceBM.toLowerCase().includes(q) ||
+    e.targetBM.toLowerCase().includes(q) ||
+    e.type.toLowerCase().includes(q)
+  );
+}
+
+export function getEdgeById(id: string): OntologyEdgeKnowledge | undefined {
+  return ontologyEdges.find(e => e.id === id);
+}
+
+export function getEdgesByType(type: string): OntologyEdgeKnowledge[] {
+  return ontologyEdges.filter(e => e.type === type);
+}
+
+export function getEdgesByNode(nodeId: string): OntologyEdgeKnowledge[] {
+  return ontologyEdges.filter(e =>
+    e.source === nodeId || e.target === nodeId
+  );
+}

@@ -2,7 +2,7 @@
  * Intent Engine
  * Pure TypeScript classifier — zero ML, zero API, zero latency.
  * Supports English and Malay keywords.
- * Bilingual intent patterns with all 11 intent types.
+ * Bilingual intent patterns with all 13 intent types.
  */
 
 export type IntentType =
@@ -16,6 +16,8 @@ export type IntentType =
   | "HELP"          // "How do I use this?"
   | "GREETING"      // "Hello", "Selamat datang"
   | "STATE_INFO"    // "Tell me about Selangor"
+  | "INTEL_NAVIGATE"   // "Show me the intel tab", "Tunjuk tab intel"
+  | "ONTOLOGY_EXPLAIN" // "What is the ontology graph?", "Apa itu graf ontologi?"
   | "UNKNOWN";
 
 export interface ParsedIntent {
@@ -77,6 +79,14 @@ const INTENT_PATTERNS: Record<IntentType, { en: string[]; ms: string[] }> = {
     en: ["tell me about", "info on", "profile of", "overview of", "what is special about", "economy of"],
     ms: ["cerita tentang", "info", "profil", "gambaran", "apa yang menarik"],
   },
+  INTEL_NAVIGATE: {
+    en: ["intel", "intelligence", "ontology", "graph", "graf", "causal", "domain", "correlation", "relationship", "edge", "node"],
+    ms: ["intel", "intelligen", "ontologi", "graf", "peta", "sebab", "domain", "korelasi", "hubungan", "tepi", "nod"],
+  },
+  ONTOLOGY_EXPLAIN: {
+    en: ["what is the ontology graph", "explain the graph", "how does the graph work", "what are domain edges", "what is anomaly detection", "what is confidence score"],
+    ms: ["apa itu graf ontologi", "terangkan graf", "bagaimana graf berfungsi", "apa itu tepi domain", "apa itu pengesanan anomali", "apa itu skor keyakinan"],
+  },
   UNKNOWN: { en: [], ms: [] },
 };
 
@@ -105,6 +115,8 @@ const METRIC_NAMES = [
   "density", "fertility", "life expectancy", "schooling", "education",
   "trade", "export", "import", "manufacturing", "agriculture", "tourism",
   "gini", "kdnk", "ihp",
+  "ontology", "intel", "confidence", "anomaly", "domain edge", "correlation",
+  "force graph", "node", "edge", "causal", "leading indicator",
 ];
 
 // Malay metric aliases mapped to canonical English names
@@ -136,6 +148,7 @@ const CATEGORY_NAMES = [
   "economic sectors", "healthcare", "households", "communications",
   "public safety", "public administration", "public welfare",
   "statistical indicators", "data dictionaries", "metadata",
+  "intelligence", "ontology", "causal", "correlation",
   "demografi", "akaun negara", "harga", "pasaran buruh", "pasaran kewangan",
   "sektor ekonomi", "kesihatan", "isi rumah", "komunikasi",
   "keselamatan awam", "pentadbiran awam", "kebajikan awam",
@@ -285,6 +298,7 @@ function extractEntities(q: string) {
   else if (q.includes("analytics") || q.includes("chart") || q.includes("graph") || q.includes("graf") || q.includes("analitik")) targetView = "analytics";
   else if (q.includes("overview") || q.includes("summary") || q.includes("dashboard") || q.includes("gambaran")) targetView = "overview";
   else if (q.includes("comparison") || q.includes("compare tool") || q.includes("perbandingan")) targetView = "comparison";
+  else if (q.includes("intel") || q.includes("intelligence") || q.includes("ontology") || q.includes("ontologi") || q.includes("graf ontologi")) targetView = "intelligence";
 
   // Comparison operator
   let comparisonOperator: "highest" | "lowest" | "vs" | "difference" | undefined;
@@ -325,6 +339,16 @@ function refineIntent(type: IntentType, entities: ParsedIntent["entities"], _q: 
     return type;
   }
 
+  // If UNKNOWN but mentions ontology/intel/domain → ONTOLOGY_EXPLAIN
+  if (type === "UNKNOWN" && (q.includes("ontology") || q.includes("graf") || q.includes("intel") || q.includes("domain") || q.includes("ontologi") || q.includes("causal") || q.includes("korelasi"))) {
+    return "ONTOLOGY_EXPLAIN";
+  }
+
+  // If NAVIGATE but targeting intel/ontology → INTEL_NAVIGATE
+  if (type === "NAVIGATE" && (q.includes("intel") || q.includes("ontology") || q.includes("graf") || q.includes("ontologi"))) {
+    return "INTEL_NAVIGATE";
+  }
+
   return type;
 }
 
@@ -361,6 +385,13 @@ export function getSuggestedQueries(context: string): string[] {
       "What drives the difference?",
       "Show GDP breakdown",
       "Export this comparison",
+    ],
+    intelligence: [
+      "Explain the ontology graph",
+      "What are domain edges?",
+      "Show causal relationships",
+      "What is anomaly detection?",
+      "Explain confidence scores",
     ],
   };
 

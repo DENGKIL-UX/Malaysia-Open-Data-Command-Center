@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   ShieldCheck, AlertTriangle, Brain, Zap,
@@ -11,6 +11,7 @@ import type { Lang } from '@/lib/dashboard-types';
 import { HUDBracket, SectionHeaderLine } from '@/components/dashboard/particle-background';
 import { EnhancedOntologyGraph } from '@/components/dashboard/enhanced-ontology-graph';
 import { useLiveData, type LiveAnomaly } from '@/components/dashboard/live-data-provider';
+import { useCopilot } from '@/hooks/use-copilot';
 
 // ─── Premium Card Style Helper ───────────────────────────────────
 function premiumCardStyle(overrides?: Record<string, string>) {
@@ -130,6 +131,49 @@ const FALLBACK_FINDINGS = [
 // ─── Intelligence Section Component ──────────────────────────────
 export function IntelligenceSection({ lang }: { lang: Lang }) {
   const liveData = useLiveData();
+  const { registerView, registerSelection } = useCopilot();
+
+  // Register with copilot when this section mounts
+  useEffect(() => {
+    registerView("intelligence", {
+      visibleMetrics: ["ontology_graph", "confidence_score", "anomaly_detection"],
+      chartType: "force_graph",
+    });
+  }, [registerView]);
+
+  // Listen for copilot commands specific to the ontology graph
+  useEffect(() => {
+    const handleShowMetric = (e: Event) => {
+      const { metric } = (e as CustomEvent).detail || {};
+      if (metric === "ontology_graph" || metric === "intel") {
+        document.getElementById("intelligence-section")?.scrollIntoView({ behavior: "smooth" });
+      }
+    };
+
+    const handleHighlight = (e: Event) => {
+      const { states } = (e as CustomEvent).detail || {};
+      if (states?.length) {
+        window.dispatchEvent(new CustomEvent("ontology:highlight-states", {
+          detail: { states },
+        }));
+      }
+    };
+
+    window.addEventListener("copilot:show-metric", handleShowMetric as EventListener);
+    window.addEventListener("copilot:highlight", handleHighlight as EventListener);
+
+    return () => {
+      window.removeEventListener("copilot:show-metric", handleShowMetric as EventListener);
+      window.removeEventListener("copilot:highlight", handleHighlight as EventListener);
+    };
+  }, []);
+
+  // When user clicks a node in the ontology graph, register it with copilot
+  const handleNodeClick = (nodeId: string, nodeType: string) => {
+    if (nodeType === "dataset") {
+      registerSelection("dataset", nodeId);
+    }
+  };
 
   // Use live anomalies or fallback
   const anomalies = liveData.anomalies.length > 0
@@ -172,7 +216,7 @@ export function IntelligenceSection({ lang }: { lang: Lang }) {
   }, [liveData.isLive, liveData.confidenceCounts]);
 
   return (
-    <div className="space-y-6" role="region" aria-label={lang === 'ms' ? 'Pusat intelligens' : 'Intelligence center'}>
+    <div id="intelligence-section" className="space-y-6" role="region" aria-label={lang === 'ms' ? 'Pusat intelligens' : 'Intelligence center'}>
       {/* ─── Section Header ────────────────────────────────────── */}
       <div className="flex items-center gap-3">
         <div>

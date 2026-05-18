@@ -2,7 +2,7 @@
  * Response Assembler
  * Generates contextual, conversational responses from parsed intent + dashboard context.
  * All responses are deterministic — no hallucination, no API calls.
- * Bilingual EN+BM responses for all 11 intent types.
+ * Bilingual EN+BM responses for all 13 intent types.
  */
 
 import {
@@ -17,6 +17,14 @@ import {
   datasetByCategory,
   metricByName,
   stateByName,
+  ontologyEdges,
+  ontologyRelationshipTypes,
+  ontologyConcepts,
+  searchOntologyEdges,
+  getEdgeById,
+  getEdgesByType,
+  getEdgesByNode,
+  type OntologyEdgeKnowledge,
 } from "@/lib/copilot/knowledge-base";
 import { ParsedIntent, IntentType, getSuggestedQueries } from "@/components/copilot/intent-engine";
 
@@ -83,6 +91,10 @@ export function assembleResponse(intent: ParsedIntent, context: DashboardContext
       return handleHelp(context, language, baseMetadata);
     case "GREETING":
       return handleGreeting(context, language, baseMetadata);
+    case "INTEL_NAVIGATE":
+      return handleIntelNavigate(entities, context, language, baseMetadata);
+    case "ONTOLOGY_EXPLAIN":
+      return handleOntologyExplain(entities, intent.originalQuery, language, baseMetadata);
     case "UNKNOWN":
     default:
       return handleUnknown(context, language, baseMetadata);
@@ -106,6 +118,7 @@ function handleNavigate(
     datasets: { en: "Dataset Registry", ms: "Daftar Set Data" },
     analytics: { en: "Analytics Dashboard", ms: "Papan Pemuka Analitik" },
     comparison: { en: "Comparison Tool", ms: "Alat Perbandingan" },
+    intelligence: { en: "Intelligence Center", ms: "Pusat Intelligen" },
   };
 
   const name = viewNames[target] || viewNames.overview;
@@ -368,6 +381,10 @@ function handleSummarize(
       en: `The **Comparison Tool** lets you select 2-4 datasets for side-by-side analysis. Compare metadata, time ranges, and similarity scores. Export results as PNG or CSV.`,
       ms: `**Alat Perbandingan** membolehkan anda memilih 2-4 set data untuk analisis berdampingan. Bandingkan metadata, julat masa, dan skor keserupaan. Eksport keputusan sebagai PNG atau CSV.`,
     },
+    intelligence: {
+      en: `The **Intelligence Center** displays the **Data Ontology Graph** — an interactive visualization showing causal and correlational relationships between 47+ Malaysian open datasets. It includes anomaly detection (statistical outlier flagging), confidence scoring (5-dimension data trustworthiness), and intelligence findings (auto-discovered patterns).`,
+      ms: `**Pusat Intelligen** memaparkan **Graf Ontologi Data** — visualisasi interaktif yang menunjukkan hubungan sebab dan korelasi antara 47+ set data terbuka Malaysia. Ia termasuk pengesanan anomali (penandaan outlier statistik), skor keyakinan (kebolehpercayaan data 5 dimensi), dan penemuan intelligens (corak yang ditemui secara automatik).`,
+    },
   };
 
   const summary = summaries[viewName] || summaries.overview;
@@ -571,6 +588,7 @@ function handleHelp(
         `• **Kedudukan** — "Negeri mana KDNK tertinggi?"`,
         `• **Trend** — "Trend pengangguran sejak 2020"`,
         `• **Info Negeri** — "Cerita tentang Sabah"`,
+        `• **Intelligen** — "Tunjuk tab intel", "Apa itu graf ontologi?"`,
         ``,
         `Anda boleh bertanya dalam Bahasa Melayu atau English! 🇲🇾`,
       ].join("\n")
@@ -587,6 +605,7 @@ function handleHelp(
         `• **Ranking** — "Which state has the highest GDP?"`,
         `• **Trend** — "Unemployment trend since 2020"`,
         `• **State Info** — "Tell me about Sabah"`,
+        `• **Intelligence** — "Show me the intel tab", "What is the ontology graph?"`,
         ``,
         `You can ask in English or Bahasa Melayu! 🇲🇾`,
       ].join("\n");
@@ -662,6 +681,10 @@ function generateNavSuggestions(target: string, lang: Lang): string[] {
       en: ["Add Kuala Lumpur", "Show GDP breakdown", "Export comparison"],
       ms: ["Tambah Kuala Lumpur", "Tunjuk pecahan KDNK", "Eksport perbandingan"],
     },
+    intelligence: {
+      en: ["Explain the ontology graph", "What are domain edges?", "Show causal relationships", "What is anomaly detection?"],
+      ms: ["Terangkan graf ontologi", "Apa itu tepi domain?", "Tunjuk hubungan sebab", "Apa itu pengesanan anomali?"],
+    },
   };
 
   const view = suggestions[target] || suggestions.overview;
@@ -695,4 +718,252 @@ function formatMetricValue(metricKey: string, value: number): string {
     return `RM${value.toLocaleString()}`;
   }
   return value.toLocaleString();
+}
+
+// ─── Intelligence / Ontology Handlers ───────────────────────────────
+
+function handleIntelNavigate(
+  entities: ParsedIntent["entities"],
+  _ctx: DashboardContext,
+  lang: Lang,
+  meta: { confidence: string }
+): CopilotResponse {
+  const text = lang === "ms"
+    ? `Berpindah ke tab **Pusat Intelligen** sekarang. Tab ini memaparkan **Graf Ontologi Data** — visualisasi interaktif yang menunjukkan hubungan sebab dan korelasi antara 47+ set data terbuka Malaysia.`
+    : `Navigating to the **Intelligence Center** tab now. This tab displays the **Data Ontology Graph** — an interactive visualization showing causal and correlational relationships between 47+ Malaysian open datasets.`;
+
+  return {
+    text,
+    actions: [{ type: "NAVIGATE", target: "intelligence" }],
+    suggestions: [
+      "Explain the ontology graph",
+      "What are domain edges?",
+      "Show causal relationships",
+      "What is anomaly detection?",
+      "Explain confidence scores",
+    ],
+    metadata: meta,
+  };
+}
+
+function handleOntologyExplain(
+  _entities: ParsedIntent["entities"],
+  query: string,
+  lang: Lang,
+  meta: { confidence: string }
+): CopilotResponse {
+  const q = query.toLowerCase();
+
+  // Check for specific edge questions
+  if ((q.includes("fuel") && q.includes("cpi")) || q.includes("harga api") && q.includes("ihp")) {
+    const edge = getEdgeById("fuel-cpi");
+    if (edge) return formatEdgeResponse(edge, lang, meta);
+  }
+  if ((q.includes("gdp") && q.includes("unemp")) || (q.includes("kdnk") && q.includes("pengangguran"))) {
+    const edge = getEdgeById("gdp-unemp");
+    if (edge) return formatEdgeResponse(edge, lang, meta);
+  }
+  if (q.includes("exchange") || q.includes("ringgit") || q.includes("pertukaran")) {
+    const edges = searchOntologyEdges("exchange");
+    if (edges.length) return formatEdgesResponse(edges, lang, meta);
+  }
+
+  // Check for relationship type questions
+  if (q.includes("drives") || q.includes("causal") || q.includes("sebab")) {
+    return formatRelationshipTypeResponse("DRIVES", lang, meta);
+  }
+  if (q.includes("leads") || q.includes("leading") || q.includes("petunjuk awal")) {
+    return formatRelationshipTypeResponse("LEADS", lang, meta);
+  }
+  if (q.includes("correlates") || q.includes("correlation") || q.includes("korelasi")) {
+    return formatRelationshipTypeResponse("CORRELATES_POSITIVE", lang, meta);
+  }
+
+  // Check for concept questions
+  if (q.includes("anomaly") || q.includes("anomali")) {
+    const concept = ontologyConcepts.find(c => c.name === "Anomaly Detection");
+    if (concept) return formatConceptResponse(concept, lang, meta);
+  }
+  if (q.includes("confidence") || q.includes("keyakinan")) {
+    const concept = ontologyConcepts.find(c => c.name === "Confidence Score");
+    if (concept) return formatConceptResponse(concept, lang, meta);
+  }
+  if (q.includes("domain edge") || q.includes("expert edge") || q.includes("tepi domain")) {
+    const concept = ontologyConcepts.find(c => c.name === "Domain Knowledge Edge");
+    if (concept) return formatConceptResponse(concept, lang, meta);
+  }
+
+  // General ontology explanation
+  const text = lang === "ms" ? `
+**Graf Ontologi Data** adalah visualisasi interaktif yang menunjukkan bagaimana 47+ set data terbuka Malaysia berhubung antara satu sama lain.
+
+Komponen utama:
+
+🔹 **Nod Kategori** — 15 kategori data (Ekonomi, Harga, Buruh, dll.)
+🔹 **Nod Set Data** — 47+ set data individu dengan saiz mengikut prioriti (P0–P3)
+🔹 **Tepi Domain** — 13 hubungan sebab/korelasi yang ditentukan pakar
+🔹 **Tepi Geografi** — Set data yang liputan geonya sama
+🔹 **Tepi Kekerapan** — Set data yang dikemas kini pada kadar sama
+
+Anda boleh:
+• Seret nod untuk menyusun semula
+• Tatal untuk zum masuk/keluar
+• Togol jenis tepi (DRIVES, LEADS, CORRELATES)
+• Tapis mengikut kekuatan hubungan
+
+Mahu saya terangkan hubungan sebab tertentu?
+  `.trim() : `
+The **Data Ontology Graph** is an interactive visualization showing how 47+ Malaysian open datasets connect to one another.
+
+Key components:
+
+🔹 **Category Nodes** — 15 data categories (Economy, Prices, Labour, etc.)
+🔹 **Dataset Nodes** — 47+ individual datasets sized by priority (P0–P3)
+🔹 **Domain Edges** — 13 expert-defined causal/correlational relationships
+🔹 **Geography Edges** — Datasets sharing the same geographic scope
+🔹 **Frequency Edges** — Datasets updated at the same rate
+
+You can:
+• Drag nodes to rearrange
+• Scroll to zoom in/out
+• Toggle edge types (DRIVES, LEADS, CORRELATES)
+• Filter by relationship strength
+
+Would you like me to explain a specific causal relationship?
+  `.trim();
+
+  return {
+    text,
+    actions: [{ type: "NAVIGATE", target: "intelligence" }],
+    suggestions: [
+      "What is a domain edge?",
+      "Explain fuel price → CPI",
+      "What does DRIVES mean?",
+      "Show all causal relationships",
+      "What is anomaly detection?",
+    ],
+    metadata: meta,
+  };
+}
+
+// ─── Ontology Helper Formatters ───────────────────────────────────────
+
+function formatEdgeResponse(edge: OntologyEdgeKnowledge, lang: Lang, meta: { confidence: string }): CopilotResponse {
+  const isBM = lang === "ms";
+  const typeInfo = ontologyRelationshipTypes.find(t => t.type === edge.type);
+
+  const text = isBM ? `
+**${edge.sourceBM} → ${edge.targetBM}**
+
+• **Jenis:** ${typeInfo?.labelBM || edge.type} (${typeInfo?.color})
+• **Kekuatan:** ${(edge.strength * 100).toFixed(0)}%
+${edge.lag ? `• **Kelewatan:** ${edge.lag}` : ""}
+• **Huraian:** ${edge.descriptionBM}
+
+Ini adalah salah satu 13 tepi domain pakar dalam Graf Ontologi Data.
+  `.trim() : `
+**${edge.source} → ${edge.target}**
+
+• **Type:** ${typeInfo?.label || edge.type} (${typeInfo?.color})
+• **Strength:** ${(edge.strength * 100).toFixed(0)}%
+${edge.lag ? `• **Lag:** ${edge.lag}` : ""}
+• **Description:** ${edge.description}
+
+This is one of 13 expert-defined domain edges in the Data Ontology Graph.
+  `.trim();
+
+  return {
+    text,
+    actions: [{ type: "NAVIGATE", target: "intelligence" }, { type: "HIGHLIGHT", target: edge.id }],
+    suggestions: [
+      `What affects ${isBM ? edge.sourceBM : edge.source}?`,
+      `What is driven by ${isBM ? edge.targetBM : edge.target}?`,
+      "Show all DRIVES edges",
+      "Compare with other causal links",
+    ],
+    metadata: meta,
+  };
+}
+
+function formatEdgesResponse(edges: OntologyEdgeKnowledge[], lang: Lang, meta: { confidence: string }): CopilotResponse {
+  const isBM = lang === "ms";
+  const text = isBM ? `
+Jumpa **${edges.length}** hubungan ontologi:
+
+${edges.map((e, i) => {
+  const type = ontologyRelationshipTypes.find(t => t.type === e.type);
+  return `${i + 1}. **${e.sourceBM} → ${e.targetBM}** (${type?.labelBM || e.type}, ${(e.strength * 100).toFixed(0)}%)`;
+}).join("\n")}
+  `.trim() : `
+Found **${edges.length}** ontology relationships:
+
+${edges.map((e, i) => {
+  const type = ontologyRelationshipTypes.find(t => t.type === e.type);
+  return `${i + 1}. **${e.source} → ${e.target}** (${type?.label || e.type}, ${(e.strength * 100).toFixed(0)}%)`;
+}).join("\n")}
+  `.trim();
+
+  return {
+    text,
+    actions: [{ type: "NAVIGATE", target: "intelligence" }],
+    suggestions: edges.slice(0, 3).map(e => `Explain ${e.source} → ${e.target}`),
+    metadata: meta,
+  };
+}
+
+function formatRelationshipTypeResponse(type: string, lang: Lang, meta: { confidence: string }): CopilotResponse {
+  const typeInfo = ontologyRelationshipTypes.find(t => t.type === type);
+  const edges = getEdgesByType(type);
+
+  const descriptions: Record<string, { en: string; ms: string }> = {
+    DRIVES: {
+      en: "**DRIVES** edges represent causal relationships where one dataset directly influences another. The arrow points from cause to effect.",
+      ms: "**DRIVES** mewakili hubungan sebab di mana satu set data mempengaruhi set data lain secara langsung. Anak panah menunjuk dari sebab ke kesan.",
+    },
+    LEADS: {
+      en: "**LEADS** edges indicate predictive relationships — one dataset is a leading indicator for another. Used for early warning signals.",
+      ms: "**LEADS** menunjukkan hubungan ramalan — satu set data adalah petunjuk awal untuk set data lain. Digunakan untuk isyarat amaran awal.",
+    },
+    CORRELATES_POSITIVE: {
+      en: "**CORRELATES_POSITIVE** means two datasets move in the same direction. When one increases, the other tends to increase too.",
+      ms: "**CORRELATES_POSITIVE** bermaksud dua set data bergerak ke arah sama. Apabila satu meningkat, yang lain cenderung meningkat juga.",
+    },
+    CORRELATES_NEGATIVE: {
+      en: "**CORRELATES_NEGATIVE** means two datasets move in opposite directions. When one increases, the other tends to decrease.",
+      ms: "**CORRELATES_NEGATIVE** bermaksud dua set data bergerak ke arah berlawanan. Apabila satu meningkat, yang lain cenderung menurun.",
+    },
+  };
+
+  const desc = descriptions[type] || { en: "Unknown relationship type.", ms: "Jenis hubungan tidak diketahui." };
+  const isBM = lang === "ms";
+
+  const text = `${isBM ? desc.ms : desc.en}
+
+${isBM ? `Terdapat **${edges.length}** tepi jenis ini dalam graf:` : `There are **${edges.length}** edges of this type in the graph:`}
+
+${edges.map((e, i) => `${i + 1}. **${isBM ? e.sourceBM : e.source} → ${isBM ? e.targetBM : e.target}** (${(e.strength * 100).toFixed(0)}%)`).join("\n")}`;
+
+  return {
+    text,
+    actions: [{ type: "NAVIGATE", target: "intelligence" }],
+    suggestions: edges.slice(0, 3).map(e => `Explain ${e.source} → ${e.target}`),
+    metadata: meta,
+  };
+}
+
+interface OntologyConcept {
+  name: string;
+  nameBM: string;
+  description: string;
+  descriptionBM: string;
+}
+
+function formatConceptResponse(concept: OntologyConcept, lang: Lang, meta: { confidence: string }): CopilotResponse {
+  const isBM = lang === "ms";
+  return {
+    text: isBM ? `**${concept.nameBM}**\n\n${concept.descriptionBM}` : `**${concept.name}**\n\n${concept.description}`,
+    actions: [{ type: "NAVIGATE", target: "intelligence" }],
+    suggestions: ["Show me the graph", "What are domain edges?", "Explain confidence scoring", "What is anomaly detection?"],
+    metadata: meta,
+  };
 }
