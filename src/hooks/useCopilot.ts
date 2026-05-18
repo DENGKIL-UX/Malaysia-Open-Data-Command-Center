@@ -27,6 +27,7 @@ export function useCopilot() {
   const [isOpen, setIsOpen] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Generate unique ID
   const genId = () => `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -42,62 +43,120 @@ export function useCopilot() {
       timestamp: Date.now(),
     };
 
+    // Add user message immediately
     setMessages(prev => [...prev, userMessage]);
     setIsTyping(true);
 
-    // Simulate a slight delay for natural feel
-    setTimeout(() => {
+    // Cancel any previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    // Build conversation history from current messages (before adding the new user msg)
+    // We'll use a ref to avoid stale closure issues
+    const fetchAIResponse = async () => {
       try {
-        const response: CopilotResponse = processQuery(text, lang);
+        // Get current messages for history
+        const historyEntries = messages
+          .filter(m => m.role === 'user' || m.role === 'assistant')
+          .slice(-10)
+          .map(m => ({
+            role: m.role as 'user' | 'assistant',
+            content: m.content,
+          }));
 
-        const assistantMessage: CopilotMessage = {
-          id: genId(),
-          role: 'assistant',
-          content: response.text,
-          timestamp: Date.now(),
-          type: response.type,
-          action: response.action,
-        };
+        const response = await fetch('/api/copilot/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: text.trim(),
+            lang,
+            history: historyEntries,
+          }),
+          signal: controller.signal,
+        });
 
-        setMessages(prev => [...prev, assistantMessage]);
-
-        // Dispatch CustomEvents for dashboard navigation
-        if (response.action) {
-          switch (response.action.type) {
-            case 'navigate':
-              window.dispatchEvent(new CustomEvent('copilot:navigate', {
-                detail: { tab: response.action.target },
-              }));
-              break;
-            case 'show-metric':
-              window.dispatchEvent(new CustomEvent('copilot:show-metric', {
-                detail: { metric: response.action.target },
-              }));
-              break;
-            case 'highlight':
-              window.dispatchEvent(new CustomEvent('copilot:highlight', {
-                detail: { target: response.action.target },
-              }));
-              break;
-          }
+        if (!response.ok) {
+          throw new Error(`API returned ${response.status}`);
         }
-      } catch (err) {
-        console.error('[Copilot] Error processing query:', err);
-        const errorMessage: CopilotMessage = {
-          id: genId(),
-          role: 'assistant',
-          content: lang === 'ms'
-            ? 'Maaf, saya mengalami ralat memproses permintaan anda. Sila cuba lagi.'
-            : 'Sorry, I encountered an error processing your request. Please try again.',
-          timestamp: Date.now(),
-          type: 'text',
-        };
-        setMessages(prev => [...prev, errorMessage]);
+
+        const data = await response.json();
+
+        if (data.success && data.response) {
+          const assistantMessage: CopilotMessage = {
+            id: genId(),
+            role: 'assistant',
+            content: data.response,
+            timestamp: Date.now(),
+            type: 'text',
+          };
+          setMessages(prev => [...prev, assistantMessage]);
+        } else {
+          // Fallback to rule-based
+          throw new Error(data.error || 'AI service unavailable');
+        }
+      } catch (err: unknown) {
+        // Don't show error if request was aborted
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+
+        console.warn('[Copilot] LLM API failed, falling back to rule-based:', err);
+
+        // Fallback: Use rule-based engine
+        try {
+          const ruleResponse: CopilotResponse = processQuery(text, lang);
+          const fallbackMessage: CopilotMessage = {
+            id: genId(),
+            role: 'assistant',
+            content: ruleResponse.text,
+            timestamp: Date.now(),
+            type: ruleResponse.type,
+            action: ruleResponse.action,
+          };
+          setMessages(prev => [...prev, fallbackMessage]);
+
+          // Dispatch navigation events from rule-based response
+          if (ruleResponse.action) {
+            switch (ruleResponse.action.type) {
+              case 'navigate':
+                window.dispatchEvent(new CustomEvent('copilot:navigate', {
+                  detail: { tab: ruleResponse.action.target },
+                }));
+                break;
+              case 'show-metric':
+                window.dispatchEvent(new CustomEvent('copilot:show-metric', {
+                  detail: { metric: ruleResponse.action.target },
+                }));
+                break;
+              case 'highlight':
+                window.dispatchEvent(new CustomEvent('copilot:highlight', {
+                  detail: { target: ruleResponse.action.target },
+                }));
+                break;
+            }
+          }
+        } catch (fallbackErr) {
+          console.error('[Copilot] Rule-based fallback also failed:', fallbackErr);
+          const errorMessage: CopilotMessage = {
+            id: genId(),
+            role: 'assistant',
+            content: lang === 'ms'
+              ? 'Maaf, saya mengalami ralat. Sila cuba lagi.'
+              : 'Sorry, I encountered an error. Please try again.',
+            timestamp: Date.now(),
+            type: 'text',
+          };
+          setMessages(prev => [...prev, errorMessage]);
+        }
       } finally {
         setIsTyping(false);
       }
-    }, 300 + Math.random() * 400); // 300-700ms delay
-  }, []);
+    };
+
+    // Small delay for natural feel, then call API
+    setTimeout(fetchAIResponse, 300 + Math.random() * 400);
+  }, [messages]);
 
   // Toggle chat panel
   const toggleOpen = useCallback(() => {
@@ -117,6 +176,9 @@ export function useCopilot() {
   // Clear messages
   const clearMessages = useCallback(() => {
     setMessages([]);
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
   }, []);
 
   return {

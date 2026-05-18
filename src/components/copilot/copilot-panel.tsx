@@ -2,14 +2,13 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, Send, X, Bot, User, Navigation, Trash2, Sparkles } from 'lucide-react';
+import { MessageSquare, Send, X, Bot, User, Navigation, Trash2, Sparkles, Zap } from 'lucide-react';
 import { useCopilot } from '@/hooks/useCopilot';
 import type { CopilotMessage } from '@/hooks/useCopilot';
 import type { Lang } from '@/lib/dashboard-types';
 
 // ─── Markdown-Lite Renderer ─────────────────────────────────────────────
 function renderMarkdownLite(text: string) {
-  // Process the text in segments to handle bold, bullets, and line breaks
   const lines = text.split('\n');
   const elements: React.ReactNode[] = [];
 
@@ -22,12 +21,25 @@ function renderMarkdownLite(text: string) {
       return;
     }
 
-    // Handle bullet points
-    if (line.trimStart().startsWith('• ')) {
-      const content = line.trimStart().slice(2);
+    // Handle bullet points (• or - or *)
+    if (line.trimStart().startsWith('• ') || line.trimStart().startsWith('- ') || line.trimStart().startsWith('* ')) {
+      const content = line.trimStart().replace(/^[•\-\*]\s/, '');
       elements.push(
         <div key={lineIdx} className="flex gap-2 ml-1">
           <span style={{ color: '#06b6d4' }}>•</span>
+          <span>{renderInlineFormatting(content)}</span>
+        </div>
+      );
+      return;
+    }
+
+    // Handle numbered lists
+    const numberedMatch = line.trimStart().match(/^(\d+)\.\s/);
+    if (numberedMatch) {
+      const content = line.trimStart().replace(/^\d+\.\s/, '');
+      elements.push(
+        <div key={lineIdx} className="flex gap-2 ml-1">
+          <span style={{ color: '#06b6d4' }}>{numberedMatch[1]}.</span>
           <span>{renderInlineFormatting(content)}</span>
         </div>
       );
@@ -183,7 +195,7 @@ function MessageBubble({ message, lang }: { message: CopilotMessage; lang: Lang 
 
       {/* Bubble */}
       <div
-        className={`max-w-[280px] rounded-lg px-3 py-2 text-[12px] leading-relaxed ${isUser ? '' : ''}`}
+        className={`max-w-[300px] rounded-lg px-3 py-2 text-[12px] leading-relaxed`}
         style={{
           background: isUser
             ? 'rgba(6,182,212,0.15)'
@@ -207,21 +219,21 @@ function MessageBubble({ message, lang }: { message: CopilotMessage; lang: Lang 
   );
 }
 
-// ─── Quick Suggestions ──────────────────────────────────────────────────
+// ─── Quick Suggestions (aligned with actual datasets) ──────────────────
 const QUICK_SUGGESTIONS_EN = [
-  'What is Malaysia\'s population?',
-  'GDP of Selangor',
-  'Find healthcare datasets',
-  'Show me analytics',
-  'Explain the ontology',
+  { icon: '📊', text: 'What is Malaysia\'s population?' },
+  { icon: '💰', text: 'GDP of Selangor' },
+  { icon: '🏥', text: 'Find healthcare datasets' },
+  { icon: '📈', text: 'Show me analytics' },
+  { icon: '🗺️', text: 'Explain the ontology' },
 ];
 
 const QUICK_SUGGESTIONS_MS = [
-  'Berapa penduduk Malaysia?',
-  'KDNK Selangor',
-  'Cari set data kesihatan',
-  'Tunjuk analitik',
-  'Terangkan ontologi',
+  { icon: '📊', text: 'Berapa penduduk Malaysia?' },
+  { icon: '💰', text: 'KDNK Selangor' },
+  { icon: '🏥', text: 'Cari set data kesihatan' },
+  { icon: '📈', text: 'Tunjuk analitik' },
+  { icon: '🗺️', text: 'Terangkan ontologi' },
 ];
 
 // ─── Main Component ─────────────────────────────────────────────────────
@@ -299,7 +311,7 @@ export function CopilotPanel({ lang }: CopilotPanelProps) {
               background: 'linear-gradient(135deg, #06b6d4, #0891b2)',
               boxShadow: '0 0 20px rgba(6,182,212,0.4), 0 0 40px rgba(6,182,212,0.15), 0 4px 12px rgba(0,0,0,0.3)',
             }}
-            aria-label={lang === 'en' ? 'Open Command Copilot' : 'Buka Copilot Perintah'}
+            aria-label={lang === 'en' ? 'Open AI Penasihat' : 'Buka AI Penasihat'}
             onMouseEnter={e => {
               e.currentTarget.style.boxShadow = '0 0 30px rgba(6,182,212,0.6), 0 0 60px rgba(6,182,212,0.25), 0 4px 16px rgba(0,0,0,0.4)';
               e.currentTarget.style.transform = 'scale(1.08)';
@@ -318,6 +330,17 @@ export function CopilotPanel({ lang }: CopilotPanelProps) {
               animate={{ scale: [1, 1.4, 1], opacity: [0.6, 0, 0.6] }}
               transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
             />
+
+            {/* AI Badge */}
+            <div
+              className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center"
+              style={{
+                background: 'linear-gradient(135deg, #10b981, #059669)',
+                boxShadow: '0 0 6px rgba(16,185,129,0.6)',
+              }}
+            >
+              <Zap size={8} style={{ color: 'white' }} />
+            </div>
           </motion.button>
         )}
       </AnimatePresence>
@@ -332,8 +355,8 @@ export function CopilotPanel({ lang }: CopilotPanelProps) {
             transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
             className="fixed bottom-6 right-6 z-50 flex flex-col rounded-xl overflow-hidden"
             style={{
-              width: '380px',
-              maxHeight: '500px',
+              width: '400px',
+              maxHeight: '540px',
               background: 'rgba(10,14,26,0.97)',
               border: '1px solid rgba(6,182,212,0.2)',
               boxShadow: '0 0 30px rgba(6,182,212,0.15), 0 0 60px rgba(6,182,212,0.05), 0 8px 32px rgba(0,0,0,0.5)',
@@ -352,7 +375,7 @@ export function CopilotPanel({ lang }: CopilotPanelProps) {
                 <div
                   className="w-7 h-7 rounded-lg flex items-center justify-center"
                   style={{
-                    background: 'rgba(6,182,212,0.15)',
+                    background: 'linear-gradient(135deg, rgba(6,182,212,0.15), rgba(16,185,129,0.15))',
                     border: '1px solid rgba(6,182,212,0.3)',
                   }}
                 >
@@ -363,10 +386,13 @@ export function CopilotPanel({ lang }: CopilotPanelProps) {
                     className="text-[11px] font-mono font-bold tracking-widest"
                     style={{ color: '#06b6d4', textShadow: '0 0 8px rgba(6,182,212,0.4)' }}
                   >
-                    {lang === 'en' ? 'COMMAND COPILOT' : 'COPILOT PERINTAH'}
+                    {lang === 'en' ? 'AI PENASIHAT' : 'AI PENASIHAT'}
                   </div>
-                  <div className="text-[9px] font-mono" style={{ color: 'rgba(6,182,212,0.4)' }}>
-                    {lang === 'en' ? 'Rule-Based Assistant' : 'Pembantu Berdasarkan Peraturan'}
+                  <div className="flex items-center gap-1">
+                    <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#10b981', boxShadow: '0 0 4px rgba(16,185,129,0.6)' }} />
+                    <div className="text-[9px] font-mono" style={{ color: 'rgba(16,185,129,0.6)' }}>
+                      {lang === 'en' ? 'AI-Powered Assistant' : 'Pembantu Berkuasa AI'}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -416,7 +442,7 @@ export function CopilotPanel({ lang }: CopilotPanelProps) {
             <div
               ref={scrollRef}
               className="flex-1 overflow-y-auto px-3 py-3 space-y-3"
-              style={{ maxHeight: '340px', minHeight: '200px' }}
+              style={{ maxHeight: '360px', minHeight: '200px' }}
             >
               {/* Welcome message if empty */}
               {messages.length === 0 && (
@@ -424,7 +450,7 @@ export function CopilotPanel({ lang }: CopilotPanelProps) {
                   <div
                     className="w-12 h-12 rounded-xl mx-auto mb-3 flex items-center justify-center"
                     style={{
-                      background: 'rgba(6,182,212,0.1)',
+                      background: 'linear-gradient(135deg, rgba(6,182,212,0.1), rgba(16,185,129,0.1))',
                       border: '1px solid rgba(6,182,212,0.2)',
                     }}
                   >
@@ -434,10 +460,12 @@ export function CopilotPanel({ lang }: CopilotPanelProps) {
                     className="text-[12px] font-mono mb-1"
                     style={{ color: 'rgba(255,255,255,0.7)' }}
                   >
-                    {lang === 'en' ? 'How can I help you?' : 'Bagaimana saya boleh bantu?'}
+                    {lang === 'en' ? 'Salam! I\'m AI Penasihat.' : 'Salam! Saya AI Penasihat.'}
                   </div>
                   <div className="text-[10px] font-mono" style={{ color: 'rgba(6,182,212,0.4)' }}>
-                    {lang === 'en' ? 'Ask about Malaysia data, navigate, or explore datasets' : 'Tanya tentang data Malaysia, navigasi, atau terokai set data'}
+                    {lang === 'en'
+                      ? 'Ask about Malaysia data, navigate dashboards, or explore datasets'
+                      : 'Tanya tentang data Malaysia, navigasi papan pemuka, atau terokai set data'}
                   </div>
                 </div>
               )}
@@ -459,8 +487,8 @@ export function CopilotPanel({ lang }: CopilotPanelProps) {
                   {suggestions.map((s, i) => (
                     <button
                       key={i}
-                      onClick={() => handleSuggestion(s)}
-                      className="w-full text-left px-3 py-1.5 rounded text-[11px] font-mono transition-all duration-200"
+                      onClick={() => handleSuggestion(s.text)}
+                      className="w-full text-left px-3 py-1.5 rounded text-[11px] font-mono transition-all duration-200 flex items-center gap-2"
                       style={{
                         background: 'rgba(6,182,212,0.04)',
                         border: '1px solid rgba(6,182,212,0.1)',
@@ -477,7 +505,8 @@ export function CopilotPanel({ lang }: CopilotPanelProps) {
                         e.currentTarget.style.color = 'rgba(255,255,255,0.6)';
                       }}
                     >
-                      {s}
+                      <span className="text-sm">{s.icon}</span>
+                      {s.text}
                     </button>
                   ))}
                 </div>
@@ -528,7 +557,9 @@ export function CopilotPanel({ lang }: CopilotPanelProps) {
               {/* Bottom hint */}
               <div className="text-center mt-1.5">
                 <span className="text-[8px] font-mono" style={{ color: 'rgba(6,182,212,0.25)' }}>
-                  {lang === 'en' ? 'Powered by rule-based intelligence • EN/BM' : 'Dikuasakan oleh kecerdasan berasaskan peraturan • EN/BM'}
+                  {lang === 'en'
+                    ? 'Powered by AI • EN/BM • Malaysia Open Data'
+                    : 'Dikuasakan AI • EN/BM • Data Terbuka Malaysia'}
                 </span>
               </div>
             </div>
