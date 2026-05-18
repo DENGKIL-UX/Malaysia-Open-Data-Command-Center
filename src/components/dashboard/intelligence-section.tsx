@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Network, Database, AlertTriangle, ChevronRight,
-  Activity, Shield, Zap, ExternalLink, Info,
+  Activity, Shield, Zap, ExternalLink, Info, TrendingUp,
 } from 'lucide-react';
 import { DATASET_CATEGORIES } from '@/lib/data/malaysia-data';
 import { DATASETS } from '@/lib/data/datasets';
@@ -982,6 +982,412 @@ export function IntelligenceSection({ lang }: { lang: Lang }) {
               : 'Edge thickness proportional to strength'}
           </span>
         </div>
+      </div>
+
+      {/* ─── ANOMALY DETECTION PANEL ──────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+        <div className="relative group rounded-xl border p-5" style={premiumCardStyle()}>
+          <HUDBracket />
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={14} style={{ color: '#ef4444' }} />
+              <span className="text-[11px] font-semibold font-mono tracking-wider" style={{ color: '#ef4444' }}>
+                {lang === 'ms' ? 'PENGESANAN ANOMALI' : 'ANOMALY DETECTION'}
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#ef4444', boxShadow: '0 0 4px rgba(239,68,68,0.6)' }} />
+              <span className="text-[8px] font-mono" style={{ color: '#ef444499' }}>
+                {simulatedNodes.filter(n => n.anomalyScore > 70).length} {lang === 'ms' ? 'kritikal' : 'critical'}
+              </span>
+            </div>
+          </div>
+
+          {/* Anomaly list sorted by score */}
+          <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar pr-1">
+            {[...simulatedNodes]
+              .sort((a, b) => b.anomalyScore - a.anomalyScore)
+              .slice(0, 8)
+              .map((node, i) => {
+                const isHigh = node.anomalyScore > 70;
+                const isMedium = node.anomalyScore > 40 && node.anomalyScore <= 70;
+                const barColor = isHigh ? '#ef4444' : isMedium ? '#f59e0b' : '#10b981';
+                const statusLabel = isHigh
+                  ? (lang === 'ms' ? 'KRITIKAL' : 'CRITICAL')
+                  : isMedium
+                    ? (lang === 'ms' ? 'AWAS' : 'WARNING')
+                    : (lang === 'ms' ? 'NORMAL' : 'NORMAL');
+
+                return (
+                  <motion.div
+                    key={node.id}
+                    initial={{ opacity: 0, x: -15 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.06, duration: 0.3 }}
+                    className="flex items-center gap-3 p-2 rounded-md border cursor-pointer transition-all duration-200"
+                    style={{
+                      background: isHigh ? 'rgba(239,68,68,0.06)' : 'rgba(6,182,212,0.02)',
+                      borderColor: isHigh ? 'rgba(239,68,68,0.2)' : 'rgba(6,182,212,0.08)',
+                    }}
+                    onClick={() => { setSelectedNode(node.id); }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.background = isHigh ? 'rgba(239,68,68,0.12)' : 'rgba(6,182,212,0.06)';
+                      e.currentTarget.style.borderColor = isHigh ? 'rgba(239,68,68,0.4)' : 'rgba(6,182,212,0.2)';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.background = isHigh ? 'rgba(239,68,68,0.06)' : 'rgba(6,182,212,0.02)';
+                      e.currentTarget.style.borderColor = isHigh ? 'rgba(239,68,68,0.2)' : 'rgba(6,182,212,0.08)';
+                    }}
+                  >
+                    {/* Rank */}
+                    <span className="text-[8px] font-mono font-bold w-4 text-right flex-shrink-0" style={{ color: '#b0bec580' }}>
+                      {i + 1}
+                    </span>
+
+                    {/* Color dot */}
+                    <div
+                      className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                      style={{ background: node.color, boxShadow: `0 0 6px ${node.color}60` }}
+                    />
+
+                    {/* Node name and status */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-mono font-bold truncate" style={{ color: node.color }}>
+                          {lang === 'ms' ? node.label_ms : node.label_en}
+                        </span>
+                        <span
+                          className="text-[7px] font-mono font-bold px-1.5 py-0.5 rounded flex-shrink-0"
+                          style={{
+                            background: `${barColor}15`,
+                            color: barColor,
+                            border: `1px solid ${barColor}30`,
+                          }}
+                        >
+                          {statusLabel}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Anomaly score bar */}
+                    <div className="w-20 flex-shrink-0">
+                      <div className="flex items-center gap-1.5">
+                        <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: `${barColor}10` }}>
+                          <motion.div
+                            className="h-full rounded-full"
+                            style={{ background: `linear-gradient(90deg, ${barColor}80, ${barColor})`, boxShadow: `0 0 6px ${barColor}40` }}
+                            initial={{ width: 0 }}
+                            animate={{ width: `${node.anomalyScore}%` }}
+                            transition={{ duration: 0.8, delay: i * 0.06, ease: [0.22, 0.61, 0.36, 1] }}
+                          />
+                        </div>
+                        <span className="text-[8px] font-mono font-bold w-6 text-right" style={{ color: barColor }}>
+                          {node.anomalyScore}
+                        </span>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+          </div>
+        </div>
+
+        {/* ─── CAUSAL CHAIN ANALYSIS ──────────────────────────────────── */}
+        <div className="relative group rounded-xl border p-5" style={premiumCardStyle()}>
+          <HUDBracket />
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Zap size={14} style={{ color: '#f59e0b' }} />
+              <span className="text-[11px] font-semibold font-mono tracking-wider" style={{ color: '#f59e0b' }}>
+                {lang === 'ms' ? 'RANTAI KAUSAL' : 'CAUSAL CHAIN ANALYSIS'}
+              </span>
+            </div>
+            <span className="text-[8px] font-mono px-1.5 py-0.5 rounded" style={{
+              background: 'rgba(245,158,11,0.1)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.2)',
+            }}>
+              {lang === 'ms' ? 'LALUAN KESAN' : 'IMPACT PATHWAYS'}
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            {/* Causal Chain 1: Population → GDP → Employment → Household Income */}
+            <div className="p-3 rounded-md border" style={{ background: 'rgba(6,182,212,0.03)', borderColor: 'rgba(6,182,212,0.08)' }}>
+              <div className="text-[9px] font-mono font-bold mb-2" style={{ color: '#06b6d4' }}>
+                {lang === 'ms' ? 'Rantai Kependudukan' : 'Demographic Chain'}
+              </div>
+              <div className="flex items-center gap-1 flex-wrap">
+                {[
+                  { label: lang === 'ms' ? 'Penduduk' : 'Population', color: '#06b6d4' },
+                  { label: '→', color: '#06b6d440' },
+                  { label: lang === 'ms' ? 'KDNK' : 'GDP', color: '#f59e0b' },
+                  { label: '→', color: '#f59e0b40' },
+                  { label: lang === 'ms' ? 'Pekerjaan' : 'Employment', color: '#8b5cf6' },
+                  { label: '→', color: '#8b5cf640' },
+                  { label: lang === 'ms' ? 'Pendapatan Isi Rumah' : 'Household Income', color: '#10b981' },
+                ].map((item, i) => (
+                  <span key={i} className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded" style={{
+                    background: `${item.color}12`,
+                    color: item.color,
+                    border: `1px solid ${item.color}25`,
+                  }}>
+                    {item.label}
+                  </span>
+                ))}
+              </div>
+              <div className="text-[8px] font-mono mt-1.5" style={{ color: '#b0bec580' }}>
+                {lang === 'ms'
+                  ? 'Kekuatan gabungan: 0.85 → 0.90 → 0.95 | Kelewatan: 2→1→0 tahun'
+                  : 'Combined strength: 0.85 → 0.90 → 0.95 | Lag: 2→1→0 years'}
+              </div>
+            </div>
+
+            {/* Causal Chain 2: GDP → Inflation → Interest Rates */}
+            <div className="p-3 rounded-md border" style={{ background: 'rgba(245,158,11,0.03)', borderColor: 'rgba(245,158,11,0.08)' }}>
+              <div className="text-[9px] font-mono font-bold mb-2" style={{ color: '#f59e0b' }}>
+                {lang === 'ms' ? 'Rantai Kewangan' : 'Financial Chain'}
+              </div>
+              <div className="flex items-center gap-1 flex-wrap">
+                {[
+                  { label: lang === 'ms' ? 'KDNK' : 'GDP', color: '#f59e0b' },
+                  { label: '→', color: '#f59e0b40' },
+                  { label: lang === 'ms' ? 'Inflasi' : 'Inflation', color: '#ef4444' },
+                  { label: '→', color: '#ef444440' },
+                  { label: lang === 'ms' ? 'Kadar Faedah' : 'Interest Rates', color: '#8b5cf6' },
+                ].map((item, i) => (
+                  <span key={i} className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded" style={{
+                    background: `${item.color}12`,
+                    color: item.color,
+                    border: `1px solid ${item.color}25`,
+                  }}>
+                    {item.label}
+                  </span>
+                ))}
+              </div>
+              <div className="text-[8px] font-mono mt-1.5" style={{ color: '#b0bec580' }}>
+                {lang === 'ms'
+                  ? 'Kekuatan gabungan: 0.70 → 0.75 | Kelewatan: 3→2 tahun'
+                  : 'Combined strength: 0.70 → 0.75 | Lag: 3→2 years'}
+              </div>
+            </div>
+
+            {/* Causal Chain 3: Population → Education → Employment */}
+            <div className="p-3 rounded-md border" style={{ background: 'rgba(16,185,129,0.03)', borderColor: 'rgba(16,185,129,0.08)' }}>
+              <div className="text-[9px] font-mono font-bold mb-2" style={{ color: '#10b981' }}>
+                {lang === 'ms' ? 'Rantai Modal Insan' : 'Human Capital Chain'}
+              </div>
+              <div className="flex items-center gap-1 flex-wrap">
+                {[
+                  { label: lang === 'ms' ? 'Penduduk' : 'Population', color: '#06b6d4' },
+                  { label: '→', color: '#06b6d440' },
+                  { label: lang === 'ms' ? 'Pendidikan' : 'Education', color: '#0ea5e9' },
+                  { label: '→', color: '#0ea5e940' },
+                  { label: lang === 'ms' ? 'Pekerjaan' : 'Employment', color: '#8b5cf6' },
+                  { label: '→', color: '#8b5cf640' },
+                  { label: lang === 'ms' ? 'Produktiviti' : 'Productivity', color: '#10b981' },
+                ].map((item, i) => (
+                  <span key={i} className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded" style={{
+                    background: `${item.color}12`,
+                    color: item.color,
+                    border: `1px solid ${item.color}25`,
+                  }}>
+                    {item.label}
+                  </span>
+                ))}
+              </div>
+              <div className="text-[8px] font-mono mt-1.5" style={{ color: '#b0bec580' }}>
+                {lang === 'ms'
+                  ? 'Kekuatan gabungan: 0.85 → 0.82 → 0.72 | Kelewatan: 1→4→3 tahun'
+                  : 'Combined strength: 0.85 → 0.82 → 0.72 | Lag: 1→4→3 years'}
+              </div>
+            </div>
+
+            {/* Causal Chain 4: GDP → Public Revenue → Public Services */}
+            <div className="p-3 rounded-md border" style={{ background: 'rgba(236,72,153,0.03)', borderColor: 'rgba(236,72,153,0.08)' }}>
+              <div className="text-[9px] font-mono font-bold mb-2" style={{ color: '#ec4899' }}>
+                {lang === 'ms' ? 'Rantai Dasar Awam' : 'Public Policy Chain'}
+              </div>
+              <div className="flex items-center gap-1 flex-wrap">
+                {[
+                  { label: lang === 'ms' ? 'KDNK' : 'GDP', color: '#f59e0b' },
+                  { label: '→', color: '#f59e0b40' },
+                  { label: lang === 'ms' ? 'Hasil Awam' : 'Public Revenue', color: '#ec4899' },
+                  { label: '→', color: '#ec489940' },
+                  { label: lang === 'ms' ? 'Perkhidmatan Awam' : 'Public Services', color: '#06b6d4' },
+                ].map((item, i) => (
+                  <span key={i} className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded" style={{
+                    background: `${item.color}12`,
+                    color: item.color,
+                    border: `1px solid ${item.color}25`,
+                  }}>
+                    {item.label}
+                  </span>
+                ))}
+              </div>
+              <div className="text-[8px] font-mono mt-1.5" style={{ color: '#b0bec580' }}>
+                {lang === 'ms'
+                  ? 'Kekuatan gabungan: 0.87 → 0.65 | Kelewatan: 1→2 tahun'
+                  : 'Combined strength: 0.87 → 0.65 | Lag: 1→2 years'}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ─── CORRELATION MATRIX ────────────────────────────────────────── */}
+      <div className="mt-6 relative group rounded-xl border p-5" style={premiumCardStyle()}>
+        <HUDBracket />
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Database size={14} style={{ color: '#06b6d4' }} />
+            <span className="text-[11px] font-semibold font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+              {lang === 'ms' ? 'MATRIKS KORELASI DOMAIN' : 'DOMAIN CORRELATION MATRIX'}
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1">
+              <div className="w-8 h-1.5 rounded-full" style={{ background: 'linear-gradient(90deg, #ef4444, #f59e0b, #10b981)' }} />
+              <span className="text-[7px] font-mono" style={{ color: '#b0bec580' }}>
+                {lang === 'ms' ? 'Rendah → Tinggi' : 'Low → High'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto custom-scrollbar">
+          <table className="w-full text-[8px] font-mono" style={{ borderCollapse: 'separate', borderSpacing: '2px' }}>
+            <thead>
+              <tr>
+                <th className="p-1 text-left" style={{ color: '#b0bec560' }} />
+                {simulatedNodes.slice(0, 10).map(node => (
+                  <th key={node.id} className="p-1 text-center" style={{ color: `${node.color}cc`, writingMode: 'vertical-rl', transform: 'rotate(180deg)', height: '60px', fontSize: '7px' }}>
+                    {lang === 'ms' ? node.label_ms : node.label_en}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {simulatedNodes.slice(0, 10).map((rowNode, ri) => {
+                // Calculate correlation values for this row
+                const rowEdges = ONTOLOGY_EDGES.filter(e => e.source === rowNode.id || e.target === rowNode.id);
+                return (
+                  <tr key={rowNode.id}>
+                    <td className="p-1 text-right pr-2 whitespace-nowrap" style={{ color: `${rowNode.color}cc`, fontSize: '7px' }}>
+                      {lang === 'ms' ? rowNode.label_ms : rowNode.label_en}
+                    </td>
+                    {simulatedNodes.slice(0, 10).map((colNode, ci) => {
+                      if (ri === ci) {
+                        // Diagonal - self
+                        return (
+                          <td key={colNode.id} className="p-0">
+                            <div className="w-full h-6 rounded-sm flex items-center justify-center" style={{ background: `${rowNode.color}30`, border: `1px solid ${rowNode.color}20` }}>
+                              <span style={{ color: rowNode.color, fontSize: '7px', fontWeight: 'bold' }}>—</span>
+                            </div>
+                          </td>
+                        );
+                      }
+                      // Find edge between these nodes
+                      const edge = rowEdges.find(e =>
+                        (e.source === rowNode.id && e.target === colNode.id) ||
+                        (e.target === rowNode.id && e.source === colNode.id)
+                      );
+                      const strength = edge ? edge.strength : 0;
+                      const hasEdge = !!edge;
+                      const color = strength > 0.8 ? '#10b981' : strength > 0.6 ? '#06b6d4' : strength > 0.4 ? '#f59e0b' : '#64748b';
+                      const bgColor = hasEdge ? `${color}25` : 'rgba(6,182,212,0.02)';
+                      const borderColor = hasEdge ? `${color}15` : 'rgba(6,182,212,0.05)';
+
+                      return (
+                        <td key={colNode.id} className="p-0">
+                          <div
+                            className="w-full h-6 rounded-sm flex items-center justify-center transition-all duration-200"
+                            style={{ background: bgColor, border: `1px solid ${borderColor}` }}
+                            title={edge ? (lang === 'ms' ? edge.description_ms : edge.description_en) : ''}
+                          >
+                            <span style={{ color: hasEdge ? color : '#b0bec530', fontSize: '7px', fontWeight: hasEdge ? 'bold' : 'normal' }}>
+                              {hasEdge ? (strength * 100).toFixed(0) : '·'}
+                            </span>
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="flex items-center gap-4 mt-3 pt-3" style={{ borderTop: '1px solid rgba(6,182,212,0.06)' }}>
+          <span className="text-[8px] font-mono" style={{ color: '#b0bec560' }}>
+            {lang === 'ms' ? 'Nilai menunjukkan kekuatan korelasi (0-100)' : 'Values show correlation strength (0-100)'}
+          </span>
+          <div className="flex items-center gap-1.5 ml-auto">
+            {[{ v: '≥80', c: '#10b981' }, { v: '60-79', c: '#06b6d4' }, { v: '40-59', c: '#f59e0b' }, { v: '<40', c: '#64748b' }].map(s => (
+              <div key={s.v} className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-sm" style={{ background: `${s.c}30`, border: `1px solid ${s.c}20` }} />
+                <span className="text-[7px] font-mono" style={{ color: s.c }}>{s.v}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ─── DOMAIN INSIGHTS PANEL ────────────────────────────────────── */}
+      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {[
+          {
+            icon: TrendingUp,
+            color: '#10b981',
+            title_en: 'Growth Accelerator',
+            title_ms: 'Pemacu Pertumbuhan',
+            desc_en: 'Population growth (1.1% YoY) directly fuels GDP expansion through increased labour supply and domestic demand. Malaysia\'s demographic dividend remains a key economic catalyst.',
+            desc_ms: 'Pertumbuhan penduduk (1.1% setahun) terus memacu pengembangan KDNK melalui peningkatan bekalan tenaga kerja dan permintaan domestik.',
+          },
+          {
+            icon: Shield,
+            color: '#06b6d4',
+            title_en: 'Resilience Factor',
+            title_ms: 'Faktor Ketahanan',
+            desc_en: 'Diversified economic sectors (Services 58%, Manufacturing 23%) provide resilience against sector-specific shocks. GDP-to-Employment correlation of 0.90 ensures job market stability.',
+            desc_ms: 'Sektor ekonomi pelbagai (Perkhidmatan 58%, Pembuatan 23%) memberikan ketahanan terhadap kejutan sektor. Korelasi KDNK-Pekerjaan 0.90 menjamin kestabilan pasaran kerja.',
+          },
+          {
+            icon: AlertTriangle,
+            color: '#f59e0b',
+            title_en: 'Risk Indicator',
+            title_ms: 'Penunjuk Risiko',
+            desc_en: 'Inflation-GDP lag of 3 years suggests monetary policy changes take time to impact prices. Early indicators should be monitored for proactive adjustment of fiscal policy.',
+            desc_ms: 'Kelewatan inflasi-KDNK selama 3 tahun menunjukkan perubahan dasar monetari mengambil masa. Penunjuk awal harus dipantau untuk pelarasan proaktif dasar fiskal.',
+          },
+        ].map((insight, i) => {
+          const Icon = insight.icon;
+          return (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 + i * 0.1, duration: 0.4 }}
+              className="relative group rounded-xl border p-5"
+              style={premiumCardStyle()}
+            >
+              <HUDBracket />
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{
+                  background: `${insight.color}12`,
+                  border: `1px solid ${insight.color}25`,
+                }}>
+                  <Icon size={16} style={{ color: insight.color }} />
+                </div>
+                <span className="text-[11px] font-semibold font-mono tracking-wider" style={{ color: insight.color }}>
+                  {lang === 'ms' ? insight.title_ms : insight.title_en}
+                </span>
+              </div>
+              <p className="text-[10px] font-mono leading-relaxed" style={{ color: '#b8c5d4' }}>
+                {lang === 'ms' ? insight.desc_ms : insight.desc_en}
+              </p>
+            </motion.div>
+          );
+        })}
       </div>
 
       {/* Custom scrollbar styles */}

@@ -20,25 +20,24 @@ import { useCopilot } from '@/hooks/use-copilot';
 // ─── Animated Counter Hook ──────────────────────────────────────
 function useAnimatedCounter(target: number, duration = 600) {
   const [count, setCount] = useState(0);
-  const prevTarget = useRef(target);
+  const prevTarget = useRef(-1); // Initialize to -1 so first render always animates
 
   useEffect(() => {
     if (prevTarget.current === target) return;
     prevTarget.current = target;
-    const start = count;
-    const diff = target - start;
     const startTime = performance.now();
+    const startVal = 0;
 
     const animate = (now: number) => {
       const elapsed = now - startTime;
       const progress = Math.min(elapsed / duration, 1);
       // easeOutCubic
       const eased = 1 - Math.pow(1 - progress, 3);
-      setCount(Math.round(start + diff * eased));
+      setCount(Math.round(startVal + (target - startVal) * eased));
       if (progress < 1) requestAnimationFrame(animate);
     };
     requestAnimationFrame(animate);
-  }, [target, duration, count]);
+  }, [target, duration]);
 
   return count;
 }

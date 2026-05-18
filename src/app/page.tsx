@@ -695,11 +695,11 @@ export default function Home() {
 
           {/* Main Content */}
           <main id="main-content" className="flex-1 overflow-y-auto px-4 py-4 max-w-[1400px] mx-auto w-full">
-            <AnimatePresence mode="wait">
+            <AnimatePresence mode="popLayout">
               <motion.div
                 key={activeTab}
-                initial={{ opacity: 0, y: 10, scale: 0.99 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
                 role="tabpanel"

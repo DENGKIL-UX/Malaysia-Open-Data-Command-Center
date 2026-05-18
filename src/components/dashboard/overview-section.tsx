@@ -411,6 +411,8 @@ export function OverviewSection({ lang, onNavigateDatasets }: { lang: Lang; onNa
     // Live data mapping: registry ID → display KPI
     const liveMap: Record<string, KpiItem> = {};
     for (const [id, kpi] of Object.entries(kpiMap)) {
+      // Sanity check: if changePct is unreasonably large, treat as bad data
+      const safeChangePct = Math.abs(kpi.changePct) > 500 ? 0 : kpi.changePct;
       liveMap[id] = {
         icon: id === 'gdp_growth' || id === 'gdp_qtr' ? TrendingUp
           : id === 'cpi_headline' ? BarChart3
@@ -423,10 +425,10 @@ export function OverviewSection({ lang, onNavigateDatasets }: { lang: Lang; onNa
         label: kpi.labelBM && lang === 'ms' ? kpi.labelBM : kpi.label,
         value: kpi.value,
         unit: kpi.unit,
-        change: kpi.changePct,
+        change: safeChangePct,
         color: kpi.color,
         sparkline: kpi.sparkline,
-        trendValue: `${kpi.changePct >= 0 ? '+' : ''}${kpi.changePct.toFixed(1)}%`,
+        trendValue: `${safeChangePct >= 0 ? '+' : ''}${safeChangePct.toFixed(1)}%`,
         status: kpi.status,
       };
     }

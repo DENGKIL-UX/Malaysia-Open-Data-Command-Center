@@ -253,9 +253,18 @@ export function CopilotPanel({ lang }: CopilotPanelProps) {
   } = useCopilot();
 
   const [input, setInput] = useState('');
-  const [showSuggestions, setShowSuggestions] = useState(true);
+  const [hideSuggestions, setHideSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Show suggestions when conversation is empty
+  const showSuggestions = messages.length === 0 && !hideSuggestions;
+
+  // Wrap clearMessages to also reset suggestions
+  const handleClearMessages = useCallback(() => {
+    clearMessages();
+    setHideSuggestions(false);
+  }, [clearMessages]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -276,7 +285,7 @@ export function CopilotPanel({ lang }: CopilotPanelProps) {
     if (!input.trim()) return;
     sendMessage(input, lang);
     setInput('');
-    setShowSuggestions(false);
+    setHideSuggestions(true);
   }, [input, lang, sendMessage]);
 
   // Handle key press
@@ -290,7 +299,7 @@ export function CopilotPanel({ lang }: CopilotPanelProps) {
   // Handle suggestion click
   const handleSuggestion = useCallback((suggestion: string) => {
     sendMessage(suggestion, lang);
-    setShowSuggestions(false);
+    setHideSuggestions(true);
   }, [lang, sendMessage]);
 
   const suggestions = lang === 'ms' ? QUICK_SUGGESTIONS_MS : QUICK_SUGGESTIONS_EN;
@@ -401,7 +410,7 @@ export function CopilotPanel({ lang }: CopilotPanelProps) {
                 {/* Clear button */}
                 {messages.length > 0 && (
                   <button
-                    onClick={clearMessages}
+                    onClick={handleClearMessages}
                     className="p-1.5 rounded transition-colors"
                     style={{ color: 'rgba(6,182,212,0.4)' }}
                     onMouseEnter={e => {
