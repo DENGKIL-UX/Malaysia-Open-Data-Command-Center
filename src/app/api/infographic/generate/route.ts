@@ -1,14 +1,10 @@
 // API Route: Infographic Data Provider
 // POST /api/infographic/generate
 //
-// Server-side rendering (Satori + Sharp) has been REMOVED due to
-// Edge Runtime incompatibility on Cloudflare Workers.
-// Infographic rendering is now handled entirely client-side via
-// html-to-image (see InfographicModal component).
-//
-// This route now returns structured data (JSON) that the client
-// can use to populate infographic templates, plus live DoSM data
-// for dataset-specific infographics.
+// Returns structured data (JSON) for client-side infographic rendering
+// via html-to-image. Supports two modes:
+//   1. 'dataset' — live DoSM data for a specific dataset
+//   2. 'overview' — static national statistics overview
 
 export const runtime = 'edge';
 export const dynamic = 'force-dynamic';

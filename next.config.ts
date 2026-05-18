@@ -8,22 +8,15 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ['21.0.5.95'],
 
   // Cloudflare Workers compatibility:
-  // NOTE: Do NOT add "sharp" to serverExternalPackages — it creates an
-  // [externals] chunk that esbuild then fails to resolve during the
-  // OpenNext Cloudflare build. Instead, renderer.ts loads sharp via
-  // new Function() to hide it from static analysis.
   // - @opennextjs/cloudflare handles the build output format automatically
   // - No "output: standalone" needed (Node.js-specific, incompatible with CF Workers)
-  // - IMPORTANT: API routes MUST have `export const runtime = "edge"` at the top
-  //   Without it, Cloudflare Workers returns 404 for the route
+  // - Image optimization: sharp is NOT available on CF Workers → use unoptimized mode
+  // - API routes MUST have `export const runtime = "edge"` for CF Workers compatibility
 
-  // Image optimization: sharp is NOT available on Cloudflare Workers
-  // Use unoptimized mode or remote patterns for external images
   images: {
     unoptimized: true,
   },
 
-  // Static asset headers for caching GeoJSON and other large files
   async headers() {
     return [
       {

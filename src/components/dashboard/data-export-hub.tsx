@@ -369,7 +369,7 @@ export function DataExportHub({ lang, isOpen, onClose }: DataExportHubProps) {
           fileSize: formatFileSize(size),
         }, ...prev].slice(0, 20));
       } else if (selectedFormat === 'png') {
-        // PNG export now uses server-side Satori + Sharp rendering
+        // PNG export uses client-side html-to-image rendering
         // Use the dedicated infographic export modal for full PNG export
         try {
           // Generate a simple canvas-based PNG of the preview card
