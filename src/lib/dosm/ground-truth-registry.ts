@@ -1119,29 +1119,8 @@ export const GROUND_TRUTH_REGISTRY = {
     notes: 'Need to verify exact API ID and field names from YAML.',
   } satisfies GroundTruthDataset,
 
-  federal_finance_year: {
-    apiId: 'federal_finance_year',
-    yamlSource: 'federal_finance_year.yaml',
-    title_ms: 'Kewangan Kerajaan Persekutuan Tahunan',
-    title_en: 'Federal Government Finance (Annual)',
-    frequency: 'annual',
-    geography: 'national',
-    category: 'Finance',
-    priority: 'P3',
-    fields: [
-      { name: 'date', type: 'date', label: 'Year', required: true },
-      { name: 'series_type', type: 'string', label: 'Series Type', required: true },
-      { name: 'value', type: 'number', label: 'Value (RM Million)', required: true },
-    ],
-    valueField: 'value',
-    dateField: 'date',
-    groupField: 'series_type',
-    defaultFilter: {},
-    unit: 'RM Million',
-    priority_order: 6,
-    status: 'NEEDS_VERIFY',
-    notes: 'Series types include revenue, operating_expenditure, development_expenditure, etc. The old "federal_finance_year_revenue" was just a filter on this same dataset.',
-  } satisfies GroundTruthDataset,
+  // NOTE: federal_finance_year was also listed under 'Finance' category (P3/NEEDS_VERIFY)
+  // but the 'PublicAdmin' entry (P2/VERIFIED) below takes precedence. Kept only one.
 
   forest_reserve_state: {
     apiId: 'forest_reserve_state',
