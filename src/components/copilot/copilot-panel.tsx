@@ -98,6 +98,7 @@ function ActionButton({ action, lang }: { action: { type: string; target: string
       geomap: lang === 'en' ? 'Go to GeoMap' : 'Pergi ke PetaGeo',
       datasets: lang === 'en' ? 'Go to Datasets' : 'Pergi ke Set Data',
       analytics: lang === 'en' ? 'Go to Analytics' : 'Pergi ke Analitik',
+      intelligence: lang === 'en' ? 'Go to Intelligence' : 'Pergi ke Intelijen',
     },
     'show-metric': {},
     highlight: {},
@@ -211,16 +212,16 @@ const QUICK_SUGGESTIONS_EN = [
   'What is Malaysia\'s population?',
   'GDP of Selangor',
   'Find healthcare datasets',
+  'Show me analytics',
   'Explain the ontology',
-  'Go to GeoMap',
 ];
 
 const QUICK_SUGGESTIONS_MS = [
   'Berapa penduduk Malaysia?',
   'KDNK Selangor',
   'Cari set data kesihatan',
+  'Tunjuk analitik',
   'Terangkan ontologi',
-  'Pergi ke PetaGeo',
 ];
 
 // ─── Main Component ─────────────────────────────────────────────────────

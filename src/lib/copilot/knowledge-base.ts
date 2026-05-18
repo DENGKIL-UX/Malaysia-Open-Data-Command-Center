@@ -538,6 +538,15 @@ export const KNOWLEDGE_ENTRIES: KnowledgeEntry[] = [
     response_ms: '**Navigasi ke Analitik** — Analitik lanjutan dan visualisasi:\n• Carta perbandingan YoY\n• Kedudukan negeri\n• Analisis korelasi\n• Visualisasi trend\n• Enjin wawasan data',
     relatedIds: ['nav-overview', 'nav-datasets'],
   },
+  {
+    id: 'nav-intelligence',
+    keywords_en: ['intelligence', 'intel', 'ontology', 'graph', 'correlation', 'go to intelligence', 'intel tab', 'causal', 'domain graph'],
+    keywords_ms: ['intelligent', 'intel', 'ontologi', 'graf', 'korelasi', 'pergi ke intelijen', 'tab intel', 'sebab', 'graf domain'],
+    category: 'navigation',
+    response_en: '**Navigate to Intelligence** — Data domain relationship analysis:\n• Force-directed ontology graph with 14+ domain edges\n• Causal relationship mapping (Population → GDP → Employment)\n• Anomaly detection with confidence scores\n• Domain correlation analysis\n• Edge strength and lag visualization',
+    response_ms: '**Navigasi ke Intelijen** — Analisis hubungan domain data:\n• Graf ontologi terarah daya dengan 14+ tepi domain\n• Pemetaan hubungan kausal (Penduduk → KDNK → Pekerjaan)\n• Pengesanan anomali dengan skor keyakinan\n• Analisis korelasi domain\n• Visualisasi kekuatan tepi dan lengah',
+    relatedIds: ['nav-overview', 'nav-analytics'],
+  },
 
   // ─── FAQ ─────────────────────────────────────────────
   {

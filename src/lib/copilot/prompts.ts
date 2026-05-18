@@ -77,6 +77,7 @@ function assembleNavigation(intent: Intent, lang: 'en' | 'ms'): CopilotResponse 
       'geomap': { en: 'Go to GeoMap', ms: 'Pergi ke PetaGeo' },
       'datasets': { en: 'Go to Datasets', ms: 'Pergi ke Set Data' },
       'analytics': { en: 'Go to Analytics', ms: 'Pergi ke Analitik' },
+      'intelligence': { en: 'Go to Intelligence', ms: 'Pergi ke Intelijen' },
     };
 
     const label = labels[target] || { en: `Go to ${target}`, ms: `Pergi ke ${target}` };
@@ -107,8 +108,8 @@ function assembleNavigation(intent: Intent, lang: 'en' | 'ms'): CopilotResponse 
 
   return {
     text: lang === 'en'
-      ? 'I can navigate you to: **Overview**, **GeoMap**, **Datasets**, or **Analytics**. Which would you like to see?'
-      : 'Saya boleh navigasi anda ke: **Gambaran**, **PetaGeo**, **Set Data**, atau **Analitik**. Yang mana ingin anda lihat?',
+      ? 'I can navigate you to: **Overview**, **GeoMap**, **Datasets**, **Analytics**, or **Intelligence**. Which would you like to see?'
+      : 'Saya boleh navigasi anda ke: **Gambaran**, **PetaGeo**, **Set Data**, **Analitik**, atau **Intelijen**. Yang mana ingin anda lihat?',
     type: 'text',
   };
 }

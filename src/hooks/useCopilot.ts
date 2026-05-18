@@ -47,39 +47,54 @@ export function useCopilot() {
 
     // Simulate a slight delay for natural feel
     setTimeout(() => {
-      const response: CopilotResponse = processQuery(text, lang);
+      try {
+        const response: CopilotResponse = processQuery(text, lang);
 
-      const assistantMessage: CopilotMessage = {
-        id: genId(),
-        role: 'assistant',
-        content: response.text,
-        timestamp: Date.now(),
-        type: response.type,
-        action: response.action,
-      };
+        const assistantMessage: CopilotMessage = {
+          id: genId(),
+          role: 'assistant',
+          content: response.text,
+          timestamp: Date.now(),
+          type: response.type,
+          action: response.action,
+        };
 
-      setMessages(prev => [...prev, assistantMessage]);
-      setIsTyping(false);
+        setMessages(prev => [...prev, assistantMessage]);
 
-      // Dispatch CustomEvents for dashboard navigation
-      if (response.action) {
-        switch (response.action.type) {
-          case 'navigate':
-            window.dispatchEvent(new CustomEvent('copilot:navigate', {
-              detail: { tab: response.action.target },
-            }));
-            break;
-          case 'show-metric':
-            window.dispatchEvent(new CustomEvent('copilot:show-metric', {
-              detail: { metric: response.action.target },
-            }));
-            break;
-          case 'highlight':
-            window.dispatchEvent(new CustomEvent('copilot:highlight', {
-              detail: { target: response.action.target },
-            }));
-            break;
+        // Dispatch CustomEvents for dashboard navigation
+        if (response.action) {
+          switch (response.action.type) {
+            case 'navigate':
+              window.dispatchEvent(new CustomEvent('copilot:navigate', {
+                detail: { tab: response.action.target },
+              }));
+              break;
+            case 'show-metric':
+              window.dispatchEvent(new CustomEvent('copilot:show-metric', {
+                detail: { metric: response.action.target },
+              }));
+              break;
+            case 'highlight':
+              window.dispatchEvent(new CustomEvent('copilot:highlight', {
+                detail: { target: response.action.target },
+              }));
+              break;
+          }
         }
+      } catch (err) {
+        console.error('[Copilot] Error processing query:', err);
+        const errorMessage: CopilotMessage = {
+          id: genId(),
+          role: 'assistant',
+          content: lang === 'ms'
+            ? 'Maaf, saya mengalami ralat memproses permintaan anda. Sila cuba lagi.'
+            : 'Sorry, I encountered an error processing your request. Please try again.',
+          timestamp: Date.now(),
+          type: 'text',
+        };
+        setMessages(prev => [...prev, errorMessage]);
+      } finally {
+        setIsTyping(false);
       }
     }, 300 + Math.random() * 400); // 300-700ms delay
   }, []);

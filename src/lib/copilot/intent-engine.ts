@@ -101,6 +101,7 @@ const NAVIGATION_TARGETS: Record<string, string[]> = {
   'geomap': ['geomap', 'map', 'geographic', 'spatial', 'peta', 'peta geo', 'geografi'],
   'datasets': ['datasets', 'data catalog', 'browse data', 'set data', 'katalog data', 'senarai data'],
   'analytics': ['analytics', 'analysis', 'charts', 'insights', 'analitik', 'analisis', 'carta', 'wawasan'],
+  'intelligence': ['intelligence', 'intel', 'ontology', 'graph', 'correlation', 'intelijen', 'ontologi', 'graf', 'korelasi', 'causal', 'domain'],
 };
 
 // ─── Intent Classification ──────────────────────────────────────────────
