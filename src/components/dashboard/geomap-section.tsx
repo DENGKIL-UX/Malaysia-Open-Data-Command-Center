@@ -10,7 +10,7 @@ import dynamic from 'next/dynamic';
 import { STATES, MAP_LAYERS } from '@/lib/data/malaysia-data';
 import type { Lang, LayerId } from '@/lib/dashboard-types';
 import { StateSearch } from '@/components/dashboard/state-search';
-import { useCopilot } from '@/hooks/use-copilot';
+import { useCopilot } from '@/hooks/useCopilot';
 
 // Dynamic import for GeoJSON map (avoid SSR issues)
 const MalaysiaGeoJSONMap = dynamic(() => import('@/components/map/malaysia-geojson-map'), { ssr: false });

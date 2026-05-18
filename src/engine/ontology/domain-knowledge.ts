@@ -175,7 +175,7 @@ export const MALAYSIA_DOMAIN_EDGES: DomainEdge[] = [
 
   // 12. Tourism → Trade (visitor spending channel)
   {
-    source: "ds:tourism_arrivals",
+    source: "ds:arrivals",
     target: "ds:trade_monthly",
     type: "CORRELATES_POSITIVE",
     strength: 0.52,

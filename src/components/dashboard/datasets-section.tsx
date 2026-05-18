@@ -15,7 +15,7 @@ import { DatasetComparisonTool } from '@/components/dashboard/dataset-comparison
 import { DATASET_CATEGORIES, FREQUENCY_COLORS } from '@/lib/data/malaysia-data';
 import { DATASETS } from '@/lib/data/datasets';
 import type { Lang } from '@/lib/dashboard-types';
-import { useCopilot } from '@/hooks/use-copilot';
+import { useCopilot } from '@/hooks/useCopilot';
 
 // ─── Animated Counter Hook ──────────────────────────────────────
 function useAnimatedCounter(target: number, duration = 600) {

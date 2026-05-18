@@ -38,7 +38,7 @@ interface ZAIConfig {
 }
 
 function getZAIConfig(): ZAIConfig | null {
-  const apiKey = process.env.ZAI_API_KEY ?? process.env.OPENAI_API_KEY ?? '';
+  const apiKey = process.env.ZAI_API_KEY ?? '';
   const model = process.env.ZAI_MODEL ?? 'gpt-4o-mini';
   if (!apiKey) return null;
   return { apiKey, model };
@@ -166,9 +166,25 @@ interface ChatMessage {
 
 // ─── POST Handler ──────────────────────────────────────────────
 export async function POST(request: NextRequest) {
+  // ── Body size limit ──
+  const contentLength = request.headers.get('content-length');
+  if (contentLength && parseInt(contentLength) > 50_000) {
+    return NextResponse.json({ error: 'Request too large' }, { status: 413 });
+  }
+
+  // Parse body once before try block so it's available in catch
+  let parsedBody: { message?: string; lang?: 'en' | 'ms'; history?: ChatMessage[] } = {};
   try {
-    const body = await request.json();
-    const { message, lang = 'en', history = [] }: { message: string; lang: 'en' | 'ms'; history: ChatMessage[] } = body;
+    parsedBody = await request.json();
+  } catch {
+    return NextResponse.json(
+      { success: false, error: 'Invalid JSON body' },
+      { status: 400 }
+    );
+  }
+
+  try {
+    const { message, lang = 'en', history = [] }: { message: string; lang: 'en' | 'ms'; history: ChatMessage[] } = parsedBody;
 
     if (!message || typeof message !== 'string' || !message.trim()) {
       return NextResponse.json(
@@ -244,11 +260,10 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('[Copilot API] Error:', error);
-    // Final fallback: try rule-based engine
+    // Final fallback: try rule-based engine using pre-parsed body
     try {
-      const clonedBody = await request.clone().json().catch(() => null);
-      const msg = clonedBody?.message ?? '';
-      const ln = clonedBody?.lang ?? 'en';
+      const msg = parsedBody?.message ?? '';
+      const ln = parsedBody?.lang ?? 'en';
       if (msg) {
         const ruleResponse = await getRuleBasedResponse(msg, ln);
         if (ruleResponse) {

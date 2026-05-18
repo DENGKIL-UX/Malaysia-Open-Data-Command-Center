@@ -58,8 +58,8 @@ export const GDP_SERIES_TYPES = {
 
 // ── DoSM-AWARE DATE PARSER ──
 // Handles quarterly format "2024-Q2", annual "2024", monthly "2024-08" / "2024-08-01"
-export function parseDosmDate(dateStr: string): Date {
-  if (!dateStr) return new Date(0);
+export function parseDosmDate(dateStr: string): Date | null {
+  if (!dateStr) return null;
 
   // Handle quarterly format: "2024-Q2"
   if (/^\d{4}-Q\d$/.test(dateStr)) {
@@ -83,13 +83,13 @@ export function parseDosmDate(dateStr: string): Date {
     return new Date(parseInt(yearMatch[1]), 0, 1);
   }
 
-  return new Date(0);
+  return null;
 }
 
 // ── FORMAT DoSM DATE FOR DISPLAY ──
 export function formatDosmDate(dateStr: string): string {
   const d = parseDosmDate(dateStr);
-  if (d.getTime() === 0) return dateStr;
+  if (!d) return dateStr;
 
   // Quarterly
   if (/^\d{4}-Q\d$/.test(dateStr)) {

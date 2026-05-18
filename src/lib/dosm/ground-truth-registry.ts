@@ -514,9 +514,9 @@ export const GROUND_TRUTH_REGISTRY = {
     fields: [
       { name: 'date', type: 'date', label: 'Month', required: true },
       { name: 'division', type: 'string', label: 'COICOP Division', required: true },
-      { name: 'cpi', type: 'number', label: 'CPI Index', required: true },
+      { name: 'index', type: 'number', label: 'CPI Index', required: true },
     ],
-    valueField: 'cpi',
+    valueField: 'index',
     dateField: 'date',
     groupField: 'division',
     defaultFilter: {},
@@ -806,9 +806,9 @@ export const GROUND_TRUTH_REGISTRY = {
     fields: [
       { name: 'date', type: 'date', label: 'Month', required: true },
       { name: 'category', type: 'string', label: 'COICOP Category', required: true },
-      { name: 'cpi', type: 'number', label: 'CPI Index', required: true },
+      { name: 'index', type: 'number', label: 'CPI Index', required: true },
     ],
-    valueField: 'cpi',
+    valueField: 'index',
     dateField: 'date',
     groupField: 'category',
     defaultFilter: {},

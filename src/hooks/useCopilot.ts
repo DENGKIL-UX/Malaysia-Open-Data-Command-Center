@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { processQuery } from '@/lib/copilot/prompts';
 import type { CopilotResponse } from '@/lib/copilot/prompts';
 import type { Lang } from '@/lib/dashboard-types';
@@ -28,6 +28,10 @@ export function useCopilot() {
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Ref for messages to avoid stale closures in async callbacks
+  const messagesRef = useRef(messages);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
 
   // Generate unique ID
   const genId = () => `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -58,8 +62,8 @@ export function useCopilot() {
     // We'll use a ref to avoid stale closure issues
     const fetchAIResponse = async () => {
       try {
-        // Get current messages for history
-        const historyEntries = messages
+        // Get current messages for history (use ref to avoid stale closure)
+        const historyEntries = messagesRef.current
           .filter(m => m.role === 'user' || m.role === 'assistant')
           .slice(-10)
           .map(m => ({
@@ -178,7 +182,7 @@ export function useCopilot() {
 
     // Small delay for natural feel, then call API
     setTimeout(fetchAIResponse, 300 + Math.random() * 400);
-  }, [messages]);
+  }, []);
 
   // Toggle chat panel
   const toggleOpen = useCallback(() => {
@@ -203,6 +207,11 @@ export function useCopilot() {
     }
   }, []);
 
+  // No-op compat stubs for dashboard sections that previously
+  // imported registerView/registerSelection from use-copilot.ts
+  const registerView = useCallback((_view: string, _metadata?: Record<string, unknown>) => {}, []);
+  const registerSelection = useCallback((_type: 'state' | 'dataset' | 'metric', _value: string) => {}, []);
+
   return {
     messages,
     isOpen,
@@ -213,5 +222,7 @@ export function useCopilot() {
     openPanel,
     closePanel,
     clearMessages,
+    registerView,
+    registerSelection,
   };
 }

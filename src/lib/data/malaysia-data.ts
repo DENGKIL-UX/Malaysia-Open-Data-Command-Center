@@ -7,7 +7,7 @@ export interface StateData {
   name_ms: string;
   abbr: string;
   population: number;
-  gdp: number; // RM millions
+  gdp: number; // RM millions (real, constant 2015 prices)
   gdpGrowth: number; // %
   births: number;
   deaths: number;
@@ -40,7 +40,7 @@ export const STATES: StateData[] = [
 
 export const MALAYSIA_TOTALS = {
   population: 34300,
-  gdp: 1682000,
+  gdp: 1682000, // Nominal GDP (current prices) — state figures use real GDP (constant 2015 prices)
   gdpGrowth: 4.5,
   births: 602.9,
   deaths: 159.7,
@@ -172,6 +172,7 @@ export const DISCLAIMERS = {
   en: [
     'Data is sourced from data.gov.my and is subject to the CC BY 4.0 license.',
     'Values shown may be estimates and subject to revision upon release of updated official figures.',
+    'State-level GDP uses real terms (constant 2015 prices); national GDP uses nominal terms (current prices).',
     'State-level GDP for W.P. Putrajaya is subsumed under W.P. Kuala Lumpur.',
     'Population figures are in thousands (\'000). GDP figures are in RM millions.',
     'This dashboard is not affiliated with the Government of Malaysia.',
@@ -179,6 +180,7 @@ export const DISCLAIMERS = {
   ms: [
     'Data diperoleh daripada data.gov.my dan tertakluk kepada lesen CC BY 4.0.',
     'Nilai yang dipaparkan mungkin merupakan anggaran dan tertakluk kepada semakan apabila angka rasmi terkini dikeluarkan.',
+    'KDNK peringkat negeri menggunakan harga sebenar (tetap 2015); KDNK kebangsaan menggunakan harga nominal (semasa).',
     'KDNK peringkat negeri bagi W.P. Putrajaya dimasukkan di bawah W.P. Kuala Lumpur.',
     'Angka penduduk adalah dalam ribuan (\'000). Angka KDNK adalah dalam RM juta.',
     'Papan pemuka ini tidak bergabung dengan Kerajaan Malaysia.',

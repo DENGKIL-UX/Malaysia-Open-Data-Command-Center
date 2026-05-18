@@ -174,8 +174,8 @@ export async function fetchDosmData<T = Record<string, unknown>>(
 
         // Sort using DoSM-aware date parser (handles "2024-Q2" format)
         const sorted = [...dataArr].sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
-          const dateA = parseDosmDate(String(a[config.dateField] ?? '')).getTime();
-          const dateB = parseDosmDate(String(b[config.dateField] ?? '')).getTime();
+          const dateA = parseDosmDate(String(a[config.dateField] ?? ''))?.getTime() ?? 0;
+          const dateB = parseDosmDate(String(b[config.dateField] ?? ''))?.getTime() ?? 0;
           return dateB - dateA;
         });
 
@@ -257,8 +257,8 @@ export async function fetchDosmData<T = Record<string, unknown>>(
 
         // Sort using DoSM-aware date parser (proxy already sorts, but re-sort to be safe)
         const sorted = [...csvData].sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
-          const dateA = parseDosmDate(String(a[config.dateField] ?? '')).getTime();
-          const dateB = parseDosmDate(String(b[config.dateField] ?? '')).getTime();
+          const dateA = parseDosmDate(String(a[config.dateField] ?? ''))?.getTime() ?? 0;
+          const dateB = parseDosmDate(String(b[config.dateField] ?? ''))?.getTime() ?? 0;
           return dateB - dateA;
         });
 
@@ -371,8 +371,8 @@ function computeYoYInflation(
   // Data is sorted latest-first (descending by date).
   // We need at least 2 data points spanning 13+ months to compute YoY.
   const sorted = [...data].sort((a, b) => {
-    const dateA = parseDosmDate(String(a[config.dateField] ?? '')).getTime();
-    const dateB = parseDosmDate(String(b[config.dateField] ?? '')).getTime();
+    const dateA = parseDosmDate(String(a[config.dateField] ?? ''))?.getTime() ?? 0;
+    const dateB = parseDosmDate(String(b[config.dateField] ?? ''))?.getTime() ?? 0;
     return dateA - dateB; // Ascending for YoY computation
   });
 

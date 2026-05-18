@@ -19,7 +19,7 @@ import {
 } from '@/lib/data/malaysia-data';
 import { DATASETS } from '@/lib/data/datasets';
 import type { Lang } from '@/lib/dashboard-types';
-import { useCopilot } from '@/hooks/use-copilot';
+import { useCopilot } from '@/hooks/useCopilot';
 import { HUDBracket, SectionHeaderLine } from '@/components/dashboard/particle-background';
 import { DataQualityDashboard } from '@/components/dashboard/data-quality-dashboard';
 

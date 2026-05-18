@@ -157,8 +157,8 @@ function processCsvResponse(
 
   const sorted = [...filtered].sort((a, b) => {
     try {
-      const dateA = parseDosmDate(String(a[dateField])).getTime();
-      const dateB = parseDosmDate(String(b[dateField])).getTime();
+      const dateA = parseDosmDate(String(a[dateField]))?.getTime() ?? 0;
+      const dateB = parseDosmDate(String(b[dateField]))?.getTime() ?? 0;
       return sortAsc ? dateA - dateB : dateB - dateA;
     } catch {
       return 0;
