@@ -35,7 +35,8 @@ import { AlertTicker } from '@/components/palantir/AlertTicker';
 import { useIntelBus } from '@/engine/intelligence/bus';
 import { auditTrail } from '@/engine/audit/trail';
 
-import type { TabId, Lang } from '@/lib/dashboard-types';
+import type { TabId } from '@/lib/dashboard-types';
+import { useLang } from '@/i18n';
 
 // ─── Focus Trap Hook ──────────────────────────────────────────────
 function useFocusTrap(isOpen: boolean, containerRef: React.RefObject<HTMLElement | null>) {
@@ -156,7 +157,7 @@ function FooterCounter({ target, color }: { target: number; color: string }) {
 export default function Home() {
   const [booted, setBooted] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('overview');
-  const [lang, setLang] = useState<Lang>('en');
+  const { lang, toggle: toggleLang } = useLang();
   const [showInfographic, setShowInfographic] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
@@ -281,7 +282,7 @@ export default function Home() {
       case 'tab-datasets': setActiveTab('datasets'); intelBus.setContext('datasets', 'datasets'); break;
       case 'tab-analytics': setActiveTab('analytics'); intelBus.setContext('analytics', 'analytics'); break;
       case 'tab-intelligence': setActiveTab('intelligence'); intelBus.setContext('intelligence', 'intelligence'); break;
-      case 'toggle-lang': setLang(l => l === 'en' ? 'ms' : 'en'); try { auditTrail.langToggle(lang === 'en' ? 'ms' : 'en'); } catch {} break;
+      case 'toggle-lang': toggleLang(); try { auditTrail.langToggle(lang === 'en' ? 'ms' : 'en'); } catch {} break;
       case 'open-infographic': setShowInfographic(true); break;
       case 'intel-anomalies': setActiveTab('intelligence'); intelBus.setContext('anomalies', 'intelligence'); break;
       case 'intel-confidence': setActiveTab('intelligence'); intelBus.setContext('confidence', 'intelligence'); break;
@@ -297,12 +298,7 @@ export default function Home() {
           intelBus.setContext(datasetKey, 'analytics');
         }
     }
-  }, [intelBus, lang]);
-
-  // Update HTML lang attribute when language changes
-  useEffect(() => {
-    document.documentElement.lang = lang;
-  }, [lang]);
+  }, [intelBus, lang, toggleLang]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -338,7 +334,7 @@ export default function Home() {
         case '3': setActiveTab('datasets'); try { auditTrail.tabChange('datasets'); } catch {} break;
         case '4': setActiveTab('analytics'); try { auditTrail.tabChange('analytics'); } catch {} break;
         case '5': setActiveTab('intelligence'); try { auditTrail.tabChange('intelligence'); } catch {} break;
-        case 'l': case 'L': setLang(l => l === 'en' ? 'ms' : 'en'); try { auditTrail.langToggle(lang === 'en' ? 'ms' : 'en'); } catch {} break;
+        case 'l': case 'L': toggleLang(); try { auditTrail.langToggle(lang === 'en' ? 'ms' : 'en'); } catch {} break;
 
         case 'e': case 'E': setShowInfographic(true); break;
       }
@@ -487,7 +483,7 @@ export default function Home() {
               <div className="flex items-center gap-2">
                 {/* Language Toggle */}
                 <button
-                  onClick={() => setLang(l => l === 'en' ? 'ms' : 'en')}
+                  onClick={toggleLang}
                   aria-label="Toggle language between English and Bahasa Malaysia"
                   className="flex items-center justify-center gap-1 min-w-[32px] px-2 py-1.5 rounded border text-[11px] font-mono tracking-wider transition-all duration-300"
                   style={{

@@ -365,3 +365,114 @@ export const usePopulationParlimen = (options?: DosmQueryOptions) =>
 
 export const usePalmOil = (options?: DosmQueryOptions) =>
   useDosmData('palm_oil', { limit: 24, ...options }, 600_000);
+
+// ══════════════════════════════════════════════════════════════════
+// GITHUB CATALOGUE HOOKS — React Query backed, 30-min stale time
+// ══════════════════════════════════════════════════════════════════
+
+import { useQuery } from '@tanstack/react-query';
+
+/** Bilingual label pair from GitHub metadata. */
+export interface BilingualLabel {
+  en: string;
+  ms: string;
+}
+
+/** Metadata for a single dataset returned by the GitHub catalogue. */
+export interface DosmCatalogueMeta {
+  id: string;
+  type: string;
+  title: BilingualLabel;
+  description: BilingualLabel;
+  source: string[];
+  link_parquet: string;
+  link_csv: string;
+  link_preview: string;
+  frequency: { id: string; label: BilingualLabel };
+  geography: string[];
+  demography: string[];
+  date_range: { start: string; end: string };
+  fields: Array<{
+    id: string;
+    description: BilingualLabel;
+    data_type: string;
+    unit?: BilingualLabel;
+  }>;
+  related_datasets: string[];
+  /** Internal: source indicator from API */
+  _source?: string;
+  /** Internal: ISO timestamp of fetch */
+  _fetched_at?: string;
+}
+
+/** Flattened view optimised for UI display. */
+export interface DosmCatalogueEntry {
+  id: string;
+  title_en: string;
+  title_ms: string;
+  description_en: string;
+  description_ms: string;
+  frequency: string;
+  frequencyLabel: BilingualLabel;
+  link_csv: string;
+  link_parquet: string;
+  link_preview: string;
+  source: string[];
+  geography: string[];
+  dateRange: { start: string; end: string };
+  lastFetched: string | null;
+}
+
+/**
+ * Hook: Fetch dataset metadata from the GitHub-backed catalogue API.
+ *
+ * Uses React Query with a 30-minute stale time so repeated views of the
+ * same dataset don't re-trigger network requests.
+ *
+ * @param datasetId - The dataset identifier (e.g. "population_state")
+ * @param enabled  - Set to false to skip automatic fetching
+ */
+export function useDosmCatalogue(
+  datasetId: string | null,
+  enabled = true,
+) {
+  return useQuery<DosmCatalogueEntry, Error>({
+    queryKey: ['dosm', 'catalogue', datasetId],
+    queryFn: async () => {
+      if (!datasetId) throw new Error('No dataset ID provided');
+
+      const res = await fetch(`/api/dosm/github?id=${encodeURIComponent(datasetId)}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(
+          (body as Record<string, unknown>).error
+            ? String((body as Record<string, unknown>).error)
+            : `HTTP ${res.status}`,
+        );
+      }
+
+      const raw = (await res.json()) as DosmCatalogueMeta;
+
+      return {
+        id: raw.id,
+        title_en: raw.title?.en ?? datasetId,
+        title_ms: raw.title?.ms ?? datasetId,
+        description_en: raw.description?.en ?? '',
+        description_ms: raw.description?.ms ?? '',
+        frequency: raw.frequency?.id ?? '',
+        frequencyLabel: raw.frequency?.label ?? { en: '', ms: '' },
+        link_csv: raw.link_csv ?? '',
+        link_parquet: raw.link_parquet ?? '',
+        link_preview: raw.link_preview ?? '',
+        source: raw.source ?? [],
+        geography: raw.geography ?? [],
+        dateRange: raw.date_range ?? { start: '', end: '' },
+        lastFetched: raw._fetched_at ?? null,
+      };
+    },
+    enabled: enabled && !!datasetId,
+    staleTime: 30 * 60 * 1000, // 30 minutes
+    retry: 1,
+    refetchOnWindowFocus: false,
+  });
+}

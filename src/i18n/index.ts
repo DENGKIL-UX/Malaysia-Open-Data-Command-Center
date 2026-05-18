@@ -13,6 +13,7 @@ export const T = {
       geospatial: 'Geospatial',
       datasets: 'Datasets',
       intelligence: 'Intelligence',
+      geomap: 'GeoMap',
     },
     status: {
       live: 'LIVE',
@@ -20,6 +21,9 @@ export const T = {
       static: 'STATIC',
       loading: 'LOADING',
       error: 'ERROR',
+      latest: 'LATEST',
+      operational: 'OPERATIONAL',
+      connected: 'CONNECTED',
     },
     confidence: {
       confirmed: 'CONFIRMED',
@@ -42,6 +46,8 @@ export const T = {
       exchangerates_monthly: 'Exchange Rates',
       population_malaysia: 'Total Population',
       hies_state: 'Household Income',
+      categories: 'Categories',
+      datasets: 'Datasets',
     },
     intel: {
       title: 'Intelligence Center',
@@ -53,17 +59,36 @@ export const T = {
     },
     actions: {
       generate: 'Generate',
-      export: 'Export PNG',
+      export: 'Export',
+      exportPng: 'Export PNG',
       refresh: 'Refresh',
       drillDown: 'Drill Down',
       viewAll: 'View All',
       search: 'Search commands, datasets, reports...',
+      filter: 'Filter',
+      reset: 'Reset',
+      close: 'Close',
+      infographic: 'Infographic',
     },
     footer: {
       builtWith: 'Built with data.gov.my Open Data',
       quickStats: 'QUICK STATS',
       dataSources: 'DATA SOURCES',
       license: 'LICENSE',
+      poweredBy: 'Powered by data.gov.my',
+      openDataPortal: 'Open Data Portal',
+      statesFT: 'States/FT',
+      dataLayers: 'Data Layers',
+      allRightsReserved: 'All rights reserved.',
+    },
+    breadcrumb: {
+      title: 'MALAYSIA OPEN DATA COMMAND CENTER',
+    },
+    skip: {
+      mainContent: 'Skip to main content',
+    },
+    shortcuts: {
+      keyboardShortcuts: 'Keyboard Shortcuts (?)',
     },
     commandPalette: {
       title: 'Command Palette',
@@ -76,15 +101,34 @@ export const T = {
     alertTicker: {
       dismiss: 'Dismiss alert',
     },
+    mapLayers: {
+      population: 'Population',
+      gdp: 'GDP',
+      births: 'Births',
+      deaths: 'Deaths',
+      unemployment: 'Unemployment',
+      datasets: 'Datasets',
+    },
+    regions: {
+      eastMalaysia: 'EAST MALAYSIA',
+      peninsular: 'PENINSULAR',
+    },
+    hero: {
+      states: 'STATES',
+      federalTerritories: 'FT',
+      layers: 'LAYERS',
+      categories: 'CATEGORIES',
+    },
   },
 
   ms: {
     nav: {
-      overview: 'Gambaran Keseluruhan',
+      overview: 'Gambaran',
       analytics: 'Analitik',
       geospatial: 'Geospatial',
       datasets: 'Set Data',
       intelligence: 'Perisikan',
+      geomap: 'PetaGeo',
     },
     status: {
       live: 'LANGSUNG',
@@ -92,6 +136,9 @@ export const T = {
       static: 'STATIK',
       loading: 'MEMUATKAN',
       error: 'RALAT',
+      latest: 'TERKINI',
+      operational: 'BEROPERASI',
+      connected: 'BERHUBUNG',
     },
     confidence: {
       confirmed: 'DISAHKAN',
@@ -114,6 +161,8 @@ export const T = {
       exchangerates_monthly: 'Kadar Pertukaran',
       population_malaysia: 'Jumlah Penduduk',
       hies_state: 'Pendapatan Isi Rumah',
+      categories: 'Kategori',
+      datasets: 'Set Data',
     },
     intel: {
       title: 'Pusat Perisikan',
@@ -125,17 +174,36 @@ export const T = {
     },
     actions: {
       generate: 'Jana',
-      export: 'Eksport PNG',
+      export: 'Eksport',
+      exportPng: 'Eksport PNG',
       refresh: 'Muat Semula',
       drillDown: 'Perincikan',
       viewAll: 'Lihat Semua',
       search: 'Cari arahan, dataset, laporan...',
+      filter: 'Tapis',
+      reset: 'Set Semula',
+      close: 'Tutup',
+      infographic: 'Infografik',
     },
     footer: {
       builtWith: 'Dibina dengan data.gov.my Open Data',
       quickStats: 'STATISTIK PANTAS',
       dataSources: 'SUMBER DATA',
       license: 'LESEN',
+      poweredBy: 'Dikuasakan oleh data.gov.my',
+      openDataPortal: 'Portal Data Terbuka',
+      statesFT: 'Negeri/WP',
+      dataLayers: 'Lapisan Data',
+      allRightsReserved: 'Hak cipta terpelihara.',
+    },
+    breadcrumb: {
+      title: 'PUSAT PERINTAH DATA TERBUKA MALAYSIA',
+    },
+    skip: {
+      mainContent: 'Langkau ke kandungan utama',
+    },
+    shortcuts: {
+      keyboardShortcuts: 'Pintasan Papan Kekunci (?)',
     },
     commandPalette: {
       title: 'Palet Arahan',
@@ -147,6 +215,24 @@ export const T = {
     },
     alertTicker: {
       dismiss: 'Tutup amaran',
+    },
+    mapLayers: {
+      population: 'Penduduk',
+      gdp: 'KDNK',
+      births: 'Kelahiran',
+      deaths: 'Kematian',
+      unemployment: 'Pengangguran',
+      datasets: 'Set Data',
+    },
+    regions: {
+      eastMalaysia: 'MALAYSIA TIMUR',
+      peninsular: 'SEMENANJUNG',
+    },
+    hero: {
+      states: 'NEGERI',
+      federalTerritories: 'WP',
+      layers: 'LAPISAN',
+      categories: 'KATEGORI',
     },
   },
 } as const;

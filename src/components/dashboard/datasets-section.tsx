@@ -10,6 +10,7 @@ import {
 import { DataSourceBadge } from '@/components/dashboard/data-source-badge';
 import { DataFreshnessIndicator } from '@/components/dashboard/data-freshness-indicator';
 import { GitHubSourceLink } from '@/components/dashboard/github-source-link';
+import { DatasetMetadataPanel } from '@/components/dashboard/dataset-metadata-panel';
 import { DATASET_CATEGORIES, FREQUENCY_COLORS } from '@/lib/data/malaysia-data';
 import { DATASETS } from '@/lib/data/datasets';
 import type { Lang } from '@/lib/dashboard-types';
@@ -225,6 +226,9 @@ function DatasetDetailDrawer({ dataset, lang, onClose }: {
               <DataFreshnessIndicator lastUpdated={dataset.last_updated} lang={lang} size="md" />
             </div>
           </div>
+
+          {/* GitHub Live Metadata */}
+          <DatasetMetadataPanel datasetId={dataset.id} lang={lang} />
 
           {/* Download Links */}
           <div className="rounded-md border p-3" style={{ background: 'rgba(10,14,26,0.8)', borderColor: 'rgba(6,182,212,0.08)' }}>

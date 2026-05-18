@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Activity, Radio, Shield, Wifi, Server, ArrowUpDown } from 'lucide-react';
 import { TIMELINE_EVENTS } from '@/lib/data/malaysia-data';
@@ -139,7 +139,11 @@ function LiveClock() {
   );
 }
 
-function StatusIndicators() {
+function StatusIndicators({ lang = 'en' }: { lang?: 'en' | 'ms' }) {
+  const systemStatusText = lang === 'ms' ? 'STATUS SISTEM: BEROPERASI' : 'SYSTEM STATUS: OPERATIONAL';
+  const apiConnectedText = lang === 'ms' ? 'API BERHUBUNG' : 'API CONNECTED';
+  const syncDatasetsText = lang === 'ms' ? 'SELANJAR 287 SET DATA' : 'SYNC 287 DATASETS';
+
   return (
     <div className="flex items-center gap-4">
       {/* System Operational — enhanced pulse with label */}
@@ -163,7 +167,7 @@ function StatusIndicators() {
           />
         </div>
         <span className="text-[10px] font-mono tracking-wider font-bold" style={{ color: '#10b981', textShadow: '0 0 6px rgba(16,185,129,0.3)' }}>
-          SYSTEM STATUS: OPERATIONAL
+          {systemStatusText}
         </span>
       </div>
 
@@ -184,7 +188,7 @@ function StatusIndicators() {
           />
         </div>
         <span className="text-[10px] font-mono tracking-wider" style={{ color: 'rgba(6, 182, 212, 0.7)' }}>
-          API CONNECTED
+          {apiConnectedText}
         </span>
       </div>
 
@@ -205,7 +209,7 @@ function StatusIndicators() {
           />
         </div>
         <span className="text-[10px] font-mono tracking-wider" style={{ color: 'rgba(6, 182, 212, 0.7)' }}>
-          SYNC 287 DATASETS
+          {syncDatasetsText}
         </span>
       </div>
 
@@ -220,14 +224,15 @@ function StatusIndicators() {
   );
 }
 
-function ScrollingTicker() {
+function ScrollingTicker({ lang = 'en' }: { lang?: 'en' | 'ms' }) {
   const tickerRef = useRef<HTMLDivElement>(null);
-  const [tickerItems] = useState(() => {
+  const liveText = lang === 'ms' ? 'LANGSUNG' : 'LIVE';
+  const tickerItems = useMemo(() => {
     // Build ticker items from timeline events
     return TIMELINE_EVENTS.map(
-      (event) => `[${event.date}] ${event.event_en}`
+      (event) => `[${event.date}] ${lang === 'ms' ? event.event_ms : event.event_en}`
     );
-  });
+  }, [lang]);
 
   return (
     <div
@@ -252,7 +257,7 @@ function ScrollingTicker() {
         >
           ●
         </motion.div>
-        LIVE
+        {liveText}
       </div>
 
       {/* Scrolling content */}
@@ -318,7 +323,10 @@ function GridScanOverlay() {
   );
 }
 
-export default function Header() {
+export default function Header({ lang = 'en' }: { lang?: 'en' | 'ms' }) {
+  const titleText = lang === 'ms' ? 'PUSAT PERINTAH DATA TERBUKA MALAYSIA' : 'MALAYSIA OPEN DATA COMMAND CENTER';
+  const poweredByText = lang === 'ms' ? 'DIKUASAKAN OLEH data.gov.my' : 'POWERED BY data.gov.my';
+
   return (
     <header
       className="relative w-full flex-shrink-0"
@@ -328,7 +336,7 @@ export default function Header() {
       <GridScanOverlay />
 
       {/* Scrolling ticker */}
-      <ScrollingTicker />
+      <ScrollingTicker lang={lang} />
 
       {/* Main header content */}
       <div
@@ -345,7 +353,7 @@ export default function Header() {
                 textShadow: '0 0 20px rgba(6, 182, 212, 0.4), 0 0 40px rgba(6, 182, 212, 0.15)',
               }}
             >
-              MALAYSIA OPEN DATA COMMAND CENTER
+              {titleText}
             </h1>
             {/* Mini UTC+8 clock next to title */}
             <div className="hidden lg:block">
@@ -372,7 +380,7 @@ export default function Header() {
               className="text-[10px] font-mono tracking-[0.2em] opacity-60"
               style={{ color: '#06b6d4' }}
             >
-              POWERED BY data.gov.my
+              {poweredByText}
             </span>
             <div
               className="h-px w-8"
@@ -387,7 +395,7 @@ export default function Header() {
 
         {/* Center: Status indicators */}
         <div className="hidden md:flex">
-          <StatusIndicators />
+          <StatusIndicators lang={lang} />
         </div>
 
         {/* Right: Live clock */}
@@ -399,7 +407,7 @@ export default function Header() {
         className="md:hidden px-4 py-2 flex items-center justify-between"
         style={{ borderBottom: '1px solid rgba(6, 182, 212, 0.1)' }}
       >
-        <StatusIndicators />
+        <StatusIndicators lang={lang} />
       </div>
 
       {/* Data stream animation — dots moving across bottom */}
