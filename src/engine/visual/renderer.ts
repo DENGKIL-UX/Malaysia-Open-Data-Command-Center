@@ -1,5 +1,6 @@
 // Satori + Sharp rendering pipeline — JSX → SVG → PNG
 // On Cloudflare Workers, sharp is unavailable, so we fall back to SVG output.
+// Fully compatible with Edge Runtime (Cloudflare Workers, Vercel Edge, etc.)
 
 import satori from 'satori';
 import { loadFonts } from './fonts';
@@ -11,7 +12,7 @@ export interface RenderOptions {
 }
 
 export interface RenderResult {
-  buffer: Buffer;
+  buffer: Uint8Array;
   contentType: 'image/png' | 'image/svg+xml';
   format: 'png' | 'svg';
 }
@@ -29,12 +30,10 @@ export interface RenderResult {
  */
 async function loadSharp(): Promise<any> {
   try {
-    // Only attempt in Node.js runtime (not Workers/Edge)
-    if (typeof process === 'undefined' || !process.versions?.node) return null;
-
     // Use indirect dynamic import that bundlers cannot statically analyze.
     // The `new Function` constructor creates a function at runtime,
     // so the string 'sharp' never appears as a static import/require.
+    // On Cloudflare Workers / Edge Runtime, this will simply fail and return null.
     const dynamicImport = new Function('module', 'return import(module)');
     const mod = await dynamicImport('sharp');
     return mod.default || mod;
@@ -44,12 +43,19 @@ async function loadSharp(): Promise<any> {
 }
 
 /**
+ * Convert a string to Uint8Array (edge-safe replacement for Buffer.from)
+ */
+function stringToUint8Array(str: string): Uint8Array {
+  return new TextEncoder().encode(str);
+}
+
+/**
  * Render a React element to PNG (using Satori + Sharp) or SVG (Satori only).
  *
  * Pipeline: JSX → Satori (SVG) → Sharp (PNG)  [Node.js runtime]
  * Pipeline: JSX → Satori (SVG)                [Edge/Worker runtime]
  */
-export async function renderToPng(options: RenderOptions): Promise<Buffer> {
+export async function renderToPng(options: RenderOptions): Promise<Uint8Array> {
   const result = await render(options);
   return result.buffer;
 }
@@ -102,7 +108,7 @@ export async function render(options: RenderOptions): Promise<RenderResult> {
       .toBuffer();
 
     return {
-      buffer: pngBuffer,
+      buffer: new Uint8Array(pngBuffer),
       contentType: 'image/png',
       format: 'png',
     };
@@ -110,7 +116,7 @@ export async function render(options: RenderOptions): Promise<RenderResult> {
 
   // Fallback: Return raw SVG (Cloudflare Workers / edge runtime)
   return {
-    buffer: Buffer.from(svg),
+    buffer: stringToUint8Array(svg),
     contentType: 'image/svg+xml',
     format: 'svg',
   };

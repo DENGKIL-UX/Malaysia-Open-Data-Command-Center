@@ -83,7 +83,7 @@ class AuditTrail {
       // Storage full or unavailable — silently fail
     }
 
-    if (process.env.NODE_ENV === 'development') {
+    if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
       console.log(
         `[AUDIT] ${event.type} | ${event.dataset} | ${event.action}`,
         meta ?? ''

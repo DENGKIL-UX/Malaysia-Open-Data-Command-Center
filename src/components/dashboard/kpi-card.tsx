@@ -197,11 +197,13 @@ export function KPICard({ icon: Icon, label, value, unit, change, color, lang, s
   return (
     <motion.div
       onClick={onClick}
-      className={`relative overflow-hidden border ${onClick ? 'cursor-pointer' : ''}`}
+      className={`relative overflow-hidden ${onClick ? 'cursor-pointer' : ''}`}
       style={{
         background: hovered
           ? `linear-gradient(145deg, ${color}0A 0%, ${BP_COLORS.appBg}CC 50%, ${BP_COLORS.appBg}E6 100%)`
           : `linear-gradient(145deg, ${color}06 0%, ${BP_COLORS.appBg}F2 40%, ${BP_COLORS.appBg}CC 100%)`,
+        borderWidth: 1,
+        borderStyle: 'solid',
         borderColor: hovered ? `${color}50` : `${color}20`,
         borderRadius: 12,
         boxShadow: hovered
