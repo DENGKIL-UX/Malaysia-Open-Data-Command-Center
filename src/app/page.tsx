@@ -299,6 +299,11 @@ export default function Home() {
     }
   }, [intelBus, lang]);
 
+  // Update HTML lang attribute when language changes
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -677,14 +682,14 @@ export default function Home() {
                       color: '#06b6d4',
                       textShadow: '0 0 10px rgba(6,182,212,0.4)',
                     }}>
-                      MALAYSIA OPEN DATA COMMAND CENTER
+                      {lang === 'ms' ? 'PUSAT PERINTAH DATA TERBUKA MALAYSIA' : 'MALAYSIA OPEN DATA COMMAND CENTER'}
                       <Heart
                         size={10}
                         style={{ color: '#10b981', animation: 'heartbeat 1.5s ease-in-out infinite', filter: 'drop-shadow(0 0 4px rgba(16,185,129,0.5))' }}
                       />
                     </div>
                     <div className="text-[10px] font-mono mb-2" style={{ color: 'rgba(6,182,212,0.4)' }}>
-                      Powered by data.gov.my
+                      {lang === 'ms' ? 'Dikuasakan oleh data.gov.my' : 'Powered by data.gov.my'}
                     </div>
                     <span className="text-[8px] font-mono px-1.5 py-0.5 rounded" style={{
                       background: 'rgba(6,182,212,0.1)',
@@ -698,20 +703,20 @@ export default function Home() {
                   {/* Column 2: Quick Stats */}
                   <div>
                     <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: 'rgba(6,182,212,0.5)' }}>
-                      QUICK STATS
+                      {lang === 'ms' ? 'STATISTIK PANTAS' : 'QUICK STATS'}
                     </div>
                     <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] font-mono">
-                      <span style={{ color: '#06b6d4' }}><FooterCounter target={287} color="#06b6d4" /> <span style={{ color: 'rgba(6,182,212,0.4)' }}>Datasets</span></span>
-                      <span style={{ color: '#f59e0b' }}><FooterCounter target={18} color="#f59e0b" /> <span style={{ color: 'rgba(245,158,11,0.4)' }}>Categories</span></span>
-                      <span style={{ color: '#10b981' }}><FooterCounter target={19} color="#10b981" /> <span style={{ color: 'rgba(16,185,129,0.4)' }}>States/FT</span></span>
-                      <span style={{ color: '#8b5cf6' }}><FooterCounter target={6} color="#8b5cf6" /> <span style={{ color: 'rgba(139,92,246,0.4)' }}>Data Layers</span></span>
+                      <span style={{ color: '#06b6d4' }}><FooterCounter target={287} color="#06b6d4" /> <span style={{ color: 'rgba(6,182,212,0.4)' }}>{lang === 'ms' ? 'Set Data' : 'Datasets'}</span></span>
+                      <span style={{ color: '#f59e0b' }}><FooterCounter target={18} color="#f59e0b" /> <span style={{ color: 'rgba(245,158,11,0.4)' }}>{lang === 'ms' ? 'Kategori' : 'Categories'}</span></span>
+                      <span style={{ color: '#10b981' }}><FooterCounter target={19} color="#10b981" /> <span style={{ color: 'rgba(16,185,129,0.4)' }}>{lang === 'ms' ? 'Negeri/WP' : 'States/FT'}</span></span>
+                      <span style={{ color: '#8b5cf6' }}><FooterCounter target={6} color="#8b5cf6" /> <span style={{ color: 'rgba(139,92,246,0.4)' }}>{lang === 'ms' ? 'Lapisan Data' : 'Data Layers'}</span></span>
                     </div>
                   </div>
 
                   {/* Column 3: Data Sources */}
                   <div>
                     <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: 'rgba(6,182,212,0.5)' }}>
-                      DATA SOURCES
+                      {lang === 'ms' ? 'SUMBER DATA' : 'DATA SOURCES'}
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {[
@@ -751,7 +756,7 @@ export default function Home() {
                   {/* Column 4: License */}
                   <div>
                     <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: 'rgba(6,182,212,0.5)' }}>
-                      LICENSE
+                      {lang === 'ms' ? 'LESEN' : 'LICENSE'}
                     </div>
                     <div className="flex items-center gap-1.5 mb-2">
                       <Copyright size={10} style={{ color: 'rgba(6,182,212,0.4)' }} />
@@ -765,7 +770,7 @@ export default function Home() {
                       style={{ color: '#06b6d4' }}
                     >
                       <ExternalLink size={8} />
-                      Open Data Portal
+                      {lang === 'ms' ? 'Portal Data Terbuka' : 'Open Data Portal'}
                     </a>
                   </div>
                 </div>

@@ -7,6 +7,9 @@ import {
   Globe, X, ExternalLink, Clock, Calendar, Tag, FileDown, Database, Users,
   ArrowRight, Filter, Hash,
 } from 'lucide-react';
+import { DataSourceBadge } from '@/components/dashboard/data-source-badge';
+import { DataFreshnessIndicator } from '@/components/dashboard/data-freshness-indicator';
+import { GitHubSourceLink } from '@/components/dashboard/github-source-link';
 import { DATASET_CATEGORIES, FREQUENCY_COLORS } from '@/lib/data/malaysia-data';
 import { DATASETS } from '@/lib/data/datasets';
 import type { Lang } from '@/lib/dashboard-types';
@@ -102,7 +105,7 @@ function DatasetDetailDrawer({ dataset, lang, onClose }: {
           </div>
 
           {/* Badges Row */}
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="flex items-center gap-1 text-[9px] px-2 py-1 rounded font-mono" style={{
               background: `${catColor}15`,
               color: catColor,
@@ -119,6 +122,8 @@ function DatasetDetailDrawer({ dataset, lang, onClose }: {
               <Clock size={9} />
               {dataset.frequency}
             </span>
+            <DataSourceBadge source="github_meta" lang={lang} />
+            <DataFreshnessIndicator lastUpdated={dataset.last_updated} lang={lang} />
           </div>
 
           {/* Geography */}
@@ -215,7 +220,10 @@ function DatasetDetailDrawer({ dataset, lang, onClose }: {
                 {lang === 'ms' ? 'KEMAS KINI TERAKHIR' : 'LAST UPDATED'}
               </span>
             </div>
-            <span className="text-xs font-mono" style={{ color: '#e0f7fa' }}>{dataset.last_updated}</span>
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-mono" style={{ color: '#e0f7fa' }}>{dataset.last_updated}</span>
+              <DataFreshnessIndicator lastUpdated={dataset.last_updated} lang={lang} size="md" />
+            </div>
           </div>
 
           {/* Download Links */}
@@ -261,6 +269,17 @@ function DatasetDetailDrawer({ dataset, lang, onClose }: {
                 <span className="ml-auto text-[8px] opacity-50">{dataset.id}</span>
               </a>
             </div>
+          </div>
+
+          {/* GitHub Source Link */}
+          <div className="rounded-md border p-3" style={{ background: 'rgba(10,14,26,0.8)', borderColor: 'rgba(6,182,212,0.08)' }}>
+            <div className="flex items-center gap-1.5 mb-2">
+              <ExternalLink size={12} style={{ color: '#06b6d4' }} />
+              <span className="text-[10px] font-mono tracking-wider" style={{ color: '#06b6d4' }}>
+                {lang === 'ms' ? 'SUMBER LUAR' : 'EXTERNAL SOURCES'}
+              </span>
+            </div>
+            <GitHubSourceLink datasetId={dataset.id} lang={lang} />
           </div>
         </div>
       </motion.div>

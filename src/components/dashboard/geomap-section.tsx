@@ -383,7 +383,7 @@ export function GeoMapSection({ lang, onViewProfile }: { lang: Lang; onViewProfi
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.15 }}
             >
-              {layer.label_en}
+              {lang === 'ms' ? layer.label_ms : layer.label_en}
               {activeLayer === layer.id && (
                 <motion.div layoutId="layer-indicator" className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
               )}
@@ -451,7 +451,7 @@ export function GeoMapSection({ lang, onViewProfile }: { lang: Lang; onViewProfi
             borderColor: 'rgba(6,182,212,0.12)',
           }}>
             <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: '#06b6d4' }}>
-              {lang === 'ms' ? 'KEDUDUKAN NEGERI' : 'STATE RANKING'} — {MAP_LAYERS.find(l => l.id === activeLayer)?.label_en?.toUpperCase()}
+              {lang === 'ms' ? 'KEDUDUKAN NEGERI' : 'STATE RANKING'} — {MAP_LAYERS.find(l => l.id === activeLayer)?.[lang === 'ms' ? 'label_ms' : 'label_en']?.toUpperCase()}
             </div>
             <div className="max-h-64 overflow-y-auto custom-scrollbar" role="list" aria-label="State ranking">
               {STATES.slice()

@@ -407,7 +407,7 @@ export function OverviewSection({ lang, onNavigateDatasets }: { lang: Lang; onNa
           <div className="flex flex-wrap items-center gap-3 mt-4">
             <div className="flex items-center gap-1.5 px-2 py-1 rounded border" style={{ background: 'rgba(16,185,129,0.06)', borderColor: 'rgba(16,185,129,0.15)' }}>
               <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-[10px] font-mono text-emerald-400">LIVE DATA</span>
+              <span className="text-[10px] font-mono text-emerald-400">{lang === 'ms' ? 'DATA LANGSUNG' : 'LIVE DATA'}</span>
             </div>
             <div className="flex items-center gap-1.5 px-2 py-1 rounded border" style={{ background: 'rgba(6,182,212,0.06)', borderColor: 'rgba(6,182,212,0.15)' }}>
               <MapPin size={10} style={{ color: '#06b6d4' }} />
@@ -759,7 +759,7 @@ export function OverviewSection({ lang, onNavigateDatasets }: { lang: Lang; onNa
                       {i === 0 && (
                         <span className="text-[7px] font-mono px-1 py-0.5 rounded" style={{
                           background: 'rgba(6,182,212,0.15)', color: '#06b6d4',
-                        }}>LATEST</span>
+                        }}>{lang === 'ms' ? 'TERKINI' : 'LATEST'}</span>
                       )}
                     </div>
                     <span className="text-[10px] block truncate" style={{ color: '#b0bec5' }}>
