@@ -1,9 +1,9 @@
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, useMotionValue, useTransform, animate as motionAnimate } from 'framer-motion';
 import {
-  Users, TrendingUp, Baby, Heart, Briefcase, Database,
+  Users, TrendingUp, Briefcase, Database,
   BarChart3, Activity, Zap, MapPin, Layers, Globe, Clock,
   ShieldCheck, RefreshCw, PieChart as PieChartIcon, CheckCircle2,
   DollarSign,
@@ -36,6 +36,28 @@ import { DataFreshnessPanel } from '@/components/dashboard/data-freshness-panel'
 import { useLiveData } from '@/components/dashboard/live-data-provider';
 import type { DataStatus } from '@/lib/dosm/client';
 
+// ─── Stagger container variants ─────────────────────────────────────
+const staggerContainer = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.15,
+    },
+  },
+};
+
+const staggerItem = {
+  hidden: { opacity: 0, y: 20, scale: 0.95 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { type: 'spring', stiffness: 300, damping: 24 },
+  },
+};
+
 // ─── Animated Section Divider ────────────────────────────────────
 function AnimatedDivider() {
   return (
@@ -50,6 +72,24 @@ function AnimatedDivider() {
   );
 }
 
+// ─── Animated Counter Hook ──────────────────────────────────────────
+function useAnimatedCounter(target: number, duration = 1400, decimals = 0) {
+  const motionVal = useMotionValue(0);
+  const display = useTransform(motionVal, (v) => decimals > 0 ? v.toFixed(decimals) : Math.round(v).toString());
+  const [text, setText] = useState('0');
+
+  useEffect(() => {
+    const controls = motionAnimate(motionVal, target, {
+      duration,
+      ease: [0.22, 0.61, 0.36, 1],
+    });
+    const unsub = display.on('change', (v) => setText(v));
+    return () => { controls.stop(); unsub(); };
+  }, [target, duration, motionVal, display, decimals]);
+
+  return text;
+}
+
 // ─── Circular Progress Ring ──────────────────────────────────────
 function CircularProgressRing({ percentage, size = 56, strokeWidth = 4, color = '#06b6d4' }: {
   percentage: number; size?: number; strokeWidth?: number; color?: string;
@@ -57,6 +97,7 @@ function CircularProgressRing({ percentage, size = 56, strokeWidth = 4, color = 
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (percentage / 100) * circumference;
+  const displayVal = useAnimatedCounter(percentage, 1600, 1);
 
   return (
     <div className="relative" style={{ width: size, height: size }}>
@@ -67,7 +108,7 @@ function CircularProgressRing({ percentage, size = 56, strokeWidth = 4, color = 
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="rgba(6,182,212,0.1)"
+          stroke={`${color}15`}
           strokeWidth={strokeWidth}
         />
         {/* Progress arc */}
@@ -83,12 +124,12 @@ function CircularProgressRing({ percentage, size = 56, strokeWidth = 4, color = 
           initial={{ strokeDashoffset: circumference }}
           animate={{ strokeDashoffset: offset }}
           transition={{ duration: 1.5, ease: 'easeOut', delay: 0.3 }}
-          style={{ filter: `drop-shadow(0 0 4px ${color}60)` }}
+          style={{ filter: `drop-shadow(0 0 6px ${color}50)` }}
         />
       </svg>
       <div className="absolute inset-0 flex items-center justify-center">
         <span className="text-sm font-bold font-mono" style={{ color, textShadow: `0 0 8px ${color}40` }}>
-          {percentage}%
+          {displayVal}%
         </span>
       </div>
     </div>
@@ -103,34 +144,35 @@ function DataQualityCard({ lang }: { lang: Lang }) {
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.1 }}
-      className="relative rounded-xl border p-4 flex items-center gap-4"
+      className="relative rounded-xl border p-5 flex items-center gap-5"
       style={{
-        background: 'linear-gradient(180deg, rgba(16,185,129,0.04) 0%, rgba(10,14,26,0.85) 40%)',
+        background: 'linear-gradient(135deg, rgba(16,185,129,0.06) 0%, rgba(10,14,26,0.85) 50%)',
         borderColor: 'rgba(16,185,129,0.15)',
         backdropFilter: 'blur(12px)',
-        boxShadow: 'inset 0 1px 0 0 rgba(16,185,129,0.06)',
+        boxShadow: 'inset 0 1px 0 0 rgba(16,185,129,0.08)',
+        overflow: 'hidden',
       }}
     >
-      <CircularProgressRing percentage={qualityScore} color="#10b981" />
+      <CircularProgressRing percentage={qualityScore} color="#10b981" size={64} />
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 mb-1">
-          <ShieldCheck size={12} style={{ color: '#10b981' }} />
+        <div className="flex items-center gap-1.5 mb-1.5">
+          <ShieldCheck size={13} style={{ color: '#10b981' }} />
           <span className="text-[11px] font-semibold font-mono tracking-wider" style={{ color: '#10b981' }}>
             {lang === 'ms' ? 'SKOR KUALITI DATA' : 'DATA QUALITY SCORE'}
           </span>
         </div>
-        <div className="text-xl font-bold font-mono" style={{ color: '#e0f7fa', textShadow: '0 0 12px rgba(16,185,129,0.3)' }}>
-          {qualityScore}%
+        <div className="text-2xl font-bold font-mono" style={{ color: '#e0f7fa', textShadow: '0 0 12px rgba(16,185,129,0.3)' }}>
+          94.7%
         </div>
-        <div className="flex items-center gap-1 mt-1">
-          <CheckCircle2 size={8} style={{ color: '#10b981' }} />
-          <span className="text-[9px] font-mono" style={{ color: '#10b98199' }}>
+        <div className="flex items-center gap-1 mt-1.5">
+          <CheckCircle2 size={9} style={{ color: '#10b981' }} />
+          <span className="text-[9px] font-mono" style={{ color: '#10b981aa' }}>
             {lang === 'ms' ? '272 / 287 set data disahkan' : '272 / 287 datasets verified'}
           </span>
         </div>
       </div>
       {/* Decorative corner glow */}
-      <div className="absolute top-0 right-0 w-16 h-16 opacity-10" style={{
+      <div className="absolute top-0 right-0 w-20 h-20 opacity-10" style={{
         background: 'radial-gradient(circle at top right, #10b981, transparent)',
       }} />
     </motion.div>
@@ -145,7 +187,6 @@ function LastDataUpdateCard({ lang }: { lang: Lang }) {
   useEffect(() => {
     const updateTimestamp = () => {
       const now = new Date();
-      // Simulate last update ~12 minutes ago
       const lastUpdateTime = new Date(now.getTime() - 12 * 60 * 1000 - 34 * 1000);
       const timeOpts: Intl.DateTimeFormatOptions = {
         hour: '2-digit',
@@ -172,41 +213,47 @@ function LastDataUpdateCard({ lang }: { lang: Lang }) {
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.2 }}
-      className="relative rounded-xl border p-4 flex items-center gap-3"
+      className="relative rounded-xl border p-5 flex items-center gap-4"
       style={{
-        background: 'linear-gradient(180deg, rgba(6,182,212,0.04) 0%, rgba(10,14,26,0.85) 40%)',
+        background: 'linear-gradient(135deg, rgba(6,182,212,0.06) 0%, rgba(10,14,26,0.85) 50%)',
         borderColor: 'rgba(6,182,212,0.15)',
         backdropFilter: 'blur(12px)',
-        boxShadow: 'inset 0 1px 0 0 rgba(6,182,212,0.06)',
+        boxShadow: 'inset 0 1px 0 0 rgba(6,182,212,0.08)',
+        overflow: 'hidden',
       }}
     >
-      <div className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center" style={{
+      <div className="flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center" style={{
         background: 'rgba(6,182,212,0.08)',
-        border: '1px solid rgba(6,182,212,0.15)',
+        border: '1px solid rgba(6,182,212,0.12)',
       }}>
-        <RefreshCw size={16} style={{ color: '#06b6d4' }} />
+        <RefreshCw size={18} style={{ color: '#06b6d4' }} />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 mb-1">
+        <div className="flex items-center gap-1.5 mb-1.5">
           <span className="text-[11px] font-semibold font-mono tracking-wider" style={{ color: '#06b6d4' }}>
             {lang === 'ms' ? 'KEMAS KINI TERAKHIR' : 'LAST DATA UPDATE'}
           </span>
         </div>
-        <div className="text-lg font-bold font-mono" style={{ color: '#e0f7fa', textShadow: '0 0 10px rgba(6,182,212,0.3)' }}>
-          {lastUpdate} <span className="text-[9px] font-normal opacity-50">MYT</span>
+        <div className="text-xl font-bold font-mono" style={{ color: '#e0f7fa', textShadow: '0 0 10px rgba(6,182,212,0.3)' }}>
+          {lastUpdate} <span className="text-[9px] font-normal opacity-40">MYT</span>
         </div>
-        <div className="flex items-center gap-1.5 mt-0.5">
-          <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#10b981', boxShadow: '0 0 4px rgba(16,185,129,0.6)' }}>
+        <div className="flex items-center gap-1.5 mt-1.5">
+          <div className="relative w-2 h-2">
+            <div className="w-2 h-2 rounded-full" style={{ background: '#10b981', boxShadow: '0 0 6px rgba(16,185,129,0.6)' }} />
             <motion.div
-              className="w-1.5 h-1.5 rounded-full"
-              style={{ border: '1px solid rgba(16,185,129,0.4)' }}
-              animate={{ scale: [1, 1.8, 1], opacity: [0.6, 0, 0.6] }}
+              className="absolute inset-0 w-2 h-2 rounded-full"
+              style={{ border: '1px solid rgba(16,185,129,0.5)' }}
+              animate={{ scale: [1, 2.2, 1], opacity: [0.7, 0, 0.7] }}
               transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
             />
           </div>
-          <span className="text-[9px] font-mono" style={{ color: '#06b6d499' }}>{timeAgo}</span>
+          <span className="text-[9px] font-mono" style={{ color: '#06b6d4aa' }}>{timeAgo}</span>
         </div>
       </div>
+      {/* Decorative corner glow */}
+      <div className="absolute top-0 right-0 w-20 h-20 opacity-10" style={{
+        background: 'radial-gradient(circle at top right, #06b6d4, transparent)',
+      }} />
     </motion.div>
   );
 }
@@ -219,33 +266,34 @@ function DataCoverageCard({ lang }: { lang: Lang }) {
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.3 }}
-      className="relative rounded-xl border p-4 flex items-center gap-4"
+      className="relative rounded-xl border p-5 flex items-center gap-5"
       style={{
-        background: 'linear-gradient(180deg, rgba(245,158,11,0.04) 0%, rgba(10,14,26,0.85) 40%)',
+        background: 'linear-gradient(135deg, rgba(245,158,11,0.06) 0%, rgba(10,14,26,0.85) 50%)',
         borderColor: 'rgba(245,158,11,0.15)',
         backdropFilter: 'blur(12px)',
-        boxShadow: 'inset 0 1px 0 0 rgba(245,158,11,0.06)',
+        boxShadow: 'inset 0 1px 0 0 rgba(245,158,11,0.08)',
+        overflow: 'hidden',
       }}
     >
-      <CircularProgressRing percentage={coveragePercent} color="#f59e0b" />
+      <CircularProgressRing percentage={coveragePercent} color="#f59e0b" size={64} />
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 mb-1">
-          <PieChartIcon size={12} style={{ color: '#f59e0b' }} />
+        <div className="flex items-center gap-1.5 mb-1.5">
+          <PieChartIcon size={13} style={{ color: '#f59e0b' }} />
           <span className="text-[11px] font-semibold font-mono tracking-wider" style={{ color: '#f59e0b' }}>
             {lang === 'ms' ? 'LIPUTAN DATA' : 'DATA COVERAGE'}
           </span>
         </div>
-        <div className="text-xl font-bold font-mono" style={{ color: '#e0f7fa', textShadow: '0 0 12px rgba(245,158,11,0.3)' }}>
-          {coveragePercent}%
+        <div className="text-2xl font-bold font-mono" style={{ color: '#e0f7fa', textShadow: '0 0 12px rgba(245,158,11,0.3)' }}>
+          78.4%
         </div>
-        <div className="flex items-center gap-1 mt-1">
-          <span className="text-[9px] font-mono" style={{ color: '#f59e0b99' }}>
+        <div className="flex items-center gap-1 mt-1.5">
+          <span className="text-[9px] font-mono" style={{ color: '#f59e0baa' }}>
             {lang === 'ms' ? '15 / 19 negeri & WP diliputi' : '15 / 19 states & FT covered'}
           </span>
         </div>
       </div>
       {/* Decorative corner glow */}
-      <div className="absolute top-0 right-0 w-16 h-16 opacity-10" style={{
+      <div className="absolute top-0 right-0 w-20 h-20 opacity-10" style={{
         background: 'radial-gradient(circle at top right, #f59e0b, transparent)',
       }} />
     </motion.div>
@@ -268,6 +316,79 @@ function premiumCardStyle(overrides?: Record<string, string>) {
 const CHART_AXIS_TICK = { fill: '#8899aa', fontSize: 9 };
 const CHART_AXIS_LINE = { stroke: 'rgba(6,182,212,0.15)' };
 const CHART_TICK_LINE = { stroke: 'rgba(6,182,212,0.15)' };
+
+// ─── Category Progress Bar Component ────────────────────────────
+function CategoryProgressBar({ cat, lang, index, maxVal }: {
+  cat: { name: string; name_ms: string; value: number; color: string };
+  lang: Lang;
+  index: number;
+  maxVal: number;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const pct = ((cat.value / 287) * 100).toFixed(1);
+  const barWidth = (cat.value / maxVal) * 100;
+  const displayName = lang === 'ms' ? cat.name_ms : cat.name;
+
+  return (
+    <motion.div
+      className="group relative rounded-lg p-2.5 transition-colors duration-200"
+      style={{
+        background: hovered ? `${cat.color}08` : 'transparent',
+        border: `1px solid ${hovered ? cat.color + '20' : 'transparent'}`,
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      variants={staggerItem}
+    >
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: cat.color, boxShadow: `0 0 4px ${cat.color}40` }} />
+          <span className="text-[10px] font-mono truncate" style={{ color: '#b8c5d4' }}>{displayName}</span>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+          <span className="text-[11px] font-mono font-bold" style={{ color: cat.color }}>{cat.value}</span>
+          <span className="text-[8px] font-mono px-1.5 py-0.5 rounded" style={{
+            background: `${cat.color}12`,
+            color: `${cat.color}cc`,
+            border: `1px solid ${cat.color}20`,
+          }}>
+            {pct}%
+          </span>
+        </div>
+      </div>
+      {/* Animated progress bar */}
+      <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: `${cat.color}10` }}>
+        <motion.div
+          className="h-full rounded-full"
+          style={{
+            background: `linear-gradient(90deg, ${cat.color}, ${cat.color}90)`,
+            boxShadow: `0 0 8px ${cat.color}30`,
+          }}
+          initial={{ width: 0 }}
+          animate={{ width: `${barWidth}%` }}
+          transition={{ duration: 1.2, delay: 0.15 * index + 0.3, ease: [0.22, 0.61, 0.36, 1] }}
+        />
+      </div>
+      {/* Hover tooltip */}
+      {hovered && (
+        <motion.div
+          className="absolute -top-10 left-1/2 -translate-x-1/2 z-20 px-2.5 py-1.5 rounded-lg font-mono text-[9px] whitespace-nowrap pointer-events-none"
+          style={{
+            background: 'rgba(10,14,26,0.97)',
+            border: `1px solid ${cat.color}30`,
+            boxShadow: `0 4px 16px rgba(0,0,0,0.4), 0 0 12px ${cat.color}15`,
+            color: '#e0f7fa',
+          }}
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.15 }}
+        >
+          {displayName}: {cat.value} {lang === 'ms' ? 'set data' : 'datasets'} ({pct}%)
+        </motion.div>
+      )}
+    </motion.div>
+  );
+}
 
 // ─── Overview Section ─────────────────────────────────────────────
 export function OverviewSection({ lang, onNavigateDatasets }: { lang: Lang; onNavigateDatasets?: (category?: string) => void }) {
@@ -346,45 +467,60 @@ export function OverviewSection({ lang, onNavigateDatasets }: { lang: Lang; onNa
   }, []);
 
   const PIE_COLORS = ['#06b6d4', '#f59e0b', '#8b5cf6', '#10b981', '#ef4444', '#64748b', '#ec4899'];
+  const maxCatVal = catStats.length > 0 ? catStats[0].value : 1;
 
   return (
     <div className="space-y-6" role="region" aria-label="Dashboard overview">
       {/* Data Flow Lines Overlay */}
       <DataFlowLines enabled={true} />
-      {/* Hero Banner */}
+
+      {/* ─── Hero Banner ──────────────────────────────────────────── */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-xl border p-6 mb-6"
+        className="relative overflow-hidden rounded-xl border p-6 md:p-8 mb-6"
         style={{
-          background: 'linear-gradient(135deg, rgba(6,182,212,0.08), rgba(16,185,129,0.04), rgba(10,14,26,0.95))',
-          borderColor: 'rgba(6,182,212,0.15)',
-          animation: 'border-glow 3s ease-in-out infinite',
-          boxShadow: 'inset 0 1px 0 0 rgba(6,182,212,0.06)',
+          background: 'linear-gradient(135deg, rgba(6,182,212,0.1) 0%, rgba(16,185,129,0.05) 40%, rgba(10,14,26,0.95) 100%)',
+          borderColor: 'rgba(6,182,212,0.18)',
+          boxShadow: 'inset 0 1px 0 0 rgba(6,182,212,0.08), 0 0 40px rgba(6,182,212,0.05)',
         }}
       >
-        <div className="absolute top-0 right-0 w-64 h-64 opacity-10" style={{
+        {/* Animated scan line effect */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ opacity: 0.4 }}>
+          <motion.div
+            className="absolute left-0 right-0 h-[1px]"
+            style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(6,182,212,0.6) 20%, rgba(6,182,212,0.8) 50%, rgba(6,182,212,0.6) 80%, transparent 100%)' }}
+            animate={{ top: ['-2%', '102%'] }}
+            transition={{ duration: 6, repeat: Infinity, ease: 'linear' }}
+          />
+        </div>
+
+        {/* Corner glows */}
+        <div className="absolute top-0 right-0 w-72 h-72 opacity-[0.08]" style={{
           background: 'radial-gradient(circle at top right, #06b6d4, transparent 70%)',
         }} />
-        <div className="absolute bottom-0 left-0 w-48 h-48 opacity-5" style={{
+        <div className="absolute bottom-0 left-0 w-56 h-56 opacity-[0.04]" style={{
           background: 'radial-gradient(circle at bottom left, #10b981, transparent 70%)',
         }} />
+
         {/* Animated grid lines in background */}
-        <div className="absolute inset-0 opacity-[0.02]" style={{
+        <div className="absolute inset-0 opacity-[0.025]" style={{
           backgroundImage: `linear-gradient(rgba(6,182,212,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(6,182,212,0.8) 1px, transparent 1px)`,
           backgroundSize: '30px 30px',
         }} />
+
         <div className="relative z-10">
-          <div className="flex items-center gap-2 mb-2">
-            <Zap size={16} style={{ color: '#06b6d4' }} />
-            <div>
+          {/* Title row */}
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2">
+              <Zap size={16} style={{ color: '#06b6d4' }} />
               <span className="text-[13px] font-bold font-mono tracking-[0.2em]" style={{ color: '#06b6d4', textShadow: '0 0 8px rgba(6,182,212,0.4)' }}>
                 {lang === 'ms' ? 'PENGANALISIS DATA NASIONAL' : 'NATIONAL DATA INTELLIGENCE'}
               </span>
               <SectionHeaderLine color="#06b6d4" delay={0.3} />
             </div>
             <motion.span
-              className="text-[8px] font-mono px-1.5 py-0.5 rounded"
+              className="text-[8px] font-mono px-2 py-0.5 rounded-md"
               style={{ background: 'rgba(6,182,212,0.12)', color: '#06b6d4', border: '1px solid rgba(6,182,212,0.2)' }}
               animate={{ opacity: [0.5, 1, 0.5] }}
               transition={{ duration: 2, repeat: Infinity }}
@@ -392,35 +528,72 @@ export function OverviewSection({ lang, onNavigateDatasets }: { lang: Lang; onNa
               v3.0
             </motion.span>
           </div>
-          <h2 className="text-2xl md:text-3xl font-bold mb-2" style={{
+          <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-3" style={{
             color: '#e0f7fa',
             textShadow: '0 0 20px rgba(6,182,212,0.3)',
           }}>
             {lang === 'ms' ? 'Pusat Perintah Data Terbuka Malaysia' : 'Malaysia Open Data Command Center'}
           </h2>
-          <p className="text-sm opacity-80 max-w-2xl" style={{ color: '#b8c5d4' }}>
+          <p className="text-sm md:text-base opacity-80 max-w-2xl mb-5" style={{ color: '#b8c5d4' }}>
             {lang === 'ms'
               ? 'Papan pemuka kecerdasan gred SaaS premium yang dikuasakan sepenuhnya oleh data.gov.my data terbuka. 287+ set data merentasi 18 kategori.'
               : 'A premium SaaS-grade intelligence dashboard powered entirely by data.gov.my open data. 287+ datasets across 18 categories.'
             }
           </p>
-          <div className="flex flex-wrap items-center gap-3 mt-4">
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded border" style={{ background: 'rgba(16,185,129,0.06)', borderColor: 'rgba(16,185,129,0.15)' }}>
-              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-[10px] font-mono text-emerald-400">{lang === 'ms' ? 'DATA LANGSUNG' : 'LIVE DATA'}</span>
-            </div>
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded border" style={{ background: 'rgba(6,182,212,0.06)', borderColor: 'rgba(6,182,212,0.15)' }}>
-              <MapPin size={10} style={{ color: '#06b6d4' }} />
-              <span className="text-[10px] font-mono" style={{ color: '#06b6d4' }}>{lang === 'ms' ? '16 NEGERI + 3 WP' : '16 STATES + 3 FT'}</span>
-            </div>
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded border" style={{ background: 'rgba(245,158,11,0.06)', borderColor: 'rgba(245,158,11,0.15)' }}>
-              <Layers size={10} style={{ color: '#f59e0b' }} />
-              <span className="text-[10px] font-mono" style={{ color: '#f59e0b' }}>{lang === 'ms' ? '6 LAPISAN' : '6 LAYERS'}</span>
-            </div>
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded border" style={{ background: 'rgba(139,92,246,0.06)', borderColor: 'rgba(139,92,246,0.15)' }}>
-              <Globe size={10} style={{ color: '#8b5cf6' }} />
-              <span className="text-[10px] font-mono" style={{ color: '#8b5cf6' }}>{lang === 'ms' ? '18 KATEGORI' : '18 CATEGORIES'}</span>
-            </div>
+
+          {/* Stats badges — improved with prominent numbers */}
+          <div className="flex flex-wrap items-center gap-2 md:gap-3">
+            <motion.div
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border"
+              style={{ background: 'rgba(16,185,129,0.08)', borderColor: 'rgba(16,185,129,0.2)' }}
+              whileHover={{ scale: 1.05, borderColor: 'rgba(16,185,129,0.4)' }}
+            >
+              <div className="relative">
+                <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                <motion.div
+                  className="absolute inset-0 w-2 h-2 rounded-full"
+                  style={{ border: '1px solid rgba(16,185,129,0.5)' }}
+                  animate={{ scale: [1, 2, 1], opacity: [0.8, 0, 0.8] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                />
+              </div>
+              <span className="text-[10px] md:text-[11px] font-mono font-bold text-emerald-400">
+                {lang === 'ms' ? 'DATA LANGSUNG' : 'LIVE DATA'}
+              </span>
+            </motion.div>
+
+            <motion.div
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border"
+              style={{ background: 'rgba(6,182,212,0.08)', borderColor: 'rgba(6,182,212,0.2)' }}
+              whileHover={{ scale: 1.05, borderColor: 'rgba(6,182,212,0.4)' }}
+            >
+              <MapPin size={11} style={{ color: '#06b6d4' }} />
+              <span className="text-[10px] md:text-[11px] font-mono font-bold" style={{ color: '#06b6d4' }}>
+                <span className="text-[13px]">19</span> {lang === 'ms' ? 'NEGERI + WP' : 'STATES + FT'}
+              </span>
+            </motion.div>
+
+            <motion.div
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border"
+              style={{ background: 'rgba(245,158,11,0.08)', borderColor: 'rgba(245,158,11,0.2)' }}
+              whileHover={{ scale: 1.05, borderColor: 'rgba(245,158,11,0.4)' }}
+            >
+              <Layers size={11} style={{ color: '#f59e0b' }} />
+              <span className="text-[10px] md:text-[11px] font-mono font-bold" style={{ color: '#f59e0b' }}>
+                <span className="text-[13px]">6</span> {lang === 'ms' ? 'LAPISAN' : 'LAYERS'}
+              </span>
+            </motion.div>
+
+            <motion.div
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border"
+              style={{ background: 'rgba(139,92,246,0.08)', borderColor: 'rgba(139,92,246,0.2)' }}
+              whileHover={{ scale: 1.05, borderColor: 'rgba(139,92,246,0.4)' }}
+            >
+              <Globe size={11} style={{ color: '#8b5cf6' }} />
+              <span className="text-[10px] md:text-[11px] font-mono font-bold" style={{ color: '#8b5cf6' }}>
+                <span className="text-[13px]">18</span> {lang === 'ms' ? 'KATEGORI' : 'CATEGORIES'}
+              </span>
+            </motion.div>
           </div>
         </div>
       </motion.div>
@@ -441,17 +614,24 @@ export function OverviewSection({ lang, onNavigateDatasets }: { lang: Lang; onNa
 
       <AnimatedDivider />
 
-      {/* KPI Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3" role="group" aria-label="Key performance indicators">
+      {/* ─── KPI Grid with staggered entry ────────────────────────── */}
+      <motion.div
+        className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3"
+        role="group"
+        aria-label="Key performance indicators"
+        variants={staggerContainer}
+        initial="hidden"
+        animate="visible"
+      >
         {kpis.map((kpi, i) => (
-          <div key={i} data-flow={i === 0 ? 'kpi-population' : i === 1 ? 'kpi-gdp' : undefined}>
+          <motion.div key={i} variants={staggerItem} data-flow={i === 0 ? 'kpi-population' : i === 1 ? 'kpi-gdp' : undefined}>
             <KPICard {...kpi} lang={lang} status={kpi.status} onClick={() => {
               const metricKeys: ('population' | 'gdp' | 'gdpGrowth' | 'births' | 'unemployment' | 'datasets')[] = ['population', 'gdp', 'gdpGrowth', 'births', 'unemployment', 'datasets'];
               setExplorerMetric(metricKeys[i]);
             }} />
-          </div>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
 
       <AnimatedDivider />
 
@@ -651,7 +831,7 @@ export function OverviewSection({ lang, onNavigateDatasets }: { lang: Lang; onNa
 
       <AnimatedDivider />
 
-      {/* Row: Category Heat Blocks + Data Sources + Timeline */}
+      {/* Row: Category Progress Bars + Data Sources + Timeline */}
       <div className="space-y-1">
         <div className="flex items-center gap-3">
           <div>
@@ -663,48 +843,38 @@ export function OverviewSection({ lang, onNavigateDatasets }: { lang: Lang; onNa
         </div>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Category Heat Blocks */}
+        {/* ─── Category Progress Bars (Enhanced) ─────────────────── */}
         <div className="relative group rounded-xl border p-5" style={premiumCardStyle()}>
           <HUDBracket />
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2 mb-4">
             <Layers size={14} style={{ color: '#06b6d4' }} />
             <span className="text-[11px] font-semibold font-mono tracking-wider" style={{ color: '#06b6d4' }}>
-              {lang === 'ms' ? 'BLOK KATEGORI' : 'CATEGORY BLOCKS'}
+              {lang === 'ms' ? 'AGIHAN KATEGORI' : 'CATEGORY DISTRIBUTION'}
+            </span>
+            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{
+              background: 'rgba(6,182,212,0.08)',
+              color: '#06b6d4',
+              border: '1px solid rgba(6,182,212,0.12)',
+            }}>
+              {lang === 'ms' ? '18 kategori' : '18 categories'}
             </span>
           </div>
-          <div className="grid grid-cols-3 gap-1.5">
-            {catStats.slice(0, 18).map((cat) => (
-              <div
+          <motion.div
+            className="space-y-1 max-h-[340px] overflow-y-auto custom-scrollbar pr-1"
+            variants={staggerContainer}
+            initial="hidden"
+            animate="visible"
+          >
+            {catStats.slice(0, 18).map((cat, i) => (
+              <CategoryProgressBar
                 key={cat.name}
-                className="rounded p-1.5 text-center cursor-default transition-all duration-200 hover:scale-110 relative overflow-hidden"
-                style={{
-                  background: `${cat.color}12`,
-                  border: `1px solid ${cat.color}20`,
-                }}
-                onMouseEnter={e => { e.currentTarget.style.boxShadow = `0 0 12px ${cat.color}30`; e.currentTarget.style.borderColor = `${cat.color}50`; }}
-                onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = `${cat.color}20`; }}
-              >
-                {/* Scan line effect on hover */}
-                <div className="absolute inset-0 opacity-0 hover:opacity-100 pointer-events-none" style={{ transition: 'opacity 0.2s' }}>
-                  <motion.div
-                    className="absolute left-0 right-0 h-px"
-                    style={{ background: `linear-gradient(90deg, transparent, ${cat.color}40, transparent)` }}
-                    animate={{ top: ['0%', '100%'] }}
-                    transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
-                  />
-                </div>
-                <motion.div
-                  className="text-[10px] font-mono font-bold"
-                  style={{ color: cat.color }}
-                  whileHover={{ scale: 1.05 }}
-                  transition={{ duration: 0.15 }}
-                >
-                  {cat.value}
-                </motion.div>
-                <div className="text-[7px] font-mono truncate" style={{ color: '#b0bec5' }}>{lang === 'ms' ? cat.name_ms : cat.name}</div>
-              </div>
+                cat={cat}
+                lang={lang}
+                index={i}
+                maxVal={maxCatVal}
+              />
             ))}
-          </div>
+          </motion.div>
         </div>
 
         {/* Data Source Stats */}
@@ -744,14 +914,6 @@ export function OverviewSection({ lang, onNavigateDatasets }: { lang: Lang; onNa
                       background: dotColor,
                       boxShadow: i === 0 ? `0 0 6px ${dotColor}60` : 'none',
                     }} />
-                    {/* Data pulse ring on hover — expanding ring animation */}
-                    <motion.div
-                      className="absolute inset-0 w-1.5 h-1.5 rounded-full pointer-events-none"
-                      style={{ border: `1px solid ${dotColor}` }}
-                      initial={{ scale: 1, opacity: 0 }}
-                      whileHover={{ scale: 3, opacity: [0, 0.6, 0] }}
-                      transition={{ duration: 0.8, repeat: Infinity, ease: 'easeOut' }}
-                    />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">

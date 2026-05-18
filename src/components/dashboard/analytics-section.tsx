@@ -20,6 +20,7 @@ import {
 import { DATASETS } from '@/lib/data/datasets';
 import type { Lang } from '@/lib/dashboard-types';
 import { HUDBracket, SectionHeaderLine } from '@/components/dashboard/particle-background';
+import { DataQualityDashboard } from '@/components/dashboard/data-quality-dashboard';
 
 
 // ─── Premium Card Style Helper ───────────────────────────────────
@@ -1381,6 +1382,13 @@ export function AnalyticsSection({ lang, onNavigateGeoMap }: { lang: Lang; onNav
           </div>
         </motion.div>
       </div>
+      {/* ═════════════════════════════════════════════════════════════
+          DATA QUALITY SECTION
+          Added as Task 5: Data source health, freshness, reliability
+          ═════════════════════════════════════════════════════════════ */}
+      <AnimatedDivider color="#f59e0b" />
+
+      <DataQualityDashboard lang={lang} />
     </div>
   );
 }
