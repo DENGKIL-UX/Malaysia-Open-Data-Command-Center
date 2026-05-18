@@ -4,11 +4,10 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, TrendingUp, Database, Briefcase, Activity,
-  BarChart3, Map, LayoutDashboard, Printer,
+  BarChart3, Map, LayoutDashboard, Printer, Info,
   HelpCircle, Languages, ArrowUp, Bell, Copyright,
-  ExternalLink, Heart, Download, ChevronRight,
-  Globe, Github, Twitter, Linkedin, FileText,
-  Brain, RefreshCw,
+  ExternalLink, Heart, Download, ChevronRight, Layers,
+  Network,
 } from 'lucide-react';
 
 import BootSequence from '@/components/dashboard/boot-sequence';
@@ -20,7 +19,7 @@ import { DatasetsSection } from '@/components/dashboard/datasets-section';
 import { AnalyticsSection } from '@/components/dashboard/analytics-section';
 import { IntelligenceSection } from '@/components/dashboard/intelligence-section';
 import { InfographicModal } from '@/components/dashboard/infographic-modal';
-
+import { InfoSection } from '@/components/dashboard/info-section';
 import { CommandPalette, KeyboardShortcutsModal } from '@/components/dashboard/command-palette';
 import { StateProfileModal } from '@/components/dashboard/state-profile-modal';
 import { NotificationCenter, NotificationBell } from '@/components/dashboard/notification-center';
@@ -30,14 +29,9 @@ import { SettingsPanel, SettingsGearButton } from '@/components/dashboard/settin
 import { useSettings } from '@/hooks/use-settings';
 import { SkeletonCard, SkeletonChart, SkeletonMap } from '@/components/dashboard/skeleton-loader';
 import { ScrollProgress } from '@/components/dashboard/scroll-progress';
-import { LiveDataProvider } from '@/components/dashboard/live-data-provider';
-import { AlertTicker } from '@/components/palantir/AlertTicker';
-import { useIntelBus } from '@/engine/intelligence/bus';
-import { auditTrail } from '@/engine/audit/trail';
-
-import type { TabId } from '@/lib/dashboard-types';
-import { useLang } from '@/i18n';
-import { CopilotProvider } from '@/components/copilot';
+import { IconographyPanel } from '@/components/dashboard/iconography-panel';
+import { CopilotPanel } from '@/components/copilot/copilot-panel';
+import type { TabId, Lang } from '@/lib/dashboard-types';
 
 // ─── Focus Trap Hook ──────────────────────────────────────────────
 function useFocusTrap(isOpen: boolean, containerRef: React.RefObject<HTMLElement | null>) {
@@ -154,47 +148,13 @@ function FooterCounter({ target, color }: { target: number; color: string }) {
   );
 }
 
-// ─── Footer Last Synced Timestamp ────────────────────────────────────
-function FooterLastSynced({ lang }: { lang: string }) {
-  const [syncTime, setSyncTime] = useState('');
-
-  useEffect(() => {
-    const updateSync = () => {
-      const now = new Date();
-      const syncedAt = new Date(now.getTime() - 2 * 60 * 1000 - 15 * 1000); // ~2m15s ago
-      const timeOpts: Intl.DateTimeFormatOptions = {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false,
-        timeZone: 'Asia/Kuala_Lumpur',
-      };
-      const timeStr = syncedAt.toLocaleTimeString('en-GB', timeOpts);
-      const diffMs = now.getTime() - syncedAt.getTime();
-      const diffMin = Math.floor(diffMs / 60000);
-      const label = lang === 'ms' ? 'Disegerakkan' : 'Synced';
-      setSyncTime(`${label} ${diffMin}m ${lang === 'ms' ? 'lalu' : 'ago'} · ${timeStr}`);
-    };
-
-    updateSync();
-    const interval = setInterval(updateSync, 30000);
-    return () => clearInterval(interval);
-  }, [lang]);
-
-  return (
-    <span className="text-[8px] font-mono flex items-center gap-1" style={{ color: 'rgba(6,182,212,0.45)' }}>
-      <RefreshCw size={7} style={{ color: 'rgba(6,182,212,0.4)' }} />
-      {syncTime}
-    </span>
-  );
-}
-
 // ─── Main Dashboard ──────────────────────────────────────────────
 export default function Home() {
   const [booted, setBooted] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('overview');
-  const { lang, toggle: toggleLang } = useLang();
+  const [lang, setLang] = useState<Lang>('en');
   const [showInfographic, setShowInfographic] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
@@ -205,8 +165,8 @@ export default function Home() {
   const [showExportHub, setShowExportHub] = useState(false);
   const [showQuickStats, setShowQuickStats] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showIconography, setShowIconography] = useState(false);
   const { settings, updateSetting, resetToDefaults } = useSettings();
-  const intelBus = useIntelBus();
 
   // Focus trap refs for modals
   const infographicRef = useRef<HTMLDivElement>(null);
@@ -289,6 +249,31 @@ export default function Home() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [booted]);
 
+  // Copilot navigation event listener
+  useEffect(() => {
+    if (!booted) return;
+    const handleCopilotNavigate = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.tab) {
+        const tab = detail.tab as TabId;
+        setActiveTab(tab);
+      }
+    };
+    const handleCopilotShowMetric = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.metric) {
+        // Navigate to geomap for state-level metrics, datasets for data
+        setActiveTab('geomap');
+      }
+    };
+    window.addEventListener('copilot:navigate', handleCopilotNavigate);
+    window.addEventListener('copilot:show-metric', handleCopilotShowMetric);
+    return () => {
+      window.removeEventListener('copilot:navigate', handleCopilotNavigate);
+      window.removeEventListener('copilot:show-metric', handleCopilotShowMetric);
+    };
+  }, [booted]);
+
   // Live data alert notifications
   useEffect(() => {
     if (!booted) return;
@@ -304,96 +289,24 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [booted]);
 
-  // Copilot navigation event listeners
-  useEffect(() => {
-    if (!booted) return;
-
-    const handleCopilotNavigate = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      const target = detail?.target;
-      if (target) {
-        const tabMap: Record<string, TabId> = {
-          overview: 'overview',
-          geomap: 'geomap',
-          datasets: 'datasets',
-          analytics: 'analytics',
-          intelligence: 'intelligence',
-          comparison: 'analytics',
-        };
-        const tabId = tabMap[target];
-        if (tabId) {
-          setActiveTab(tabId);
-          try { auditTrail.tabChange(tabId); } catch {}
-        }
-      }
-    };
-
-    const handleCopilotCompare = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      const states = detail?.states;
-      if (states?.length) {
-        setActiveTab('geomap');
-        try { auditTrail.tabChange('geomap'); } catch {}
-      }
-    };
-
-    const handleCopilotOpenDataset = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      if (detail?.id) {
-        setActiveTab('datasets');
-        try { auditTrail.tabChange('datasets'); } catch {}
-      }
-    };
-
-    const handleCopilotShowMetric = (_e: Event) => {
-      setActiveTab('analytics');
-      try { auditTrail.tabChange('analytics'); } catch {}
-    };
-
-    window.addEventListener('copilot-navigate', handleCopilotNavigate as EventListener);
-    window.addEventListener('copilot-compare', handleCopilotCompare as EventListener);
-    window.addEventListener('copilot-open-dataset', handleCopilotOpenDataset as EventListener);
-    window.addEventListener('copilot-show-metric', handleCopilotShowMetric as EventListener);
-
-    return () => {
-      window.removeEventListener('copilot-navigate', handleCopilotNavigate as EventListener);
-      window.removeEventListener('copilot-compare', handleCopilotCompare as EventListener);
-      window.removeEventListener('copilot-open-dataset', handleCopilotOpenDataset as EventListener);
-      window.removeEventListener('copilot-show-metric', handleCopilotShowMetric as EventListener);
-    };
-  }, [booted]);
-
-  // Audit trail helper (safe for client-side)
-  const audit = useCallback((type: string, detail: string) => {
-    try { auditTrail.tabChange(detail); } catch {}
-  }, []);
-
   // Command palette action handler
   const handleCommandAction = useCallback((action: string) => {
-    try { auditTrail.command(action); } catch {}
     switch (action) {
-      case 'tab-overview': setActiveTab('overview'); intelBus.setContext('overview', 'overview'); break;
-      case 'tab-geomap': setActiveTab('geomap'); intelBus.setContext('geomap', 'geomap'); break;
-      case 'tab-datasets': setActiveTab('datasets'); intelBus.setContext('datasets', 'datasets'); break;
-      case 'tab-analytics': setActiveTab('analytics'); intelBus.setContext('analytics', 'analytics'); break;
-      case 'tab-intelligence': setActiveTab('intelligence'); intelBus.setContext('intelligence', 'intelligence'); break;
-      case 'toggle-lang': toggleLang(); try { auditTrail.langToggle(lang === 'en' ? 'ms' : 'en'); } catch {} break;
+      case 'tab-overview': setActiveTab('overview'); break;
+      case 'tab-geomap': setActiveTab('geomap'); break;
+      case 'tab-datasets': setActiveTab('datasets'); break;
+      case 'tab-analytics': setActiveTab('analytics'); break;
+      case 'tab-intelligence': setActiveTab('intelligence'); break;
+      case 'toggle-lang': setLang(l => l === 'en' ? 'ms' : 'en'); break;
       case 'open-infographic': setShowInfographic(true); break;
-      case 'intel-anomalies': setActiveTab('intelligence'); intelBus.setContext('anomalies', 'intelligence'); break;
-      case 'intel-confidence': setActiveTab('intelligence'); intelBus.setContext('confidence', 'intelligence'); break;
-      case 'intel-graph': setActiveTab('intelligence'); intelBus.setContext('graph', 'intelligence'); break;
-      case 'gen-16x9': setShowInfographic(true); break;
-      case 'gen-9x16': setShowInfographic(true); break;
-
+      case 'toggle-info': setShowInfo(v => !v); break;
       default:
-        // Dataset commands — switch to analytics tab and set context
+        // Dataset commands — switch to datasets tab
         if (action.startsWith('dataset-')) {
-          const datasetKey = action.replace('dataset-', '');
-          setActiveTab('analytics');
-          intelBus.setContext(datasetKey, 'analytics');
+          setActiveTab('datasets');
         }
     }
-  }, [intelBus, lang, toggleLang]);
+  }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -416,6 +329,7 @@ export default function Home() {
         if (showNotifications) { setShowNotifications(false); return; }
         if (showSettings) { setShowSettings(false); return; }
         if (showExportHub) { setShowExportHub(false); return; }
+        if (showIconography) { setShowIconography(false); return; }
         if (profileStateId) { setProfileStateId(null); return; }
         return;
       }
@@ -424,13 +338,13 @@ export default function Home() {
       if (isInput) return;
 
       switch (e.key) {
-        case '1': setActiveTab('overview'); try { auditTrail.tabChange('overview'); } catch {} break;
-        case '2': setActiveTab('geomap'); try { auditTrail.tabChange('geomap'); } catch {} break;
-        case '3': setActiveTab('datasets'); try { auditTrail.tabChange('datasets'); } catch {} break;
-        case '4': setActiveTab('analytics'); try { auditTrail.tabChange('analytics'); } catch {} break;
-        case '5': setActiveTab('intelligence'); try { auditTrail.tabChange('intelligence'); } catch {} break;
-        case 'l': case 'L': toggleLang(); try { auditTrail.langToggle(lang === 'en' ? 'ms' : 'en'); } catch {} break;
-
+        case '1': setActiveTab('overview'); break;
+        case '2': setActiveTab('geomap'); break;
+        case '3': setActiveTab('datasets'); break;
+        case '4': setActiveTab('analytics'); break;
+        case '5': setActiveTab('intelligence'); break;
+        case 'l': case 'L': setLang(l => l === 'en' ? 'ms' : 'en'); break;
+        case 'i': case 'I': setShowInfo(v => !v); break;
         case 'e': case 'E': setShowInfographic(true); break;
       }
     };
@@ -444,14 +358,13 @@ export default function Home() {
     { id: 'geomap', icon: Map, label_en: 'GeoMap', label_ms: 'PetaGeo' },
     { id: 'datasets', icon: Database, label_en: 'Datasets', label_ms: 'Set Data' },
     { id: 'analytics', icon: BarChart3, label_en: 'Analytics', label_ms: 'Analitik' },
-    { id: 'intelligence', icon: Brain, label_en: 'Intel', label_ms: 'Intel' },
+    { id: 'intelligence', icon: Network, label_en: 'Intelligence', label_ms: 'Intelijen' },
   ];
 
   return (
-    <CopilotProvider>
-    <div className="min-h-screen flex flex-col relative" data-scan-lines={settings.showScanLines ? 'true' : 'false'} style={{ background: '#0a0e1a', zoom: settings.fontSize === 'small' ? 1 : settings.fontSize === 'medium' ? 1.15 : 1.3 }}>
+    <div className="min-h-screen flex flex-col relative" data-scan-lines={settings.showScanLines ? 'true' : 'false'} style={{ background: '#0a0e1a' }}>
       <a href="#main-content" className="skip-to-content">
-        {lang === 'ms' ? 'Langkau ke kandungan utama' : 'Skip to main content'}
+        Skip to main content
       </a>
       {settings.showParticles && <ParticleBackground />}
       {/* Boot Sequence */}
@@ -493,7 +406,6 @@ export default function Home() {
       )}
 
       {booted && (
-        <LiveDataProvider>
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -503,11 +415,8 @@ export default function Home() {
           {/* Scroll Progress Indicator */}
           <ScrollProgress enabled={booted} />
 
-          {/* Alert Ticker — Palantir mission control style */}
-          <AlertTicker />
-
           {/* Header */}
-          <Header lang={lang} />
+          <Header />
 
           {/* Navigation Bar */}
           <nav
@@ -525,7 +434,7 @@ export default function Home() {
               boxShadow: '0 0 8px rgba(6,182,212,0.2), 0 1px 4px rgba(6,182,212,0.15)',
             }} />
             <div className="flex items-center justify-between max-w-[1400px] mx-auto">
-              <div className="flex items-center gap-1 overflow-x-auto scrollbar-none" role="tablist" aria-label="Dashboard sections" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+              <div className="flex items-center gap-1" role="tablist" aria-label="Dashboard sections">
                 {tabs.map(tab => {
                   const isActive = activeTab === tab.id;
                   return (
@@ -534,7 +443,7 @@ export default function Home() {
                       onClick={() => setActiveTab(tab.id)}
                       role="tab"
                       aria-selected={activeTab === tab.id}
-                      className="relative flex items-center gap-1.5 px-3 py-3 min-h-[44px] text-xs font-mono tracking-wider transition-all duration-300 flex-shrink-0"
+                      className="relative flex items-center gap-1.5 px-3 py-3 text-xs font-mono tracking-wider transition-all duration-300"
                       style={{
                         color: isActive ? '#06b6d4' : 'rgba(6,182,212,0.4)',
                         textShadow: isActive ? '0 0 8px rgba(6,182,212,0.5)' : 'none',
@@ -576,12 +485,12 @@ export default function Home() {
               {/* Separator line between tabs and toolbar */}
               <div className="hidden sm:block h-6 w-px mx-2" style={{ background: 'rgba(6,182,212,0.12)' }} />
 
-              <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="flex items-center gap-2">
                 {/* Language Toggle */}
                 <button
-                  onClick={toggleLang}
+                  onClick={() => setLang(l => l === 'en' ? 'ms' : 'en')}
                   aria-label="Toggle language between English and Bahasa Malaysia"
-                  className="flex items-center justify-center gap-1 min-w-[36px] min-h-[36px] px-2 py-1.5 rounded border text-[11px] font-mono tracking-wider transition-all duration-300"
+                  className="flex items-center justify-center gap-1 min-w-[32px] px-2 py-1.5 rounded border text-[11px] font-mono tracking-wider transition-all duration-300"
                   style={{
                     background: 'rgba(10,14,26,0.8)',
                     borderColor: 'rgba(6,182,212,0.15)',
@@ -607,7 +516,7 @@ export default function Home() {
                   ref={exportHubTriggerRef}
                   onClick={() => setShowExportHub(true)}
                   aria-label="Open data export hub"
-                  className="relative flex items-center justify-center gap-1 min-w-[36px] min-h-[36px] px-2 py-1.5 rounded border text-[11px] font-mono tracking-wider transition-all duration-300"
+                  className="relative flex items-center justify-center gap-1 min-w-[32px] px-2 py-1.5 rounded border text-[11px] font-mono tracking-wider transition-all duration-300"
                   style={{
                     background: 'rgba(10,14,26,0.8)',
                     borderColor: 'rgba(6,182,212,0.15)',
@@ -640,7 +549,7 @@ export default function Home() {
                   ref={infographicTriggerRef}
                   onClick={() => setShowInfographic(true)}
                   aria-label="Open infographic export"
-                  className="flex items-center justify-center gap-1 min-w-[36px] min-h-[36px] px-2 py-1.5 rounded border text-[11px] font-mono tracking-wider transition-all duration-300"
+                  className="flex items-center justify-center gap-1 min-w-[32px] px-2 py-1.5 rounded border text-[11px] font-mono tracking-wider transition-all duration-300"
                   style={{
                     background: 'rgba(10,14,26,0.8)',
                     borderColor: 'rgba(6,182,212,0.15)',
@@ -659,6 +568,66 @@ export default function Home() {
                 >
                   <Printer size={10} />
                   <span className="hidden sm:inline">{lang === 'ms' ? 'Infografik' : 'Infographic'}</span>
+                </button>
+
+                {/* Info */}
+                <button
+                  onClick={() => setShowInfo(!showInfo)}
+                  aria-label="Toggle information panel"
+                  aria-pressed={showInfo}
+                  className="flex items-center justify-center gap-1 min-w-[32px] px-2 py-1.5 rounded border text-[11px] font-mono tracking-wider transition-all duration-300"
+                  style={{
+                    background: showInfo ? 'rgba(6,182,212,0.1)' : 'rgba(10,14,26,0.8)',
+                    borderColor: showInfo ? 'rgba(6,182,212,0.3)' : 'rgba(6,182,212,0.15)',
+                    color: '#06b6d4',
+                  }}
+                  onMouseEnter={e => {
+                    if (!showInfo) {
+                      e.currentTarget.style.background = 'rgba(6,182,212,0.08)';
+                      e.currentTarget.style.borderColor = 'rgba(6,182,212,0.3)';
+                      e.currentTarget.style.boxShadow = '0 0 12px rgba(6,182,212,0.15)';
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (!showInfo) {
+                      e.currentTarget.style.background = 'rgba(10,14,26,0.8)';
+                      e.currentTarget.style.borderColor = 'rgba(6,182,212,0.15)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }
+                  }}
+                >
+                  <Info size={10} />
+                  <span className="hidden sm:inline">{lang === 'ms' ? 'Maklumat' : 'Info'}</span>
+                </button>
+
+                {/* Iconography Panel Toggle */}
+                <button
+                  onClick={() => setShowIconography(v => !v)}
+                  aria-label="Toggle iconography panel"
+                  aria-pressed={showIconography}
+                  className="flex items-center justify-center gap-1 min-w-[32px] px-2 py-1.5 rounded border text-[11px] font-mono tracking-wider transition-all duration-300"
+                  style={{
+                    background: showIconography ? 'rgba(6,182,212,0.1)' : 'rgba(10,14,26,0.8)',
+                    borderColor: showIconography ? 'rgba(6,182,212,0.3)' : 'rgba(6,182,212,0.15)',
+                    color: '#06b6d4',
+                  }}
+                  onMouseEnter={e => {
+                    if (!showIconography) {
+                      e.currentTarget.style.background = 'rgba(6,182,212,0.08)';
+                      e.currentTarget.style.borderColor = 'rgba(6,182,212,0.3)';
+                      e.currentTarget.style.boxShadow = '0 0 12px rgba(6,182,212,0.15)';
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (!showIconography) {
+                      e.currentTarget.style.background = 'rgba(10,14,26,0.8)';
+                      e.currentTarget.style.borderColor = 'rgba(6,182,212,0.15)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }
+                  }}
+                >
+                  <Layers size={10} />
+                  <span className="hidden sm:inline">{lang === 'ms' ? 'Ikon' : 'Icons'}</span>
                 </button>
 
                 {/* Notification Bell */}
@@ -684,7 +653,7 @@ export default function Home() {
                   ref={shortcutsTriggerRef}
                   onClick={() => setShowShortcutsModal(true)}
                   aria-label="Keyboard shortcuts help"
-                  className="flex items-center justify-center gap-1 min-w-[36px] min-h-[36px] px-2 py-1.5 rounded border text-[11px] font-mono tracking-wider transition-all duration-300"
+                  className="flex items-center justify-center gap-1 min-w-[32px] px-2 py-1.5 rounded border text-[11px] font-mono tracking-wider transition-all duration-300"
                   style={{
                     background: 'rgba(10,14,26,0.8)',
                     borderColor: 'rgba(6,182,212,0.15)',
@@ -710,8 +679,8 @@ export default function Home() {
           </nav>
 
           {/* Context-Aware Breadcrumb */}
-          <div className="px-4 py-1.5 overflow-x-auto" style={{ background: 'rgba(10,14,26,0.9)' }}>
-            <div className="max-w-[1400px] mx-auto flex items-center gap-1 whitespace-nowrap" style={{ fontSize: '9px', fontFamily: 'monospace', letterSpacing: '0.08em' }}>
+          <div className="px-4 py-1.5" style={{ background: 'rgba(10,14,26,0.9)' }}>
+            <div className="max-w-[1400px] mx-auto flex items-center gap-1" style={{ fontSize: '9px', fontFamily: 'monospace', letterSpacing: '0.08em' }}>
               <span style={{ color: 'rgba(6,182,212,0.35)' }}>
                 {lang === 'ms' ? 'PUSAT PERINTAH DATA TERBUKA MALAYSIA' : 'MALAYSIA OPEN DATA COMMAND CENTER'}
               </span>
@@ -739,27 +708,46 @@ export default function Home() {
                 {activeTab === 'overview' && <OverviewSection lang={lang} onNavigateDatasets={(category) => { setActiveTab('datasets'); }} />}
                 {activeTab === 'geomap' && <GeoMapSection lang={lang} onViewProfile={(id) => setProfileStateId(id)} />}
                 {activeTab === 'datasets' && <DatasetsSection lang={lang} />}
-                {activeTab === 'analytics' && <AnalyticsSection lang={lang} onNavigateGeoMap={(stateId, layer) => { setActiveTab('geomap'); }} />}
+                {activeTab === 'analytics' && <AnalyticsSection lang={lang} />}
                 {activeTab === 'intelligence' && <IntelligenceSection lang={lang} />}
               </motion.div>
             </AnimatePresence>
 
+            {/* Iconography Panel (shown below main content when toggled) */}
+            <AnimatePresence>
+              {showIconography && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mt-6"
+                >
+                  <IconographyPanel lang={lang} />
+                </motion.div>
+              )}
+            </AnimatePresence>
 
+            {/* Info Section (shown below main content when toggled) */}
+            <AnimatePresence>
+              {showInfo && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mt-6"
+                >
+                  <InfoSection lang={lang} />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </main>
 
           {/* Enhanced Footer */}
-          <motion.footer
-            role="contentinfo"
-            className="mt-auto flex-shrink-0"
-            style={{ background: 'rgba(10,14,26,0.98)' }}
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: 'easeOut' }}
-          >
-            {/* Top border gradient (cyan → transparent) */}
-            <div className="h-[2px] w-full" style={{
-              background: 'linear-gradient(90deg, #06b6d4 0%, rgba(6,182,212,0.4) 20%, transparent 60%)',
-              boxShadow: '0 0 12px rgba(6,182,212,0.3), 0 0 24px rgba(6,182,212,0.1)',
+          <footer role="contentinfo" className="mt-auto flex-shrink-0" style={{ background: 'rgba(10,14,26,0.98)' }}>
+            {/* Top border gradient (cyan → transparent → cyan) */}
+            <div className="h-px w-full" style={{
+              background: 'linear-gradient(90deg, #06b6d4, transparent 30%, transparent 70%, #06b6d4)',
+              opacity: 0.4,
             }} />
             {/* Animated accent line */}
             <div className="h-px w-full overflow-hidden" style={{ background: 'rgba(6,182,212,0.05)' }}>
@@ -771,179 +759,130 @@ export default function Home() {
               />
             </div>
 
-            <div className="px-4 py-4">
+            <div className="px-4 py-5">
               <div className="max-w-[1400px] mx-auto">
                 {/* Grid layout — 4 columns */}
-                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                  {/* Column 1: Branding + Social Links */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                  {/* Column 1: Branding */}
                   <div>
-                    <div className="text-[11px] font-mono font-bold tracking-wider mb-1.5 flex items-center gap-1.5" style={{
+                    <div className="text-xs font-mono font-bold tracking-wider mb-1 flex items-center gap-1.5" style={{
                       color: '#06b6d4',
                       textShadow: '0 0 10px rgba(6,182,212,0.4)',
                     }}>
-                      {lang === 'ms' ? 'PUSAT PERINTAH DATA TERBUKA' : 'MALAYSIA OPEN DATA'}
+                      MALAYSIA OPEN DATA COMMAND CENTER
                       <Heart
                         size={10}
                         style={{ color: '#10b981', animation: 'heartbeat 1.5s ease-in-out infinite', filter: 'drop-shadow(0 0 4px rgba(16,185,129,0.5))' }}
                       />
                     </div>
-                    <div className="text-[9px] font-mono mb-2.5" style={{ color: 'rgba(6,182,212,0.4)' }}>
-                      {lang === 'ms' ? 'Dikuasakan oleh data.gov.my' : 'Powered by data.gov.my'}
+                    <div className="text-[10px] font-mono mb-2" style={{ color: 'rgba(6,182,212,0.4)' }}>
+                      Powered by data.gov.my
                     </div>
-                    {/* Version badge + Last Synced */}
-                    <div className="flex items-center gap-2 mb-2.5">
-                      <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded" style={{
-                        background: 'rgba(6,182,212,0.1)',
-                        color: '#06b6d4',
-                        border: '1px solid rgba(6,182,212,0.25)',
-                        textShadow: '0 0 6px rgba(6,182,212,0.3)',
-                      }}>
-                        v2.0.0
-                      </span>
-                      <FooterLastSynced lang={lang} />
-                    </div>
-                    {/* Social Links Row */}
-                    <div className="flex items-center gap-2">
-                      {[
-                        { icon: Github, label: 'GitHub', href: 'https://github.com/dosm-malaysia', color: '#b0bec5' },
-                        { icon: Globe, label: 'data.gov.my', href: 'https://data.gov.my', color: '#06b6d4' },
-                        { icon: Database, label: 'DOSM', href: 'https://www.dosm.gov.my', color: '#10b981' },
-                      ].map((link) => (
-                        <a
-                          key={link.label}
-                          href={link.href}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center justify-center w-7 h-7 rounded border transition-all duration-200 hover:scale-110"
-                          style={{
-                            background: `${link.color}08`,
-                            borderColor: `${link.color}20`,
-                            color: `${link.color}90`,
-                          }}
-                          aria-label={link.label}
-                          onMouseEnter={e => {
-                            e.currentTarget.style.background = `${link.color}18`;
-                            e.currentTarget.style.borderColor = `${link.color}40`;
-                            e.currentTarget.style.color = link.color;
-                            e.currentTarget.style.boxShadow = `0 0 10px ${link.color}20`;
-                          }}
-                          onMouseLeave={e => {
-                            e.currentTarget.style.background = `${link.color}08`;
-                            e.currentTarget.style.borderColor = `${link.color}20`;
-                            e.currentTarget.style.color = `${link.color}90`;
-                            e.currentTarget.style.boxShadow = 'none';
-                          }}
-                        >
-                          <link.icon size={12} />
-                        </a>
-                      ))}
-                    </div>
+                    <span className="text-[8px] font-mono px-1.5 py-0.5 rounded" style={{
+                      background: 'rgba(6,182,212,0.1)',
+                      color: '#06b6d4',
+                      border: '1px solid rgba(6,182,212,0.2)',
+                    }}>
+                      v3.0
+                    </span>
                   </div>
 
                   {/* Column 2: Quick Stats */}
                   <div>
-                    <div className="text-[9px] font-mono tracking-wider mb-2" style={{ color: 'rgba(6,182,212,0.5)' }}>
-                      {lang === 'ms' ? 'STATISTIK PANTAS' : 'QUICK STATS'}
+                    <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: 'rgba(6,182,212,0.5)' }}>
+                      QUICK STATS
                     </div>
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[10px] font-mono">
-                      <span style={{ color: '#06b6d4' }}><FooterCounter target={287} color="#06b6d4" /> <span style={{ color: 'rgba(6,182,212,0.4)' }}>{lang === 'ms' ? 'Set Data' : 'Datasets'}</span></span>
-                      <span style={{ color: '#f59e0b' }}><FooterCounter target={18} color="#f59e0b" /> <span style={{ color: 'rgba(245,158,11,0.4)' }}>{lang === 'ms' ? 'Kategori' : 'Categories'}</span></span>
-                      <span style={{ color: '#10b981' }}><FooterCounter target={19} color="#10b981" /> <span style={{ color: 'rgba(16,185,129,0.4)' }}>{lang === 'ms' ? 'Negeri/WP' : 'States/FT'}</span></span>
-                      <span style={{ color: '#8b5cf6' }}><FooterCounter target={6} color="#8b5cf6" /> <span style={{ color: 'rgba(139,92,246,0.4)' }}>{lang === 'ms' ? 'Lapisan' : 'Layers'}</span></span>
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] font-mono">
+                      <span style={{ color: '#06b6d4' }}><FooterCounter target={287} color="#06b6d4" /> <span style={{ color: 'rgba(6,182,212,0.4)' }}>Datasets</span></span>
+                      <span style={{ color: '#f59e0b' }}><FooterCounter target={18} color="#f59e0b" /> <span style={{ color: 'rgba(245,158,11,0.4)' }}>Categories</span></span>
+                      <span style={{ color: '#10b981' }}><FooterCounter target={19} color="#10b981" /> <span style={{ color: 'rgba(16,185,129,0.4)' }}>States/FT</span></span>
+                      <span style={{ color: '#8b5cf6' }}><FooterCounter target={6} color="#8b5cf6" /> <span style={{ color: 'rgba(139,92,246,0.4)' }}>Data Layers</span></span>
                     </div>
                   </div>
 
                   {/* Column 3: Data Sources */}
                   <div>
-                    <div className="text-[9px] font-mono tracking-wider mb-2" style={{ color: 'rgba(6,182,212,0.5)' }}>
-                      {lang === 'ms' ? 'SUMBER DATA' : 'DATA SOURCES'}
+                    <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: 'rgba(6,182,212,0.5)' }}>
+                      DATA SOURCES
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="flex flex-wrap gap-2">
                       {[
-                        { name: 'DOSM OpenDOSM', name_ms: 'DOSM OpenDOSM', href: 'https://data.gov.my', color: '#06b6d4', icon: Database },
-                        { name: 'data.gov.my', name_ms: 'data.gov.my', href: 'https://data.gov.my', color: '#10b981', icon: Globe },
-                        { name: 'GitHub datagovmy-meta', name_ms: 'GitHub datagovmy-meta', href: 'https://github.com/data-gov-my/datagovmy-meta', color: '#b0bec5', icon: Github },
+                        { name: 'DOSM', color: '#06b6d4' },
+                        { name: 'BNM', color: '#f59e0b' },
+                        { name: 'KKM', color: '#ec4899' },
+                        { name: 'JDN', color: '#8b5cf6' },
                       ].map(src => (
-                        <a
+                        <span
                           key={src.name}
-                          href={src.href}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1.5 text-[9px] font-mono px-2 py-1 rounded transition-all duration-200 hover:scale-[1.02] min-h-[28px]"
+                          className="text-[9px] font-mono px-1.5 py-0.5 rounded transition-all duration-200 cursor-default hover:scale-110 hover:shadow-[0_0_12px_rgba(6,182,212,0.2)]"
                           style={{
-                            background: `${src.color}08`,
-                            border: `1px solid ${src.color}15`,
-                            color: `${src.color}cc`,
+                            background: `${src.color}10`,
+                            border: `1px solid ${src.color}20`,
+                            color: src.color,
                           }}
                           onMouseEnter={e => {
                             const el = e.currentTarget;
-                            el.style.background = `${src.color}15`;
-                            el.style.borderColor = `${src.color}30`;
-                            el.style.boxShadow = `0 0 10px ${src.color}15`;
+                            el.style.background = `${src.color}20`;
+                            el.style.borderColor = `${src.color}40`;
+                            el.style.boxShadow = `0 0 12px ${src.color}20`;
                           }}
                           onMouseLeave={e => {
                             const el = e.currentTarget;
-                            el.style.background = `${src.color}08`;
-                            el.style.borderColor = `${src.color}15`;
+                            el.style.background = `${src.color}10`;
+                            el.style.borderColor = `${src.color}20`;
                             el.style.boxShadow = 'none';
                           }}
                         >
-                          <src.icon size={9} style={{ color: src.color, flexShrink: 0 }} />
-                          <span className="truncate">{lang === 'ms' ? src.name_ms : src.name}</span>
-                          <ExternalLink size={6} className="opacity-40 ml-auto flex-shrink-0" />
-                        </a>
+                          <Database size={8} className="inline mr-1" style={{ color: src.color }} />
+                          {src.name}
+                        </span>
                       ))}
                     </div>
                   </div>
 
-                  {/* Column 4: License + Links */}
+                  {/* Column 4: License */}
                   <div>
-                    <div className="text-[9px] font-mono tracking-wider mb-2" style={{ color: 'rgba(6,182,212,0.5)' }}>
-                      {lang === 'ms' ? 'LESEN & PAUTAN' : 'LICENSE & LINKS'}
+                    <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: 'rgba(6,182,212,0.5)' }}>
+                      LICENSE
                     </div>
                     <div className="flex items-center gap-1.5 mb-2">
                       <Copyright size={10} style={{ color: 'rgba(6,182,212,0.4)' }} />
-                      <span className="text-[9px] font-mono" style={{ color: 'rgba(6,182,212,0.5)' }}>CC BY 4.0</span>
+                      <span className="text-[10px] font-mono" style={{ color: 'rgba(6,182,212,0.5)' }}>CC BY 4.0</span>
                     </div>
                     <a
                       href="https://data.gov.my"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-[9px] font-mono hover:underline mb-2 min-h-[28px]"
+                      className="inline-flex items-center gap-1 text-[10px] font-mono hover:underline"
                       style={{ color: '#06b6d4' }}
                     >
                       <ExternalLink size={8} />
-                      {lang === 'ms' ? 'Portal Data Terbuka' : 'Open Data Portal'}
+                      Open Data Portal
                     </a>
-                    <div className="text-[8px] font-mono" style={{ color: 'rgba(6,182,212,0.35)' }}>
-                      {lang === 'ms' ? 'Hak cipta terpelihara' : 'All rights reserved'}
-                    </div>
                   </div>
                 </div>
 
-                {/* Bottom bar — clock, copyright, tech */}
+                {/* Bottom row */}
                 <div className="border-t pt-3 flex flex-col sm:flex-row items-center justify-between gap-2" style={{ borderColor: 'rgba(6,182,212,0.08)' }}>
                   <div className="text-[9px] font-mono" style={{ color: 'rgba(6,182,212,0.5)' }}>
-                    © {new Date().getFullYear()} {lang === 'ms' ? 'Pusat Perintah Data Terbuka Malaysia' : 'Malaysia Open Data Command Center'}
+                    © {new Date().getFullYear()} Malaysia Open Data Command Center. All rights reserved.
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-4">
                     <FooterLiveClock />
-                    <div className="hidden sm:block h-3 w-px" style={{ background: 'rgba(6,182,212,0.12)' }} />
-                    <div className="text-[9px] font-mono" style={{ color: 'rgba(6,182,212,0.35)' }}>
-                      Next.js · {lang === 'ms' ? 'Data Terbuka' : 'Open Data'}
+                    <div className="text-[9px] font-mono" style={{ color: 'rgba(6,182,212,0.5)' }}>
+                      Built with Next.js
                     </div>
                   </div>
                 </div>
-
-                {/* Built with love */}
-                <div className="text-center mt-2 mb-1">
-                  <span className="text-[8px] font-mono flex items-center justify-center gap-1.5" style={{ color: 'rgba(6,182,212,0.25)', letterSpacing: '0.12em' }}>
-                    {lang === 'ms' ? 'DIBINA DENGAN ❤️ DI MALAYSIA' : 'MADE WITH ❤️ IN MALAYSIA'}
+                {/* Made with love text */}
+                <div className="text-center mt-1 mb-1">
+                  <span className="text-[8px] font-mono" style={{ color: 'rgba(6,182,212,0.2)', letterSpacing: '0.15em' }}>
+                    MADE WITH ❤️ IN MALAYSIA
                   </span>
                 </div>
 
                 {/* Animated bottom scan line */}
-                <div className="mt-1 h-px w-full overflow-hidden" style={{ background: 'rgba(6,182,212,0.05)' }}>
+                <div className="mt-2 h-px w-full overflow-hidden" style={{ background: 'rgba(6,182,212,0.05)' }}>
                   <motion.div
                     className="h-full w-1/4"
                     style={{ background: 'linear-gradient(90deg, transparent, rgba(6,182,212,0.4), transparent)' }}
@@ -953,9 +892,8 @@ export default function Home() {
                 </div>
               </div>
             </div>
-          </motion.footer>
+          </footer>
         </motion.div>
-        </LiveDataProvider>
       )}
 
       {/* Infographic Export Modal */}
@@ -1001,7 +939,7 @@ export default function Home() {
             exit={{ opacity: 0, scale: 0.8 }}
             transition={{ duration: 0.2 }}
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            className="fixed bottom-6 right-24 w-11 h-11 rounded-full flex items-center justify-center border cursor-pointer transition-shadow hover:shadow-[0_0_20px_rgba(6,182,212,0.4)]"
+            className="fixed bottom-20 right-6 w-10 h-10 rounded-full flex items-center justify-center border cursor-pointer transition-shadow hover:shadow-[0_0_20px_rgba(6,182,212,0.4)]"
             style={{
               background: 'rgba(10,14,26,0.95)',
               borderColor: 'rgba(6,182,212,0.3)',
@@ -1070,6 +1008,9 @@ export default function Home() {
         )}
       </AnimatePresence>
 
+      {/* Command Copilot */}
+      {booted && <CopilotPanel lang={lang} />}
+
       {/* Live Data Alert Notifications */}
       <AnimatePresence>
         {currentAlert !== null && booted && (
@@ -1122,6 +1063,5 @@ export default function Home() {
         )}
       </AnimatePresence>
     </div>
-    </CopilotProvider>
   );
 }

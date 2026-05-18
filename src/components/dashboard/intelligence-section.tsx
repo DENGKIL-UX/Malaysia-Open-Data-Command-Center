@@ -1,19 +1,76 @@
 'use client';
 
-import { useMemo, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ShieldCheck, AlertTriangle, Brain, Zap,
-  TrendingUp, Activity, Eye, ChevronRight,
-  Radio, Wifi, WifiOff, Loader2,
+  Network, Database, AlertTriangle, ChevronRight,
+  Activity, Shield, Zap, ExternalLink, Info,
 } from 'lucide-react';
-import type { Lang } from '@/lib/dashboard-types';
+import { DATASET_CATEGORIES } from '@/lib/data/malaysia-data';
+import { DATASETS } from '@/lib/data/datasets';
 import { HUDBracket, SectionHeaderLine } from '@/components/dashboard/particle-background';
-import { EnhancedOntologyGraph } from '@/components/dashboard/enhanced-ontology-graph';
-import { useLiveData, type LiveAnomaly } from '@/components/dashboard/live-data-provider';
-import { useCopilot } from '@/hooks/use-copilot';
+import type { Lang } from '@/lib/dashboard-types';
 
-// ─── Premium Card Style Helper ───────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────
+type RelationshipType =
+  | 'DRIVES'
+  | 'LEADS'
+  | 'CORRELATES_POSITIVE'
+  | 'CORRELATES_NEGATIVE'
+  | 'CONTAINS'
+  | 'SHARES_GEOGRAPHY'
+  | 'SHARES_FREQUENCY'
+  | 'POLICY_TRANSMITS';
+
+interface OntologyNode {
+  id: string;
+  label_en: string;
+  label_ms: string;
+  color: string;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  radius: number;
+  datasetCount: number;
+  anomalyScore: number;
+  description_en: string;
+  description_ms: string;
+}
+
+interface OntologyEdge {
+  source: string;
+  target: string;
+  type: RelationshipType;
+  strength: number;
+  description_en: string;
+  description_ms: string;
+}
+
+// ─── Relationship Colors & Labels ─────────────────────────────────
+const REL_COLORS: Record<RelationshipType, string> = {
+  DRIVES: '#10b981',
+  LEADS: '#06b6d4',
+  CORRELATES_POSITIVE: '#f59e0b',
+  CORRELATES_NEGATIVE: '#ef4444',
+  CONTAINS: '#8b5cf6',
+  SHARES_GEOGRAPHY: '#0ea5e9',
+  SHARES_FREQUENCY: '#64748b',
+  POLICY_TRANSMITS: '#ec4899',
+};
+
+const REL_LABELS: Record<RelationshipType, { en: string; ms: string }> = {
+  DRIVES: { en: 'Drives', ms: 'Memacu' },
+  LEADS: { en: 'Leads', ms: 'Menerajui' },
+  CORRELATES_POSITIVE: { en: 'Correlates (+)', ms: 'Berkorelasi (+)' },
+  CORRELATES_NEGATIVE: { en: 'Correlates (−)', ms: 'Berkorelasi (−)' },
+  CONTAINS: { en: 'Contains', ms: 'Mengandungi' },
+  SHARES_GEOGRAPHY: { en: 'Shares Geography', ms: 'Kongsi Geografi' },
+  SHARES_FREQUENCY: { en: 'Shares Frequency', ms: 'Kongsi Kekerapan' },
+  POLICY_TRANSMITS: { en: 'Policy Transmits', ms: 'Polisi Memancar' },
+};
+
+// ─── Premium Card Style ───────────────────────────────────────────
 function premiumCardStyle(overrides?: Record<string, string>) {
   return {
     background: 'linear-gradient(180deg, rgba(6,182,212,0.03) 0%, rgba(10,14,26,0.85) 30%)',
@@ -25,599 +82,976 @@ function premiumCardStyle(overrides?: Record<string, string>) {
   };
 }
 
-// ─── Animated Section Divider ────────────────────────────────────
-function AnimatedDivider({ color = '#06b6d4' }: { color?: string }) {
-  return (
-    <div className="w-full h-px my-4" style={{ background: `linear-gradient(90deg, transparent, ${color}33, ${color}66, ${color}33, transparent)` }}>
-      <motion.div
-        className="h-full w-16"
-        style={{ background: `linear-gradient(90deg, transparent, ${color}, transparent)` }}
-        animate={{ x: ['-100px', 'calc(100% + 100px)'] }}
-        transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
-      />
-    </div>
-  );
+// ─── Dataset count per category ───────────────────────────────────
+function getDatasetCounts(): Record<string, number> {
+  const counts: Record<string, number> = {};
+  DATASETS.forEach(d => {
+    counts[d.category_en] = (counts[d.category_en] || 0) + 1;
+  });
+  return counts;
 }
 
-// ─── Scan Beam Overlay ──────────────────────────────────────────
-function ScanBeamOverlay({ color = '#06b6d4' }: { color?: string }) {
-  return (
-    <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-      <motion.div
-        className="absolute top-0 bottom-0 w-px"
-        style={{
-          background: `linear-gradient(180deg, transparent, ${color}30, ${color}60, ${color}30, transparent)`,
-          boxShadow: `0 0 8px ${color}40`,
-        }}
-        animate={{ left: ['0%', '100%'] }}
-        transition={{ duration: 2.5, repeat: Infinity, ease: 'linear' }}
-      />
-    </div>
-  );
+// ─── Edge Data ────────────────────────────────────────────────────
+const ONTOLOGY_EDGES: OntologyEdge[] = [
+  { source: 'Demography', target: 'National Accounts', type: 'DRIVES', strength: 0.9,
+    description_en: 'Population changes drive GDP growth through labour force and consumption',
+    description_ms: 'Perubahan penduduk memacu pertumbuhan KDNK melalui tenaga kerja dan penggunaan' },
+  { source: 'National Accounts', target: 'Labour Markets', type: 'LEADS', strength: 0.85,
+    description_en: 'GDP performance leads employment trends and wage growth',
+    description_ms: 'Prestasi KDNK menerajui trend pekerjaan dan pertumbuhan gaji' },
+  { source: 'Prices', target: 'Financial Markets', type: 'CORRELATES_POSITIVE', strength: 0.8,
+    description_en: 'CPI movements positively correlate with interest rate adjustments',
+    description_ms: 'Pergerakan CPI berkorelasi positif dengan pelarasan kadar faedah' },
+  { source: 'Healthcare', target: 'Demography', type: 'CORRELATES_NEGATIVE', strength: 0.7,
+    description_en: 'Improved healthcare inversely correlates with mortality rates',
+    description_ms: 'Penjagaan kesihatan yang baik berkorelasi songsang dengan kadar kematian' },
+  { source: 'Education', target: 'Economic Sectors', type: 'DRIVES', strength: 0.75,
+    description_en: 'Education quality drives sector productivity and innovation',
+    description_ms: 'Kualiti pendidikan memacu produktiviti sektor dan inovasi' },
+  { source: 'Economic Sectors', target: 'National Accounts', type: 'DRIVES', strength: 0.95,
+    description_en: 'Sector output directly drives national GDP composition',
+    description_ms: 'Keluaran sektor secara langsung memacu komposisi KDNK negara' },
+  { source: 'Environment', target: 'Healthcare', type: 'CORRELATES_POSITIVE', strength: 0.6,
+    description_en: 'Environmental quality positively correlates with public health outcomes',
+    description_ms: 'Kualiti alam sekitar berkorelasi positif dengan hasil kesihatan awam' },
+  { source: 'Transportation', target: 'Economic Sectors', type: 'DRIVES', strength: 0.7,
+    description_en: 'Transport infrastructure drives sector connectivity and trade',
+    description_ms: 'Infrastruktur pengangkutan memacu konektiviti sektor dan perdagangan' },
+  { source: 'Households', target: 'Prices', type: 'CORRELATES_POSITIVE', strength: 0.8,
+    description_en: 'Household spending patterns positively correlate with price levels',
+    description_ms: 'Corak perbelanjaan isi rumah berkorelasi positif dengan tahap harga' },
+  { source: 'Labour Markets', target: 'Households', type: 'LEADS', strength: 0.85,
+    description_en: 'Employment conditions lead household income and welfare levels',
+    description_ms: 'Keadaan pekerjaan menerajui pendapatan dan tahap kebajikan isi rumah' },
+  { source: 'Communications', target: 'Economic Sectors', type: 'CORRELATES_POSITIVE', strength: 0.65,
+    description_en: 'Digital connectivity positively correlates with sector digitalisation',
+    description_ms: 'Konektiviti digital berkorelasi positif dengan pendigitalan sektor' },
+  { source: 'Public Safety', target: 'Demography', type: 'CORRELATES_NEGATIVE', strength: 0.5,
+    description_en: 'Crime rates negatively correlate with population wellbeing indicators',
+    description_ms: 'Kadar jenayah berkorelasi songsang dengan penunjuk kesejahteraan penduduk' },
+  { source: 'Public Administration', target: 'National Accounts', type: 'POLICY_TRANSMITS', strength: 0.6,
+    description_en: 'Fiscal policy transmits through government spending to GDP',
+    description_ms: 'Dasar fiskal memancar melalui perbelanjaan kerajaan ke KDNK' },
+];
+
+// ─── Force Simulation ─────────────────────────────────────────────
+function simulateForces(
+  nodes: OntologyNode[],
+  edges: OntologyEdge[],
+  width: number,
+  height: number,
+  iterations: number = 120
+): void {
+  const nodeMap = new Map<string, OntologyNode>();
+  nodes.forEach(n => nodeMap.set(n.id, n));
+
+  const centerX = width / 2;
+  const centerY = height / 2;
+
+  // Initialize positions in a circle if not already positioned
+  nodes.forEach((n, i) => {
+    if (n.x === 0 && n.y === 0) {
+      const angle = (2 * Math.PI * i) / nodes.length;
+      const r = Math.min(width, height) * 0.3;
+      n.x = centerX + r * Math.cos(angle);
+      n.y = centerY + r * Math.sin(angle);
+    }
+    n.vx = 0;
+    n.vy = 0;
+  });
+
+  const alpha = 0.3;
+  const chargeStrength = -600;
+  const linkDistance = 140;
+  const centerStrength = 0.02;
+
+  for (let iter = 0; iter < iterations; iter++) {
+    const iterAlpha = alpha * (1 - iter / iterations);
+
+    // Charge repulsion
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const dx = nodes[j].x - nodes[i].x;
+        const dy = nodes[j].y - nodes[i].y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const force = (chargeStrength * iterAlpha) / (dist * dist);
+        const fx = (dx / dist) * force;
+        const fy = (dy / dist) * force;
+        nodes[i].vx -= fx;
+        nodes[i].vy -= fy;
+        nodes[j].vx += fx;
+        nodes[j].vy += fy;
+      }
+    }
+
+    // Link attraction
+    for (const edge of edges) {
+      const source = nodeMap.get(edge.source);
+      const target = nodeMap.get(edge.target);
+      if (!source || !target) continue;
+
+      const dx = target.x - source.x;
+      const dy = target.y - source.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const force = (dist - linkDistance) * iterAlpha * edge.strength * 0.15;
+      const fx = (dx / dist) * force;
+      const fy = (dy / dist) * force;
+      source.vx += fx;
+      source.vy += fy;
+      target.vx -= fx;
+      target.vy -= fy;
+    }
+
+    // Center gravity
+    for (const node of nodes) {
+      node.vx += (centerX - node.x) * centerStrength * iterAlpha;
+      node.vy += (centerY - node.y) * centerStrength * iterAlpha;
+    }
+
+    // Apply velocities with damping
+    for (const node of nodes) {
+      node.vx *= 0.6;
+      node.vy *= 0.6;
+      node.x += node.vx;
+      node.y += node.vy;
+
+      // Constrain to bounds with padding
+      const pad = node.radius + 20;
+      node.x = Math.max(pad, Math.min(width - pad, node.x));
+      node.y = Math.max(pad, Math.min(height - pad, node.y));
+    }
+  }
 }
 
-// ─── Severity Badge ──────────────────────────────────────────────
-function SeverityBadge({ severity, lang }: { severity: LiveAnomaly['severity']; lang: Lang }) {
-  const colors: Record<string, string> = {
-    critical: '#ef4444',
-    high: '#F59E0B',
-    medium: '#8B5CF6',
-    low: '#10B981',
-  };
-  const labels: Record<string, { en: string; ms: string }> = {
-    critical: { en: 'CRITICAL', ms: 'KRITIKAL' },
-    high: { en: 'HIGH', ms: 'TINGGI' },
-    medium: { en: 'MODERATE', ms: 'SEDERHANA' },
-    low: { en: 'LOW', ms: 'RENDAH' },
-  };
-  const color = colors[severity];
-  const label = labels[severity];
-
-  return (
-    <span
-      className="text-[7px] font-mono font-bold tracking-wider px-1.5 py-0.5 rounded"
-      style={{
-        color,
-        background: `${color}15`,
-        border: `1px solid ${color}30`,
-      }}
-    >
-      {lang === 'ms' ? label.ms : label.en}
-    </span>
-  );
-}
-
-// ─── Confidence Badge ────────────────────────────────────────────
-function ConfidenceBadge({ confidence }: { confidence: number }) {
-  const pct = Math.round(confidence * 100);
-  let color = '#10B981';
-  if (pct < 70) color = '#F59E0B';
-  if (pct < 50) color = '#ef4444';
+// ─── Anomaly Badge ────────────────────────────────────────────────
+function AnomalyBadge({ score, lang }: { score: number; lang: Lang }) {
+  const isHigh = score > 70;
+  const isMedium = score > 40 && score <= 70;
+  const color = isHigh ? '#ef4444' : isMedium ? '#f59e0b' : '#10b981';
+  const label = isHigh
+    ? (lang === 'ms' ? 'TINGGI' : 'HIGH')
+    : isMedium
+      ? (lang === 'ms' ? 'SEDERHANA' : 'MEDIUM')
+      : (lang === 'ms' ? 'RENDAH' : 'LOW');
 
   return (
     <div className="flex items-center gap-1.5">
-      <div className="w-12 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
-        <motion.div
-          className="h-full rounded-full"
-          style={{ background: color }}
-          initial={{ width: 0 }}
-          animate={{ width: `${pct}%` }}
-          transition={{ duration: 1, delay: 0.5, ease: 'easeOut' }}
-        />
-      </div>
-      <span className="text-[8px] font-mono font-bold" style={{ color }}>
-        {pct}%
+      <div className="w-2 h-2 rounded-full" style={{ background: color, boxShadow: `0 0 6px ${color}60` }} />
+      <span className="text-[9px] font-mono font-bold tracking-wider" style={{ color }}>
+        {label} ({score})
       </span>
     </div>
   );
 }
 
-// ─── Fallback static data (used when live data hasn't loaded yet) ──
-const FALLBACK_ANOMALIES = [
-  { id: 'fb-1', datasetId: 'labour_monthly', datasetLabel: 'Kadar Pengangguran', severity: 'critical' as const, value: 5.2, expected: 3.4, zScore: 2.8, description: 'Sabah unemployment at 5.2% — significantly above national average', timestamp: new Date() },
-  { id: 'fb-2', datasetId: 'cpi_headline', datasetLabel: 'Indeks Harga Pengguna', severity: 'high' as const, value: 132.1, expected: 128.0, zScore: 2.1, description: 'CPI above expected range — demand-pull pressure detected', timestamp: new Date() },
-  { id: 'fb-3', datasetId: 'population_state', datasetLabel: 'Penduduk mengikut Negeri', severity: 'medium' as const, value: 7983, expected: 5000, zScore: 1.8, description: 'KL urban density anomaly — 8x national average', timestamp: new Date() },
-  { id: 'fb-4', datasetId: 'trade_monthly', datasetLabel: 'Perdagangan Luar', severity: 'medium' as const, value: -200, expected: 14000, zScore: -1.9, description: 'GDP-Inflation divergence — potential demand-pull pressure', timestamp: new Date() },
-];
-
-const FALLBACK_FINDINGS = [
-  { id: 'ff-1', title_en: 'GDP drives unemployment inverse', title_ms: 'KDNK memacu songsangan pengangguran', detail_en: 'Strong inverse correlation (r=-0.76) between GDP growth and unemployment rate', detail_ms: 'Korelasi songsangan kuat (r=-0.76) antara pertumbuhan KDNK dan kadar pengangguran', confidence: 0.87, color: '#00D4FF' },
-  { id: 'ff-2', title_en: 'Selangor GDP concentration risk', title_ms: 'Risiko penumpuan KDNK Selangor', detail_en: 'Selangor contributes 21.6% of GDP — single-state dependency risk identified', detail_ms: 'Selangor menyumbang 21.6% KDNK — risiko kebergantungan satu negeri dikenal pasti', confidence: 0.82, color: '#F59E0B' },
-  { id: 'ff-3', title_en: 'Birth rate decline trajectory', title_ms: 'Trajektori penurunan kadar kelahiran', detail_en: 'Birth rate declining at 1.2% annually — below replacement level in 3 states', detail_ms: 'Kadar kelahiran menurun pada 1.2% setahun — di bawah tahap penggantian di 3 negeri', confidence: 0.91, color: '#8B5CF6' },
-  { id: 'ff-4', title_en: 'East Malaysia trade gap', title_ms: 'Jurang perdagangan Malaysia Timur', detail_en: 'Sarawak trade contribution disproportionate to population — resource extraction pattern', detail_ms: 'Sumbangan perdagangan Sarawak tidak seimbang dengan penduduk — corak pengekstrakan sumber', confidence: 0.72, color: '#10B981' },
-  { id: 'ff-5', title_en: 'Healthcare spending vs outcomes', title_ms: 'Perbelanjaan kesihatan vs hasil', detail_en: 'Death rate inversely correlates (r=-0.68) with healthcare metric', detail_ms: 'Kadar kematian berkorelasi songsang (r=-0.68) dengan metrik kesihatan', confidence: 0.68, color: '#EC4899' },
-];
-
-// ─── Intelligence Section Component ──────────────────────────────
-export function IntelligenceSection({ lang }: { lang: Lang }) {
-  const liveData = useLiveData();
-  const { registerView, registerSelection } = useCopilot();
-
-  // Register with copilot when this section mounts
-  useEffect(() => {
-    registerView("intelligence", {
-      visibleMetrics: ["ontology_graph", "confidence_score", "anomaly_detection"],
-      chartType: "force_graph",
-    });
-  }, [registerView]);
-
-  // Listen for copilot commands specific to the ontology graph
-  useEffect(() => {
-    const handleShowMetric = (e: Event) => {
-      const { metric } = (e as CustomEvent).detail || {};
-      if (metric === "ontology_graph" || metric === "intel") {
-        document.getElementById("intelligence-section")?.scrollIntoView({ behavior: "smooth" });
-      }
-    };
-
-    const handleHighlight = (e: Event) => {
-      const { states } = (e as CustomEvent).detail || {};
-      if (states?.length) {
-        window.dispatchEvent(new CustomEvent("ontology:highlight-states", {
-          detail: { states },
-        }));
-      }
-    };
-
-    window.addEventListener("copilot:show-metric", handleShowMetric as EventListener);
-    window.addEventListener("copilot:highlight", handleHighlight as EventListener);
-
-    return () => {
-      window.removeEventListener("copilot:show-metric", handleShowMetric as EventListener);
-      window.removeEventListener("copilot:highlight", handleHighlight as EventListener);
-    };
-  }, []);
-
-  // When user clicks a node in the ontology graph, register it with copilot
-  const handleNodeClick = (nodeId: string, nodeType: string) => {
-    if (nodeType === "dataset") {
-      registerSelection("dataset", nodeId);
-    }
-  };
-
-  // Use live anomalies or fallback
-  const anomalies = liveData.anomalies.length > 0
-    ? liveData.anomalies.slice(0, 8)
-    : FALLBACK_ANOMALIES;
-
-  // Findings from live confidence data
-  const findings = useMemo(() => {
-    if (liveData.confidences.length > 0) {
-      // Generate findings from live confidence data
-      return liveData.confidences.map((c, i) => {
-        const colors = ['#00D4FF', '#F59E0B', '#8B5CF6', '#10B981', '#EC4899', '#06B6D4'];
-        return {
-          id: `live-finding-${i}`,
-          title_en: `${c.datasetLabel} — ${c.label} confidence`,
-          title_ms: `${c.datasetLabel} — keyakinan ${c.label}`,
-          detail_en: c.recommendation,
-          detail_ms: c.recommendation,
-          confidence: c.score,
-          color: colors[i % colors.length],
-        };
-      });
-    }
-    return FALLBACK_FINDINGS;
-  }, [liveData.confidences]);
-
-  // Confidence counts from live data
-  const confidenceCounts = useMemo(() => {
-    if (liveData.isLive) {
-      return liveData.confidenceCounts;
-    }
-    // Fallback
-    const allConfidences = [0.98, 0.97, 0.95, 0.96, 0.94, 0.92, 0.91, 0.93, 0.88, 0.99, 0.97, 0.96, 0.97, 0.96, 0.87, 0.72, 0.65, 0.78, 0.91, 0.68, 0.76, 0.95, 0.85, 0.72, 0.65, 0.80];
-    return {
-      confirmed: allConfidences.filter(c => c > 0.9).length,
-      high: allConfidences.filter(c => c > 0.7 && c <= 0.9).length,
-      moderate: allConfidences.filter(c => c <= 0.7).length,
-      unverfied: 0,
-    };
-  }, [liveData.isLive, liveData.confidenceCounts]);
+// ─── Edge Legend ──────────────────────────────────────────────────
+function EdgeLegend({ lang }: { lang: Lang }) {
+  const types: RelationshipType[] = [
+    'DRIVES', 'LEADS', 'CORRELATES_POSITIVE', 'CORRELATES_NEGATIVE',
+    'CONTAINS', 'SHARES_GEOGRAPHY', 'SHARES_FREQUENCY', 'POLICY_TRANSMITS',
+  ];
 
   return (
-    <div id="intelligence-section" className="space-y-6" role="region" aria-label={lang === 'ms' ? 'Pusat intelligens' : 'Intelligence center'}>
-      {/* ─── Section Header ────────────────────────────────────── */}
-      <div className="flex items-center gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <Brain size={16} style={{ color: '#00D4FF', textShadow: '0 0 8px rgba(0,212,255,0.4)' }} />
-            <span className="text-[13px] font-bold font-mono tracking-[0.2em]" style={{ color: '#00D4FF', textShadow: '0 0 8px rgba(0,212,255,0.4)' }}>
-              {lang === 'ms' ? 'PUSAT INTELLIGEN' : 'INTELLIGENCE CENTER'}
-            </span>
-            <SectionHeaderLine color="#00D4FF" delay={0.2} />
-            {/* Live data indicator */}
-            {liveData.isLive ? (
-              <motion.span
-                className="text-[8px] font-mono px-1.5 py-0.5 rounded flex items-center gap-1"
-                style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.15)', color: '#10B981' }}
-                animate={{ opacity: [0.7, 1, 0.7] }}
-                transition={{ duration: 2, repeat: Infinity }}
-              >
-                <Radio size={8} />
-                LIVE
-              </motion.span>
-            ) : liveData.anyLoading ? (
-              <span className="text-[8px] font-mono px-1.5 py-0.5 rounded flex items-center gap-1" style={{ background: 'rgba(6,182,212,0.08)', border: '1px solid rgba(6,182,212,0.15)', color: '#06b6d4' }}>
-                <Loader2 size={8} className="animate-spin" />
-                {lang === 'ms' ? 'MEMUAT...' : 'LOADING...'}
-              </span>
-            ) : (
-              <span className="text-[8px] font-mono px-1.5 py-0.5 rounded flex items-center gap-1" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)', color: '#F59E0B' }}>
-                <WifiOff size={8} />
-                OFFLINE
-              </span>
-            )}
-          </div>
-          <p className="text-[10px] font-mono mt-1" style={{ color: '#6b7280' }}>
-            {liveData.isLive
-              ? (lang === 'ms'
-                ? 'Data langsung dari api.data.gov.my — pengesanan anomali & penilaian keyakinan masa nyata'
-                : 'Live data from api.data.gov.my — real-time anomaly detection & confidence assessment')
-              : (lang === 'ms'
-                ? 'Graf ontologi kelas perusahaan dengan pengesanan anomali dan penemuan auto'
-                : 'Enterprise-grade ontology graph with anomaly detection and auto-discovery findings')}
-          </p>
-        </div>
-      </div>
-
-      {/* ─── Data Source Banner (shown when live) ──────────────── */}
-      {liveData.isLive && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-3 px-4 py-2.5 rounded-lg"
-          style={{
-            background: 'rgba(0,212,255,0.04)',
-            border: '1px solid rgba(0,212,255,0.10)',
-          }}
-        >
-          <div className="w-2 h-2 rounded-full" style={{ background: '#00D4FF', boxShadow: '0 0 6px #00D4FF' }}>
-            <motion.div
-              className="w-2 h-2 rounded-full"
-              style={{ border: '1px solid rgba(0,212,255,0.4)' }}
-              animate={{ scale: [1, 2, 1], opacity: [0.6, 0, 0.6] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            />
-          </div>
-          <span className="text-[10px] font-mono font-semibold tracking-wider" style={{ color: '#00D4FF' }}>
-            SUMBER AKTIF: api.data.gov.my/data-catalogue
+    <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3">
+      {types.map(type => (
+        <div key={type} className="flex items-center gap-1.5">
+          <div
+            className="w-5 h-0.5 rounded-full"
+            style={{
+              background: REL_COLORS[type],
+              boxShadow: `0 0 4px ${REL_COLORS[type]}40`,
+              borderStyle: type === 'CORRELATES_NEGATIVE' ? 'dashed' : 'solid',
+            }}
+          />
+          <span className="text-[8px] font-mono" style={{ color: '#b0bec5' }}>
+            {lang === 'ms' ? REL_LABELS[type].ms : REL_LABELS[type].en}
           </span>
-          <span className="text-[10px] font-mono" style={{ color: '#4b5563' }}>|</span>
-          <span className="text-[10px] font-mono" style={{ color: '#6b7280' }}>DoSM Malaysia</span>
-          <span className="text-[10px] font-mono" style={{ color: '#4b5563' }}>|</span>
-          <Wifi size={10} style={{ color: '#10B981' }} />
-          <span className="text-[10px] font-mono" style={{ color: '#10B981' }}>
-            {liveData.kpis.filter(k => !k.loading && !k.error).length}/{liveData.kpis.length} KPIs
-          </span>
-        </motion.div>
-      )}
-
-      {/* ─── Top Row: Confidence Badges ────────────────────────── */}
-      <div className="grid grid-cols-3 gap-4">
-        <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          className="relative group rounded-xl border p-4"
-          style={premiumCardStyle({
-            background: 'linear-gradient(180deg, rgba(16,185,129,0.06) 0%, rgba(10,14,26,0.85) 30%)',
-            borderColor: 'rgba(16,185,129,0.15)',
-          })}
-        >
-          <HUDBracket />
-          <ScanBeamOverlay color="#10B981" />
-          <div className="flex items-center gap-3">
-            <div className="flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center" style={{
-              background: 'rgba(16,185,129,0.1)',
-              border: '1px solid rgba(16,185,129,0.2)',
-            }}>
-              <ShieldCheck size={16} style={{ color: '#10B981' }} />
-            </div>
-            <div>
-              <div className="text-[9px] font-mono tracking-wider font-bold" style={{ color: '#10B981' }}>
-                CONFIRMED
-              </div>
-              <div className="text-2xl font-bold font-mono" style={{ color: '#e0f7fa', textShadow: '0 0 12px rgba(16,185,129,0.3)' }}>
-                {confidenceCounts.confirmed}
-              </div>
-              <div className="text-[8px] font-mono" style={{ color: '#6b7280' }}>
-                {lang === 'ms' ? 'keyakinan > 90%' : 'confidence > 90%'}
-              </div>
-            </div>
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="relative group rounded-xl border p-4"
-          style={premiumCardStyle({
-            background: 'linear-gradient(180deg, rgba(245,158,11,0.06) 0%, rgba(10,14,26,0.85) 30%)',
-            borderColor: 'rgba(245,158,11,0.15)',
-          })}
-        >
-          <HUDBracket />
-          <ScanBeamOverlay color="#F59E0B" />
-          <div className="flex items-center gap-3">
-            <div className="flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center" style={{
-              background: 'rgba(245,158,11,0.1)',
-              border: '1px solid rgba(245,158,11,0.2)',
-            }}>
-              <Zap size={16} style={{ color: '#F59E0B' }} />
-            </div>
-            <div>
-              <div className="text-[9px] font-mono tracking-wider font-bold" style={{ color: '#F59E0B' }}>
-                HIGH
-              </div>
-              <div className="text-2xl font-bold font-mono" style={{ color: '#e0f7fa', textShadow: '0 0 12px rgba(245,158,11,0.3)' }}>
-                {confidenceCounts.high}
-              </div>
-              <div className="text-[8px] font-mono" style={{ color: '#6b7280' }}>
-                {lang === 'ms' ? 'keyakinan 70–90%' : 'confidence 70–90%'}
-              </div>
-            </div>
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-          className="relative group rounded-xl border p-4"
-          style={premiumCardStyle({
-            background: 'linear-gradient(180deg, rgba(139,92,246,0.06) 0%, rgba(10,14,26,0.85) 30%)',
-            borderColor: 'rgba(139,92,246,0.15)',
-          })}
-        >
-          <HUDBracket />
-          <ScanBeamOverlay color="#8B5CF6" />
-          <div className="flex items-center gap-3">
-            <div className="flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center" style={{
-              background: 'rgba(139,92,246,0.1)',
-              border: '1px solid rgba(139,92,246,0.2)',
-            }}>
-              <TrendingUp size={16} style={{ color: '#8B5CF6' }} />
-            </div>
-            <div>
-              <div className="text-[9px] font-mono tracking-wider font-bold" style={{ color: '#8B5CF6' }}>
-                MODERATE
-              </div>
-              <div className="text-2xl font-bold font-mono" style={{ color: '#e0f7fa', textShadow: '0 0 12px rgba(139,92,246,0.3)' }}>
-                {confidenceCounts.moderate + confidenceCounts.unverfied}
-              </div>
-              <div className="text-[8px] font-mono" style={{ color: '#6b7280' }}>
-                {lang === 'ms' ? 'keyakinan < 70%' : 'confidence < 70%'}
-              </div>
-            </div>
-          </div>
-        </motion.div>
-      </div>
-
-      <AnimatedDivider color="#00D4FF" />
-
-      {/* ─── Middle: Ontology Graph ────────────────────────────── */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.98 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.6, delay: 0.3 }}
-        className="relative group rounded-xl border overflow-hidden"
-        style={premiumCardStyle({
-          borderColor: 'rgba(0,212,255,0.15)',
-          boxShadow: 'inset 0 1px 0 0 rgba(0,212,255,0.08), 0 0 40px rgba(0,212,255,0.05)',
-        })}
-      >
-        <HUDBracket />
-        {/* Scanline overlay */}
-        <div className="absolute inset-0 pointer-events-none z-10 opacity-[0.02]" style={{
-          backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,212,255,0.15) 2px, rgba(0,212,255,0.15) 4px)',
-        }} />
-
-        <div className="relative z-0">
-          {/* Graph header bar */}
-          <div className="flex items-center justify-between px-4 py-2.5" style={{ borderBottom: '1px solid rgba(0,212,255,0.08)' }}>
-            <div className="flex items-center gap-2">
-              <Activity size={12} style={{ color: '#00D4FF' }} />
-              <span className="text-[10px] font-mono font-bold tracking-wider" style={{ color: '#00D4FF' }}>
-                {lang === 'ms' ? 'GRAF ONTOLOGI DATA' : 'DATA ONTOLOGY GRAPH'}
-              </span>
-              <span className="text-[8px] font-mono" style={{ color: '#6b7280' }}>
-                {lang === 'ms' ? '47 dataset · 8 kategori · kausal' : '47 datasets · 8 categories · causal'}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[8px] font-mono px-1.5 py-0.5 rounded" style={{
-                background: 'rgba(0,212,255,0.08)',
-                border: '1px solid rgba(0,212,255,0.15)',
-                color: '#00D4FF',
-              }}>
-                v3.0
-              </span>
-              <span className="text-[8px] font-mono px-1.5 py-0.5 rounded flex items-center gap-1" style={{
-                background: liveData.isLive ? 'rgba(16,185,129,0.08)' : 'rgba(245,158,11,0.08)',
-                border: `1px solid ${liveData.isLive ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)'}`,
-                color: liveData.isLive ? '#10B981' : '#F59E0B',
-              }}>
-                {liveData.isLive ? <Radio size={8} /> : <WifiOff size={8} />}
-                {liveData.isLive ? 'LIVE' : 'OFFLINE'}
-              </span>
-            </div>
-          </div>
-
-          <EnhancedOntologyGraph lang={lang} height={500} />
         </div>
-      </motion.div>
-
-      <AnimatedDivider color="#00D4FF" />
-
-      {/* ─── Bottom Row: Anomalies + Findings ──────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Anomaly Detection */}
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5, delay: 0.4 }}
-          className="relative group rounded-xl border p-5"
-          style={premiumCardStyle({
-            borderColor: 'rgba(239,68,68,0.12)',
-          })}
-        >
-          <HUDBracket />
-          <ScanBeamOverlay color="#ef4444" />
-
-          <div className="flex items-center gap-2 mb-4">
-            <AlertTriangle size={14} style={{ color: '#ef4444' }} />
-            <span className="text-[11px] font-semibold font-mono tracking-wider" style={{ color: '#ef4444' }}>
-              {lang === 'ms' ? 'PENGESANAN ANOMALI' : 'ANOMALY DETECTION'}
-            </span>
-            <span className="text-[8px] font-mono px-1.5 py-0.5 rounded ml-auto" style={{
-              background: 'rgba(239,68,68,0.1)',
-              border: '1px solid rgba(239,68,68,0.2)',
-              color: '#ef4444',
-            }}>
-              {anomalies.length} {lang === 'ms' ? 'dikesan' : 'detected'}
-            </span>
-            {liveData.isLive && (
-              <span className="text-[7px] font-mono px-1 py-0.5 rounded" style={{
-                background: 'rgba(16,185,129,0.08)',
-                border: '1px solid rgba(16,185,129,0.12)',
-                color: '#10B981',
-              }}>
-                LIVE
-              </span>
-            )}
-          </div>
-
-          <div className="space-y-2.5 max-h-72 overflow-y-auto custom-scrollbar">
-            {anomalies.map((anomaly, i) => {
-              const sevColor = anomaly.severity === 'critical' ? '#ef4444'
-                : anomaly.severity === 'high' ? '#F59E0B'
-                : anomaly.severity === 'medium' ? '#8B5CF6' : '#10B981';
-
-              return (
-                <motion.div
-                  key={anomaly.id}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.5 + i * 0.1, duration: 0.4 }}
-                  className="flex items-start gap-3 p-2.5 rounded-lg border transition-all duration-200 hover:scale-[1.01]"
-                  style={{
-                    background: `${sevColor}06`,
-                    borderColor: `${sevColor}15`,
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.borderColor = `${sevColor}30`;
-                    e.currentTarget.style.background = `${sevColor}0a`;
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.borderColor = `${sevColor}15`;
-                    e.currentTarget.style.background = `${sevColor}06`;
-                  }}
-                >
-                  <div className="flex-shrink-0 mt-0.5">
-                    <div className="w-2 h-2 rounded-full" style={{
-                      background: sevColor,
-                      boxShadow: `0 0 6px ${sevColor}60`,
-                    }} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] font-mono font-bold" style={{ color: '#e0f7fa' }}>
-                        {anomaly.datasetLabel}
-                      </span>
-                      <SeverityBadge severity={anomaly.severity} lang={lang} />
-                      {liveData.isLive && (
-                        <span className="text-[7px] font-mono" style={{ color: '#6b7280' }}>
-                          z={anomaly.zScore.toFixed(1)}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[9px] font-mono leading-relaxed" style={{ color: '#8899aa' }}>
-                      {anomaly.description}
-                    </p>
-                  </div>
-                  <ChevronRight size={12} className="flex-shrink-0 mt-1 opacity-30" style={{ color: sevColor }} />
-                </motion.div>
-              );
-            })}
-          </div>
-        </motion.div>
-
-        {/* Intelligence Findings */}
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5, delay: 0.4 }}
-          className="relative group rounded-xl border p-5"
-          style={premiumCardStyle({
-            borderColor: 'rgba(0,212,255,0.12)',
-          })}
-        >
-          <HUDBracket />
-          <ScanBeamOverlay color="#00D4FF" />
-
-          <div className="flex items-center gap-2 mb-4">
-            <Eye size={14} style={{ color: '#00D4FF' }} />
-            <span className="text-[11px] font-semibold font-mono tracking-wider" style={{ color: '#00D4FF' }}>
-              {lang === 'ms' ? 'PENEMUAN INTELLIGEN' : 'INTELLIGENCE FINDINGS'}
-            </span>
-            <span className="text-[8px] font-mono px-1.5 py-0.5 rounded ml-auto" style={{
-              background: 'rgba(0,212,255,0.1)',
-              border: '1px solid rgba(0,212,255,0.2)',
-              color: '#00D4FF',
-            }}>
-              {findings.length} {lang === 'ms' ? 'penemuan' : 'findings'}
-            </span>
-          </div>
-
-          <div className="space-y-2.5 max-h-72 overflow-y-auto custom-scrollbar">
-            {findings.map((finding, i) => (
-              <motion.div
-                key={finding.id}
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.5 + i * 0.1, duration: 0.4 }}
-                className="flex items-start gap-3 p-2.5 rounded-lg border transition-all duration-200 hover:scale-[1.01]"
-                style={{
-                  background: `${finding.color}06`,
-                  borderColor: `${finding.color}15`,
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.borderColor = `${finding.color}30`;
-                  e.currentTarget.style.background = `${finding.color}0a`;
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.borderColor = `${finding.color}15`;
-                  e.currentTarget.style.background = `${finding.color}06`;
-                }}
-              >
-                <div className="flex-shrink-0 mt-1">
-                  <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{
-                    background: `${finding.color}12`,
-                    border: `1px solid ${finding.color}20`,
-                  }}>
-                    <Brain size={10} style={{ color: finding.color }} />
-                  </div>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <span className="text-[10px] font-mono font-bold" style={{ color: '#e0f7fa' }}>
-                      {lang === 'ms' ? finding.title_ms : finding.title_en}
-                    </span>
-                    <ConfidenceBadge confidence={finding.confidence} />
-                  </div>
-                  <p className="text-[9px] font-mono leading-relaxed" style={{ color: '#8899aa' }}>
-                    {lang === 'ms' ? finding.detail_ms : finding.detail_en}
-                  </p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-      </div>
+      ))}
     </div>
   );
+}
+
+// ─── Main Component ───────────────────────────────────────────────
+export function IntelligenceSection({ lang }: { lang: Lang }) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [selectedNode, setSelectedNode] = useState<string | null>(null);
+  const [hoveredEdge, setHoveredEdge] = useState<number | null>(null);
+  const [dimensions, setDimensions] = useState({ width: 800, height: 500 });
+
+  const datasetCounts = useMemo(() => getDatasetCounts(), []);
+
+  // Initialize nodes from categories
+  const initialNodes = useMemo<OntologyNode[]>(() => {
+    // Seeded random for anomaly scores (deterministic)
+    const seedRandom = (seed: number) => {
+      let s = seed;
+      return () => {
+        s = (s * 16807 + 0) % 2147483647;
+        return (s - 1) / 2147483646;
+      };
+    };
+    const rng = seedRandom(42);
+
+    return DATASET_CATEGORIES.map((cat, i) => {
+      const count = datasetCounts[cat.en] || 0;
+      const radius = Math.max(14, Math.min(30, 14 + count * 0.4));
+      return {
+        id: cat.en,
+        label_en: cat.en,
+        label_ms: cat.ms,
+        color: cat.color,
+        x: 0,
+        y: 0,
+        vx: 0,
+        vy: 0,
+        radius,
+        datasetCount: count,
+        anomalyScore: Math.round(rng() * 100),
+        description_en: getCategoryDescription(cat.en),
+        description_ms: getCategoryDescriptionMS(cat.en),
+      };
+    });
+  }, [datasetCounts]);
+
+  // Run force simulation when dimensions change - compute via useMemo instead of effect
+  const simulatedNodes = useMemo(() => {
+    const nodes = initialNodes.map(n => ({ ...n }));
+    simulateForces(nodes, ONTOLOGY_EDGES, dimensions.width, dimensions.height, 150);
+    return nodes;
+  }, [initialNodes, dimensions]);
+
+  // Resize observer
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) {
+          setDimensions({ width: Math.floor(width), height: Math.max(400, Math.floor(height)) });
+        }
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  // Find connected edges for selected node
+  const selectedEdges = useMemo(() => {
+    if (!selectedNode) return [];
+    return ONTOLOGY_EDGES
+      .map((e, i) => ({ ...e, index: i }))
+      .filter(e => e.source === selectedNode || e.target === selectedNode);
+  }, [selectedNode]);
+
+  const selectedNodeData = useMemo(() => {
+    if (!selectedNode) return null;
+    return simulatedNodes.find(n => n.id === selectedNode) || null;
+  }, [selectedNode, simulatedNodes]);
+
+  // Click handler for nodes
+  const handleNodeClick = useCallback((nodeId: string) => {
+    setSelectedNode(prev => prev === nodeId ? null : nodeId);
+  }, []);
+
+  // SVG edge path generation with curve
+  const getEdgePath = useCallback((sourceId: string, targetId: string) => {
+    const source = simulatedNodes.find(n => n.id === sourceId);
+    const target = simulatedNodes.find(n => n.id === targetId);
+    if (!source || !target) return '';
+
+    const dx = target.x - source.x;
+    const dy = target.y - source.y;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+
+    // Shorten edges to stop at node borders
+    const srcR = source.radius + 4;
+    const tgtR = target.radius + 8;
+    const sx = source.x + (dx / dist) * srcR;
+    const sy = source.y + (dy / dist) * srcR;
+    const tx = target.x - (dx / dist) * tgtR;
+    const ty = target.y - (dy / dist) * tgtR;
+
+    // Curved control point
+    const midX = (sx + tx) / 2;
+    const midY = (sy + ty) / 2;
+    const perpX = -(ty - sy) * 0.15;
+    const perpY = (tx - sx) * 0.15;
+    const cx = midX + perpX;
+    const cy = midY + perpY;
+
+    return `M ${sx} ${sy} Q ${cx} ${cy} ${tx} ${ty}`;
+  }, [simulatedNodes]);
+
+  return (
+    <div className="space-y-6" role="region" aria-label={lang === 'ms' ? 'Intelijen' : 'Intelligence'}>
+      {/* Section Header */}
+      <div className="flex items-center gap-3">
+        <div>
+          <span className="text-[13px] font-bold font-mono tracking-[0.2em]" style={{ color: '#ec4899', textShadow: '0 0 8px rgba(236,72,153,0.4)' }}>
+            {lang === 'ms' ? 'INTELIJEN' : 'INTELLIGENCE'}
+          </span>
+          <SectionHeaderLine color="#ec4899" delay={0.2} />
+        </div>
+        <div className="flex items-center gap-1.5 ml-2">
+          <Network size={12} style={{ color: '#ec4899' }} />
+          <span className="text-[10px] font-mono tracking-wider" style={{ color: '#ec489999' }}>
+            {lang === 'ms' ? 'GRAF ONTOLOGI DATA' : 'DATA ONTOLOGY GRAPH'}
+          </span>
+        </div>
+      </div>
+
+      {/* Main Layout: Graph + Detail Panel */}
+      <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
+        {/* Graph Area (70%) */}
+        <div className="lg:col-span-7 relative group rounded-xl border" style={premiumCardStyle()}>
+          <HUDBracket />
+          {/* Scan line effect */}
+          <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none opacity-30">
+            <motion.div
+              className="absolute top-0 bottom-0 w-px"
+              style={{
+                background: 'linear-gradient(180deg, transparent, rgba(236,72,153,0.3), rgba(236,72,153,0.6), rgba(236,72,153,0.3), transparent)',
+                boxShadow: '0 0 8px rgba(236,72,153,0.2)',
+              }}
+              animate={{ left: ['-2%', '102%'] }}
+              transition={{ duration: 6, repeat: Infinity, ease: 'linear' }}
+            />
+          </div>
+
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 pb-0">
+            <div className="flex items-center gap-2">
+              <Activity size={14} style={{ color: '#ec4899' }} />
+              <span className="text-[11px] font-semibold font-mono tracking-wider" style={{ color: '#ec4899' }}>
+                {lang === 'ms' ? 'GRAF ONTOLOGI DATA' : 'DATA ONTOLOGY GRAPH'}
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1">
+                <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#10b981', boxShadow: '0 0 4px rgba(16,185,129,0.6)' }} />
+                <span className="text-[8px] font-mono" style={{ color: '#b0bec5' }}>
+                  {simulatedNodes.length} {lang === 'ms' ? 'nod' : 'nodes'}
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#f59e0b', boxShadow: '0 0 4px rgba(245,158,11,0.6)' }} />
+                <span className="text-[8px] font-mono" style={{ color: '#b0bec5' }}>
+                  {ONTOLOGY_EDGES.length} {lang === 'ms' ? 'sambungan' : 'edges'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* SVG Graph */}
+          <div ref={containerRef} className="w-full" style={{ height: '520px' }}>
+            <svg
+              ref={svgRef}
+              width={dimensions.width}
+              height={dimensions.height}
+              viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
+              className="w-full h-full"
+              role="img"
+              aria-label={lang === 'ms' ? 'Graf ontologi data menunjukkan hubungan antara kategori data' : 'Data ontology graph showing relationships between data categories'}
+            >
+              <defs>
+                {/* Arrow markers for each relationship type */}
+                {Object.entries(REL_COLORS).map(([type, color]) => (
+                  <marker
+                    key={type}
+                    id={`arrow-${type}`}
+                    viewBox="0 0 10 6"
+                    refX="10"
+                    refY="3"
+                    markerWidth="8"
+                    markerHeight="6"
+                    orient="auto-start-reverse"
+                  >
+                    <path d="M 0 0 L 10 3 L 0 6 Z" fill={color} fillOpacity={0.7} />
+                  </marker>
+                ))}
+                {/* Glow filter */}
+                <filter id="nodeGlow" x="-50%" y="-50%" width="200%" height="200%">
+                  <feGaussianBlur stdDeviation="4" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+                <filter id="selectedGlow" x="-50%" y="-50%" width="200%" height="200%">
+                  <feGaussianBlur stdDeviation="8" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+
+              {/* Grid pattern background */}
+              <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(6,182,212,0.04)" strokeWidth="0.5" />
+              </pattern>
+              <rect width="100%" height="100%" fill="url(#grid)" />
+
+              {/* Edges */}
+              {ONTOLOGY_EDGES.map((edge, i) => {
+                const path = getEdgePath(edge.source, edge.target);
+                if (!path) return null;
+                const color = REL_COLORS[edge.type];
+                const isHovered = hoveredEdge === i;
+                const isConnected = selectedNode
+                  ? edge.source === selectedNode || edge.target === selectedNode
+                  : true;
+                const opacity = selectedNode
+                  ? isConnected ? 0.8 : 0.1
+                  : isHovered ? 1 : 0.35;
+                const strokeWidth = edge.strength * 2.5 + 0.5;
+
+                return (
+                  <g key={`edge-${i}`}>
+                    <path
+                      d={path}
+                      fill="none"
+                      stroke={color}
+                      strokeWidth={isHovered ? strokeWidth + 1.5 : strokeWidth}
+                      strokeOpacity={opacity}
+                      strokeDasharray={edge.type === 'CORRELATES_NEGATIVE' ? '6,3' : undefined}
+                      markerEnd={`url(#arrow-${edge.type})`}
+                      style={{ cursor: 'pointer', transition: 'stroke-opacity 0.3s, stroke-width 0.3s' }}
+                      onMouseEnter={() => setHoveredEdge(i)}
+                      onMouseLeave={() => setHoveredEdge(null)}
+                    />
+                    {/* Edge hover tooltip area */}
+                    {isHovered && (
+                      <text
+                        x={(simulatedNodes.find(n => n.id === edge.source)?.x || 0 + simulatedNodes.find(n => n.id === edge.target)?.x || 0) / 2}
+                        y={(simulatedNodes.find(n => n.id === edge.source)?.y || 0 + simulatedNodes.find(n => n.id === edge.target)?.y || 0) / 2 - 12}
+                        textAnchor="middle"
+                        className="font-mono"
+                        fill={color}
+                        fontSize="9"
+                        fontWeight="bold"
+                        style={{ textShadow: '0 0 8px rgba(0,0,0,0.8)' }}
+                      >
+                        {lang === 'ms' ? REL_LABELS[edge.type].ms : REL_LABELS[edge.type].en} ({(edge.strength * 100).toFixed(0)}%)
+                      </text>
+                    )}
+                  </g>
+                );
+              })}
+
+              {/* Nodes */}
+              {simulatedNodes.map(node => {
+                const isSelected = selectedNode === node.id;
+                const isConnected = selectedNode
+                  ? ONTOLOGY_EDGES.some(e =>
+                      (e.source === selectedNode && e.target === node.id) ||
+                      (e.target === selectedNode && e.source === node.id)
+                    ) || selectedNode === node.id
+                  : true;
+                const opacity = selectedNode ? (isConnected ? 1 : 0.2) : 1;
+
+                return (
+                  <g
+                    key={node.id}
+                    style={{
+                      cursor: 'pointer',
+                      opacity,
+                      transition: 'opacity 0.3s',
+                    }}
+                    onClick={() => handleNodeClick(node.id)}
+                  >
+                    {/* Outer glow ring for selected */}
+                    {isSelected && (
+                      <circle
+                        cx={node.x}
+                        cy={node.y}
+                        r={node.radius + 10}
+                        fill="none"
+                        stroke={node.color}
+                        strokeWidth="1.5"
+                        strokeOpacity="0.3"
+                        filter="url(#selectedGlow)"
+                      >
+                        <animate
+                          attributeName="r"
+                          values={`${node.radius + 8};${node.radius + 14};${node.radius + 8}`}
+                          dur="2s"
+                          repeatCount="indefinite"
+                        />
+                        <animate
+                          attributeName="stroke-opacity"
+                          values="0.3;0.1;0.3"
+                          dur="2s"
+                          repeatCount="indefinite"
+                        />
+                      </circle>
+                    )}
+
+                    {/* Pulse ring for anomaly > 70 */}
+                    {node.anomalyScore > 70 && (
+                      <circle
+                        cx={node.x}
+                        cy={node.y}
+                        r={node.radius + 4}
+                        fill="none"
+                        stroke="#ef4444"
+                        strokeWidth="1"
+                        strokeOpacity="0.4"
+                      >
+                        <animate
+                          attributeName="r"
+                          values={`${node.radius + 2};${node.radius + 8};${node.radius + 2}`}
+                          dur="3s"
+                          repeatCount="indefinite"
+                        />
+                        <animate
+                          attributeName="stroke-opacity"
+                          values="0.4;0.1;0.4"
+                          dur="3s"
+                          repeatCount="indefinite"
+                        />
+                      </circle>
+                    )}
+
+                    {/* Node circle */}
+                    <circle
+                      cx={node.x}
+                      cy={node.y}
+                      r={node.radius}
+                      fill={`${node.color}30`}
+                      stroke={node.color}
+                      strokeWidth={isSelected ? 2.5 : 1.5}
+                      strokeOpacity={isSelected ? 1 : 0.6}
+                      filter={isSelected ? 'url(#selectedGlow)' : 'url(#nodeGlow)'}
+                      style={{ transition: 'stroke-width 0.3s, stroke-opacity 0.3s' }}
+                    />
+
+                    {/* Inner dot */}
+                    <circle
+                      cx={node.x}
+                      cy={node.y}
+                      r={3}
+                      fill={node.color}
+                      fillOpacity={0.8}
+                    />
+
+                    {/* Label below node */}
+                    <text
+                      x={node.x}
+                      y={node.y + node.radius + 14}
+                      textAnchor="middle"
+                      className="font-mono"
+                      fill={node.color}
+                      fontSize="8"
+                      fontWeight="bold"
+                      letterSpacing="0.05em"
+                      style={{ textShadow: '0 0 6px rgba(0,0,0,0.8), 0 1px 3px rgba(0,0,0,0.9)' }}
+                    >
+                      {lang === 'ms' ? node.label_ms : node.label_en}
+                    </text>
+
+                    {/* Dataset count badge */}
+                    <text
+                      x={node.x}
+                      y={node.y + 3}
+                      textAnchor="middle"
+                      className="font-mono"
+                      fill="#e0f7fa"
+                      fontSize="7"
+                      fontWeight="bold"
+                    >
+                      {node.datasetCount}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+
+          {/* Edge Legend */}
+          <div className="px-4 pb-4">
+            <EdgeLegend lang={lang} />
+          </div>
+        </div>
+
+        {/* Detail Panel (30%) */}
+        <div className="lg:col-span-3 space-y-4">
+          {/* Selected Node Detail */}
+          <div className="relative group rounded-xl border p-5" style={premiumCardStyle()}>
+            <HUDBracket />
+            <div className="flex items-center gap-2 mb-4">
+              <Shield size={14} style={{ color: '#ec4899' }} />
+              <span className="text-[11px] font-semibold font-mono tracking-wider" style={{ color: '#ec4899' }}>
+                {lang === 'ms' ? 'PANEL PENGETAHUAN' : 'KNOWLEDGE PANEL'}
+              </span>
+            </div>
+
+            <AnimatePresence mode="wait">
+              {selectedNodeData ? (
+                <motion.div
+                  key={selectedNodeData.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.25 }}
+                >
+                  {/* Node title */}
+                  <div className="flex items-center gap-2 mb-3">
+                    <div
+                      className="w-4 h-4 rounded-full flex-shrink-0"
+                      style={{
+                        background: selectedNodeData.color,
+                        boxShadow: `0 0 10px ${selectedNodeData.color}60`,
+                      }}
+                    />
+                    <span className="text-sm font-bold font-mono" style={{ color: selectedNodeData.color, textShadow: `0 0 8px ${selectedNodeData.color}30` }}>
+                      {lang === 'ms' ? selectedNodeData.label_ms : selectedNodeData.label_en}
+                    </span>
+                  </div>
+
+                  {/* Description */}
+                  <p className="text-[10px] font-mono leading-relaxed mb-3" style={{ color: '#b8c5d4' }}>
+                    {lang === 'ms' ? selectedNodeData.description_ms : selectedNodeData.description_en}
+                  </p>
+
+                  {/* Stats grid */}
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    <div className="rounded-md border p-2" style={{ background: 'rgba(6,182,212,0.05)', borderColor: 'rgba(6,182,212,0.1)' }}>
+                      <div className="text-[8px] font-mono tracking-wider mb-0.5" style={{ color: '#06b6d499' }}>
+                        {lang === 'ms' ? 'SET DATA' : 'DATASETS'}
+                      </div>
+                      <div className="text-lg font-bold font-mono" style={{ color: '#06b6d4', textShadow: '0 0 8px rgba(6,182,212,0.3)' }}>
+                        {selectedNodeData.datasetCount}
+                      </div>
+                    </div>
+                    <div className="rounded-md border p-2" style={{ background: 'rgba(239,68,68,0.05)', borderColor: 'rgba(239,68,68,0.1)' }}>
+                      <div className="text-[8px] font-mono tracking-wider mb-0.5" style={{ color: '#ef444499' }}>
+                        {lang === 'ms' ? 'ANOMALI' : 'ANOMALY'}
+                      </div>
+                      <AnomalyBadge score={selectedNodeData.anomalyScore} lang={lang} />
+                    </div>
+                  </div>
+
+                  {/* Connected edges */}
+                  <div className="mt-3">
+                    <div className="text-[9px] font-mono tracking-wider mb-2" style={{ color: '#b0bec5' }}>
+                      {lang === 'ms' ? 'HUBUNGAN' : 'CONNECTIONS'} ({selectedEdges.length})
+                    </div>
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
+                      {selectedEdges.map(edge => {
+                        const isSource = edge.source === selectedNode;
+                        const otherNode = isSource ? edge.target : edge.source;
+                        const otherData = simulatedNodes.find(n => n.id === otherNode);
+                        const color = REL_COLORS[edge.type];
+
+                        return (
+                          <motion.div
+                            key={`${edge.source}-${edge.target}`}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            className="flex items-center gap-2 p-1.5 rounded-md border"
+                            style={{
+                              background: `${color}08`,
+                              borderColor: `${color}20`,
+                            }}
+                          >
+                            <ChevronRight size={10} style={{ color }} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span
+                                  className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded"
+                                  style={{
+                                    background: `${color}20`,
+                                    color,
+                                    border: `1px solid ${color}30`,
+                                  }}
+                                >
+                                  {lang === 'ms' ? REL_LABELS[edge.type].ms : REL_LABELS[edge.type].en}
+                                </span>
+                                <span className="text-[8px] font-mono" style={{ color: '#b0bec5' }}>
+                                  {(edge.strength * 100).toFixed(0)}%
+                                </span>
+                              </div>
+                              <div className="text-[9px] font-mono mt-0.5 truncate" style={{ color: otherData?.color || '#e0f7fa' }}>
+                                {isSource ? '→ ' : '← '}
+                                {lang === 'ms' ? (otherData?.label_ms || otherNode) : (otherData?.label_en || otherNode)}
+                              </div>
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Edge description */}
+                  {selectedEdges.length > 0 && (
+                    <div className="mt-3 p-2 rounded-md border" style={{ background: 'rgba(6,182,212,0.03)', borderColor: 'rgba(6,182,212,0.08)' }}>
+                      <div className="text-[8px] font-mono tracking-wider mb-1" style={{ color: '#06b6d499' }}>
+                        {lang === 'ms' ? 'PENERANGAN HUBUNGAN' : 'RELATIONSHIP DESCRIPTION'}
+                      </div>
+                      <p className="text-[9px] font-mono leading-relaxed" style={{ color: '#b8c5d4' }}>
+                        {lang === 'ms' ? selectedEdges[0].description_ms : selectedEdges[0].description_en}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Explore button */}
+                  <button
+                    className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 rounded-md border text-[10px] font-mono tracking-wider transition-all duration-300"
+                    style={{
+                      background: 'rgba(236,72,153,0.08)',
+                      borderColor: 'rgba(236,72,153,0.2)',
+                      color: '#ec4899',
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.background = 'rgba(236,72,153,0.15)';
+                      e.currentTarget.style.borderColor = 'rgba(236,72,153,0.4)';
+                      e.currentTarget.style.boxShadow = '0 0 12px rgba(236,72,153,0.15)';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.background = 'rgba(236,72,153,0.08)';
+                      e.currentTarget.style.borderColor = 'rgba(236,72,153,0.2)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  >
+                    <Database size={10} />
+                    {lang === 'ms' ? 'TEROKAI SET DATA' : 'EXPLORE DATASETS'}
+                    <ExternalLink size={8} />
+                  </button>
+                </motion.div>
+              ) : (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="flex flex-col items-center justify-center py-8"
+                >
+                  <Network size={32} style={{ color: '#ec489930' }} />
+                  <p className="text-[10px] font-mono mt-3 text-center" style={{ color: '#b0bec5' }}>
+                    {lang === 'ms'
+                      ? 'Klik nod pada graf untuk melihat butiran ontologi'
+                      : 'Click a node on the graph to view ontology details'}
+                  </p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Stats Summary Card */}
+          <div className="relative group rounded-xl border p-5" style={premiumCardStyle()}>
+            <HUDBracket />
+            <div className="flex items-center gap-2 mb-3">
+              <Zap size={14} style={{ color: '#f59e0b' }} />
+              <span className="text-[11px] font-semibold font-mono tracking-wider" style={{ color: '#f59e0b' }}>
+                {lang === 'ms' ? 'RINGKASAN GRAF' : 'GRAPH SUMMARY'}
+              </span>
+            </div>
+
+            <div className="space-y-2.5">
+              {[
+                {
+                  label_en: 'Total Nodes',
+                  label_ms: 'Jumlah Nod',
+                  value: simulatedNodes.length,
+                  color: '#06b6d4',
+                  icon: Network,
+                },
+                {
+                  label_en: 'Ontology Edges',
+                  label_ms: 'Sambungan Ontologi',
+                  value: ONTOLOGY_EDGES.length,
+                  color: '#f59e0b',
+                  icon: Activity,
+                },
+                {
+                  label_en: 'Drives Relations',
+                  label_ms: 'Hubungan Memacu',
+                  value: ONTOLOGY_EDGES.filter(e => e.type === 'DRIVES').length,
+                  color: '#10b981',
+                  icon: Zap,
+                },
+                {
+                  label_en: 'Anomalies Detected',
+                  label_ms: 'Anomali Dikesan',
+                  value: simulatedNodes.filter(n => n.anomalyScore > 70).length,
+                  color: '#ef4444',
+                  icon: AlertTriangle,
+                },
+                {
+                  label_en: 'Avg. Edge Strength',
+                  label_ms: 'Purata Kekuatan Sambungan',
+                  value: (ONTOLOGY_EDGES.reduce((a, e) => a + e.strength, 0) / ONTOLOGY_EDGES.length * 100).toFixed(1) + '%',
+                  color: '#8b5cf6',
+                  icon: Shield,
+                },
+              ].map((stat, i) => {
+                const Icon = stat.icon;
+                return (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: 15 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.08, duration: 0.35 }}
+                    className="flex items-center justify-between p-2 rounded-md border"
+                    style={{
+                      background: `${stat.color}05`,
+                      borderColor: `${stat.color}15`,
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Icon size={11} style={{ color: stat.color }} />
+                      <span className="text-[9px] font-mono" style={{ color: '#b0bec5' }}>
+                        {lang === 'ms' ? stat.label_ms : stat.label_en}
+                      </span>
+                    </div>
+                    <span className="text-[11px] font-bold font-mono" style={{ color: stat.color, textShadow: `0 0 6px ${stat.color}30` }}>
+                      {stat.value}
+                    </span>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Relationship Types Card */}
+          <div className="relative group rounded-xl border p-5" style={premiumCardStyle()}>
+            <HUDBracket />
+            <div className="flex items-center gap-2 mb-3">
+              <Info size={14} style={{ color: '#8b5cf6' }} />
+              <span className="text-[11px] font-semibold font-mono tracking-wider" style={{ color: '#8b5cf6' }}>
+                {lang === 'ms' ? 'JENIS HUBUNGAN' : 'RELATIONSHIP TYPES'}
+              </span>
+            </div>
+
+            <div className="space-y-1.5">
+              {Object.entries(REL_LABELS).map(([type, labels]) => {
+                const count = ONTOLOGY_EDGES.filter(e => e.type === type).length;
+                const color = REL_COLORS[type as RelationshipType];
+                return (
+                  <div key={type} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-3 h-0.5 rounded-full"
+                        style={{
+                          background: color,
+                          boxShadow: `0 0 4px ${color}40`,
+                          borderTopStyle: type === 'CORRELATES_NEGATIVE' ? 'dashed' : 'solid',
+                        }}
+                      />
+                      <span className="text-[9px] font-mono" style={{ color: '#b0bec5' }}>
+                        {lang === 'ms' ? labels.ms : labels.en}
+                      </span>
+                    </div>
+                    <span className="text-[9px] font-mono font-bold" style={{ color }}>
+                      {count}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom info strip */}
+      <div className="flex items-center justify-center gap-4 py-2">
+        <div className="flex items-center gap-1.5">
+          <AlertTriangle size={10} style={{ color: '#ef4444' }} />
+          <span className="text-[8px] font-mono" style={{ color: '#b0bec5' }}>
+            {lang === 'ms'
+              ? 'Nod berdenyut merah menunjukkan skor anomali tinggi (>70)'
+              : 'Pulsing red nodes indicate high anomaly scores (>70)'}
+          </span>
+        </div>
+        <div className="w-px h-3" style={{ background: 'rgba(6,182,212,0.15)' }} />
+        <div className="flex items-center gap-1.5">
+          <Network size={10} style={{ color: '#ec4899' }} />
+          <span className="text-[8px] font-mono" style={{ color: '#b0bec5' }}>
+            {lang === 'ms'
+              ? 'Saiz nod berkadar dengan bilangan set data'
+              : 'Node size proportional to dataset count'}
+          </span>
+        </div>
+        <div className="w-px h-3" style={{ background: 'rgba(6,182,212,0.15)' }} />
+        <div className="flex items-center gap-1.5">
+          <Activity size={10} style={{ color: '#f59e0b' }} />
+          <span className="text-[8px] font-mono" style={{ color: '#b0bec5' }}>
+            {lang === 'ms'
+              ? 'Ketebalan sambungan berkadar dengan kekuatan'
+              : 'Edge thickness proportional to strength'}
+          </span>
+        </div>
+      </div>
+
+      {/* Custom scrollbar styles */}
+      <style jsx global>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(6, 182, 212, 0.05);
+          border-radius: 2px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(6, 182, 212, 0.2);
+          border-radius: 2px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(6, 182, 212, 0.4);
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// ─── Category Description Helpers ─────────────────────────────────
+function getCategoryDescription(category: string): string {
+  const descriptions: Record<string, string> = {
+    'Demography': 'Population dynamics, births, deaths, migration, and fertility data across Malaysia.',
+    'National Accounts': 'GDP, GNI, and macroeconomic aggregates at national and state levels.',
+    'Prices': 'Consumer Price Index, inflation rates, and price indicators for goods and services.',
+    'Labour Markets': 'Employment, unemployment, labour force participation, and wage statistics.',
+    'Financial Markets': 'Exchange rates, interest rates, monetary aggregates, and banking data.',
+    'Economic Sectors': 'Sectoral output covering services, manufacturing, agriculture, mining, and construction.',
+    'Healthcare': 'Health indicators, disease surveillance, hospital data, and public health metrics.',
+    'Environment': 'Environmental quality, air/water pollution, climate data, and natural resources.',
+    'Education': 'Education enrollment, attainment, institutions, and human capital development.',
+    'Transportation': 'Transport infrastructure, traffic, logistics, and connectivity metrics.',
+    'Households': 'Household income, expenditure, poverty rates, and living standards.',
+    'Communications': 'ICT adoption, internet penetration, telecommunications, and digital economy.',
+    'Public Safety': 'Crime statistics, fire incidents, emergency services, and safety indicators.',
+    'Public Administration': 'Government finances, public sector employment, and fiscal policy data.',
+    'Public Welfare': 'Social protection, welfare programs, and community development metrics.',
+    'Statistical Indicators': 'Composite indices, key performance indicators, and statistical benchmarks.',
+    'Data Dictionaries': 'Codebooks, variable definitions, and data schema documentation.',
+    'Metadata': 'Dataset metadata, update logs, and data quality descriptors.',
+  };
+  return descriptions[category] || 'Data category in the Malaysia open data ecosystem.';
+}
+
+function getCategoryDescriptionMS(category: string): string {
+  const descriptions: Record<string, string> = {
+    'Demography': 'Dinamik penduduk, kelahiran, kematian, migrasi, dan data kesuburan di Malaysia.',
+    'National Accounts': 'KDNK, KNK, dan agregat makroekonomi di peringkat nasional dan negeri.',
+    'Prices': 'Indeks Harga Pengguna, kadar inflasi, dan penunjuk harga untuk barang dan perkhidmatan.',
+    'Labour Markets': 'Pekerjaan, pengangguran, penyertaan tenaga kerja, dan statistik gaji.',
+    'Financial Markets': 'Kadar pertukaran, kadar faedah, agregat kewangan, dan data perbankan.',
+    'Economic Sectors': 'Keluaran sektor merangkumi perkhidmatan, pembuatan, pertanian, perlombongan, dan pembinaan.',
+    'Healthcare': 'Penunjuk kesihatan, pengawasan penyakit, data hospital, dan metrik kesihatan awam.',
+    'Environment': 'Kualiti alam sekitar, pencemaran udara/air, data iklim, dan sumber asli.',
+    'Education': 'Pendaftaran pendidikan, pencapaian, institusi, dan pembangunan modal insan.',
+    'Transportation': 'Infrastruktur pengangkutan, trafik, logistik, dan metrik konektiviti.',
+    'Households': 'Pendapatan isi rumah, perbelanjaan, kadar kemiskinan, dan taraf hidup.',
+    'Communications': 'Penggunaan ICT, penetrasi internet, telekomunikasi, dan ekonomi digital.',
+    'Public Safety': 'Statistik jenayah, kejadian kebakaran, perkhidmatan kecemasan, dan penunjuk keselamatan.',
+    'Public Administration': 'Kewangan kerajaan, pekerjaan sektor awam, dan data dasar fiskal.',
+    'Public Welfare': 'Perlindungan sosial, program kebajikan, dan metrik pembangunan komuniti.',
+    'Statistical Indicators': 'Indeks komposit, penunjuk prestasi utama, dan penanda aras statistik.',
+    'Data Dictionaries': 'Buku kod, definisi pembolehubah, dan dokumentasi skema data.',
+    'Metadata': 'Metadata set data, log kemas kini, dan penerang kualiti data.',
+  };
+  return descriptions[category] || 'Kategori data dalam ekosistem data terbuka Malaysia.';
 }
 
 export default IntelligenceSection;

@@ -1,7 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -17,6 +16,12 @@ const nextConfig: NextConfig = {
   // - No "output: standalone" needed (Node.js-specific, incompatible with CF Workers)
   // - IMPORTANT: API routes MUST have `export const runtime = "edge"` at the top
   //   Without it, Cloudflare Workers returns 404 for the route
+
+  // Image optimization: sharp is NOT available on Cloudflare Workers
+  // Use unoptimized mode or remote patterns for external images
+  images: {
+    unoptimized: true,
+  },
 
   // Static asset headers for caching GeoJSON and other large files
   async headers() {
