@@ -5,12 +5,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   FileText, Download, Search, ChevronLeft, ChevronRight,
   Globe, X, ExternalLink, Clock, Calendar, Tag, FileDown, Database, Users,
-  ArrowRight, Filter, Hash,
+  ArrowRight, Filter, Hash, GitCompare,
 } from 'lucide-react';
 import { DataSourceBadge } from '@/components/dashboard/data-source-badge';
 import { DataFreshnessIndicator } from '@/components/dashboard/data-freshness-indicator';
 import { GitHubSourceLink } from '@/components/dashboard/github-source-link';
 import { DatasetMetadataPanel } from '@/components/dashboard/dataset-metadata-panel';
+import { DatasetComparisonTool } from '@/components/dashboard/dataset-comparison-tool';
 import { DATASET_CATEGORIES, FREQUENCY_COLORS } from '@/lib/data/malaysia-data';
 import { DATASETS } from '@/lib/data/datasets';
 import type { Lang } from '@/lib/dashboard-types';
@@ -299,6 +300,8 @@ export function DatasetsSection({ lang }: { lang: Lang }) {
   const [page, setPage] = useState(1);
   const [selectedDataset, setSelectedDataset] = useState<typeof DATASETS[0] | null>(null);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [comparePreselected, setComparePreselected] = useState<string[]>([]);
   const perPage = 20;
 
   const filtered = useMemo(() => {
@@ -398,7 +401,7 @@ export function DatasetsSection({ lang }: { lang: Lang }) {
         </div>
       </div>
 
-      {/* Results count with animated badge */}
+      {/* Results count with animated badge + Compare button */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-mono" style={{ color: 'rgba(6,182,212,0.5)' }}>
@@ -417,6 +420,20 @@ export function DatasetsSection({ lang }: { lang: Lang }) {
             {animatedCount}
           </span>
         </div>
+        <button
+          onClick={() => { setComparePreselected([]); setCompareOpen(true); }}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-[10px] font-mono font-bold transition-all hover:border-amber-500/40 hover:shadow-lg"
+          style={{
+            background: 'rgba(245,158,11,0.06)',
+            borderColor: 'rgba(245,158,11,0.2)',
+            color: '#f59e0b',
+            boxShadow: '0 0 8px rgba(245,158,11,0.05)',
+          }}
+          aria-label={lang === 'ms' ? 'Bandingkan set data' : 'Compare datasets'}
+        >
+          <GitCompare size={11} />
+          {lang === 'ms' ? 'BANDINGKAN' : 'COMPARE'}
+        </button>
       </div>
 
       {/* Table */}
@@ -559,6 +576,14 @@ export function DatasetsSection({ lang }: { lang: Lang }) {
           />
         )}
       </AnimatePresence>
+
+      {/* Dataset Comparison Tool Modal */}
+      <DatasetComparisonTool
+        lang={lang}
+        isOpen={compareOpen}
+        onClose={() => setCompareOpen(false)}
+        preselectedIds={comparePreselected}
+      />
     </div>
   );
 }

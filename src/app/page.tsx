@@ -8,7 +8,7 @@ import {
   HelpCircle, Languages, ArrowUp, Bell, Copyright,
   ExternalLink, Heart, Download, ChevronRight,
   Globe, Github, Twitter, Linkedin, FileText,
-  Brain,
+  Brain, RefreshCw,
 } from 'lucide-react';
 
 import BootSequence from '@/components/dashboard/boot-sequence';
@@ -150,6 +150,41 @@ function FooterCounter({ target, color }: { target: number; color: string }) {
 
   return (
     <span style={{ color, textShadow: `0 0 8px ${color}50, 0 0 16px ${color}20`, fontSize: '12px' }} className="font-bold">{count}</span>
+  );
+}
+
+// ─── Footer Last Synced Timestamp ────────────────────────────────────
+function FooterLastSynced({ lang }: { lang: string }) {
+  const [syncTime, setSyncTime] = useState('');
+
+  useEffect(() => {
+    const updateSync = () => {
+      const now = new Date();
+      const syncedAt = new Date(now.getTime() - 2 * 60 * 1000 - 15 * 1000); // ~2m15s ago
+      const timeOpts: Intl.DateTimeFormatOptions = {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+        timeZone: 'Asia/Kuala_Lumpur',
+      };
+      const timeStr = syncedAt.toLocaleTimeString('en-GB', timeOpts);
+      const diffMs = now.getTime() - syncedAt.getTime();
+      const diffMin = Math.floor(diffMs / 60000);
+      const label = lang === 'ms' ? 'Disegerakkan' : 'Synced';
+      setSyncTime(`${label} ${diffMin}m ${lang === 'ms' ? 'lalu' : 'ago'} · ${timeStr}`);
+    };
+
+    updateSync();
+    const interval = setInterval(updateSync, 30000);
+    return () => clearInterval(interval);
+  }, [lang]);
+
+  return (
+    <span className="text-[8px] font-mono flex items-center gap-1" style={{ color: 'rgba(6,182,212,0.45)' }}>
+      <RefreshCw size={7} style={{ color: 'rgba(6,182,212,0.4)' }} />
+      {syncTime}
+    </span>
   );
 }
 
@@ -429,7 +464,7 @@ export default function Home() {
               boxShadow: '0 0 8px rgba(6,182,212,0.2), 0 1px 4px rgba(6,182,212,0.15)',
             }} />
             <div className="flex items-center justify-between max-w-[1400px] mx-auto">
-              <div className="flex items-center gap-1" role="tablist" aria-label="Dashboard sections">
+              <div className="flex items-center gap-1 overflow-x-auto scrollbar-none" role="tablist" aria-label="Dashboard sections" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                 {tabs.map(tab => {
                   const isActive = activeTab === tab.id;
                   return (
@@ -438,7 +473,7 @@ export default function Home() {
                       onClick={() => setActiveTab(tab.id)}
                       role="tab"
                       aria-selected={activeTab === tab.id}
-                      className="relative flex items-center gap-1.5 px-3 py-3 text-xs font-mono tracking-wider transition-all duration-300"
+                      className="relative flex items-center gap-1.5 px-3 py-3 min-h-[44px] text-xs font-mono tracking-wider transition-all duration-300 flex-shrink-0"
                       style={{
                         color: isActive ? '#06b6d4' : 'rgba(6,182,212,0.4)',
                         textShadow: isActive ? '0 0 8px rgba(6,182,212,0.5)' : 'none',
@@ -480,12 +515,12 @@ export default function Home() {
               {/* Separator line between tabs and toolbar */}
               <div className="hidden sm:block h-6 w-px mx-2" style={{ background: 'rgba(6,182,212,0.12)' }} />
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 {/* Language Toggle */}
                 <button
                   onClick={toggleLang}
                   aria-label="Toggle language between English and Bahasa Malaysia"
-                  className="flex items-center justify-center gap-1 min-w-[32px] px-2 py-1.5 rounded border text-[11px] font-mono tracking-wider transition-all duration-300"
+                  className="flex items-center justify-center gap-1 min-w-[36px] min-h-[36px] px-2 py-1.5 rounded border text-[11px] font-mono tracking-wider transition-all duration-300"
                   style={{
                     background: 'rgba(10,14,26,0.8)',
                     borderColor: 'rgba(6,182,212,0.15)',
@@ -511,7 +546,7 @@ export default function Home() {
                   ref={exportHubTriggerRef}
                   onClick={() => setShowExportHub(true)}
                   aria-label="Open data export hub"
-                  className="relative flex items-center justify-center gap-1 min-w-[32px] px-2 py-1.5 rounded border text-[11px] font-mono tracking-wider transition-all duration-300"
+                  className="relative flex items-center justify-center gap-1 min-w-[36px] min-h-[36px] px-2 py-1.5 rounded border text-[11px] font-mono tracking-wider transition-all duration-300"
                   style={{
                     background: 'rgba(10,14,26,0.8)',
                     borderColor: 'rgba(6,182,212,0.15)',
@@ -544,7 +579,7 @@ export default function Home() {
                   ref={infographicTriggerRef}
                   onClick={() => setShowInfographic(true)}
                   aria-label="Open infographic export"
-                  className="flex items-center justify-center gap-1 min-w-[32px] px-2 py-1.5 rounded border text-[11px] font-mono tracking-wider transition-all duration-300"
+                  className="flex items-center justify-center gap-1 min-w-[36px] min-h-[36px] px-2 py-1.5 rounded border text-[11px] font-mono tracking-wider transition-all duration-300"
                   style={{
                     background: 'rgba(10,14,26,0.8)',
                     borderColor: 'rgba(6,182,212,0.15)',
@@ -588,7 +623,7 @@ export default function Home() {
                   ref={shortcutsTriggerRef}
                   onClick={() => setShowShortcutsModal(true)}
                   aria-label="Keyboard shortcuts help"
-                  className="flex items-center justify-center gap-1 min-w-[32px] px-2 py-1.5 rounded border text-[11px] font-mono tracking-wider transition-all duration-300"
+                  className="flex items-center justify-center gap-1 min-w-[36px] min-h-[36px] px-2 py-1.5 rounded border text-[11px] font-mono tracking-wider transition-all duration-300"
                   style={{
                     background: 'rgba(10,14,26,0.8)',
                     borderColor: 'rgba(6,182,212,0.15)',
@@ -614,8 +649,8 @@ export default function Home() {
           </nav>
 
           {/* Context-Aware Breadcrumb */}
-          <div className="px-4 py-1.5" style={{ background: 'rgba(10,14,26,0.9)' }}>
-            <div className="max-w-[1400px] mx-auto flex items-center gap-1" style={{ fontSize: '9px', fontFamily: 'monospace', letterSpacing: '0.08em' }}>
+          <div className="px-4 py-1.5 overflow-x-auto" style={{ background: 'rgba(10,14,26,0.9)' }}>
+            <div className="max-w-[1400px] mx-auto flex items-center gap-1 whitespace-nowrap" style={{ fontSize: '9px', fontFamily: 'monospace', letterSpacing: '0.08em' }}>
               <span style={{ color: 'rgba(6,182,212,0.35)' }}>
                 {lang === 'ms' ? 'PUSAT PERINTAH DATA TERBUKA MALAYSIA' : 'MALAYSIA OPEN DATA COMMAND CENTER'}
               </span>
@@ -652,11 +687,18 @@ export default function Home() {
           </main>
 
           {/* Enhanced Footer */}
-          <footer role="contentinfo" className="mt-auto flex-shrink-0" style={{ background: 'rgba(10,14,26,0.98)' }}>
-            {/* Top border gradient (cyan → transparent → cyan) */}
-            <div className="h-px w-full" style={{
-              background: 'linear-gradient(90deg, #06b6d4, transparent 30%, transparent 70%, #06b6d4)',
-              opacity: 0.4,
+          <motion.footer
+            role="contentinfo"
+            className="mt-auto flex-shrink-0"
+            style={{ background: 'rgba(10,14,26,0.98)' }}
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}
+          >
+            {/* Top border gradient (cyan → transparent) */}
+            <div className="h-[2px] w-full" style={{
+              background: 'linear-gradient(90deg, #06b6d4 0%, rgba(6,182,212,0.4) 20%, transparent 60%)',
+              boxShadow: '0 0 12px rgba(6,182,212,0.3), 0 0 24px rgba(6,182,212,0.1)',
             }} />
             {/* Animated accent line */}
             <div className="h-px w-full overflow-hidden" style={{ background: 'rgba(6,182,212,0.05)' }}>
@@ -668,180 +710,179 @@ export default function Home() {
               />
             </div>
 
-            <div className="px-4 py-5">
+            <div className="px-4 py-4">
               <div className="max-w-[1400px] mx-auto">
                 {/* Grid layout — 4 columns */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                  {/* Column 1: Branding */}
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                  {/* Column 1: Branding + Social Links */}
                   <div>
-                    <div className="text-xs font-mono font-bold tracking-wider mb-1 flex items-center gap-1.5" style={{
+                    <div className="text-[11px] font-mono font-bold tracking-wider mb-1.5 flex items-center gap-1.5" style={{
                       color: '#06b6d4',
                       textShadow: '0 0 10px rgba(6,182,212,0.4)',
                     }}>
-                      {lang === 'ms' ? 'PUSAT PERINTAH DATA TERBUKA MALAYSIA' : 'MALAYSIA OPEN DATA COMMAND CENTER'}
+                      {lang === 'ms' ? 'PUSAT PERINTAH DATA TERBUKA' : 'MALAYSIA OPEN DATA'}
                       <Heart
                         size={10}
                         style={{ color: '#10b981', animation: 'heartbeat 1.5s ease-in-out infinite', filter: 'drop-shadow(0 0 4px rgba(16,185,129,0.5))' }}
                       />
                     </div>
-                    <div className="text-[10px] font-mono mb-2" style={{ color: 'rgba(6,182,212,0.4)' }}>
+                    <div className="text-[9px] font-mono mb-2.5" style={{ color: 'rgba(6,182,212,0.4)' }}>
                       {lang === 'ms' ? 'Dikuasakan oleh data.gov.my' : 'Powered by data.gov.my'}
                     </div>
-                    <span className="text-[8px] font-mono px-1.5 py-0.5 rounded" style={{
-                      background: 'rgba(6,182,212,0.1)',
-                      color: '#06b6d4',
-                      border: '1px solid rgba(6,182,212,0.2)',
-                    }}>
-                      v3.0
-                    </span>
+                    {/* Version badge + Last Synced */}
+                    <div className="flex items-center gap-2 mb-2.5">
+                      <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded" style={{
+                        background: 'rgba(6,182,212,0.1)',
+                        color: '#06b6d4',
+                        border: '1px solid rgba(6,182,212,0.25)',
+                        textShadow: '0 0 6px rgba(6,182,212,0.3)',
+                      }}>
+                        v2.0.0
+                      </span>
+                      <FooterLastSynced lang={lang} />
+                    </div>
+                    {/* Social Links Row */}
+                    <div className="flex items-center gap-2">
+                      {[
+                        { icon: Github, label: 'GitHub', href: 'https://github.com/dosm-malaysia', color: '#b0bec5' },
+                        { icon: Globe, label: 'data.gov.my', href: 'https://data.gov.my', color: '#06b6d4' },
+                        { icon: Database, label: 'DOSM', href: 'https://www.dosm.gov.my', color: '#10b981' },
+                      ].map((link) => (
+                        <a
+                          key={link.label}
+                          href={link.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center w-7 h-7 rounded border transition-all duration-200 hover:scale-110"
+                          style={{
+                            background: `${link.color}08`,
+                            borderColor: `${link.color}20`,
+                            color: `${link.color}90`,
+                          }}
+                          aria-label={link.label}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.background = `${link.color}18`;
+                            e.currentTarget.style.borderColor = `${link.color}40`;
+                            e.currentTarget.style.color = link.color;
+                            e.currentTarget.style.boxShadow = `0 0 10px ${link.color}20`;
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.background = `${link.color}08`;
+                            e.currentTarget.style.borderColor = `${link.color}20`;
+                            e.currentTarget.style.color = `${link.color}90`;
+                            e.currentTarget.style.boxShadow = 'none';
+                          }}
+                        >
+                          <link.icon size={12} />
+                        </a>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Column 2: Quick Stats */}
                   <div>
-                    <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: 'rgba(6,182,212,0.5)' }}>
+                    <div className="text-[9px] font-mono tracking-wider mb-2" style={{ color: 'rgba(6,182,212,0.5)' }}>
                       {lang === 'ms' ? 'STATISTIK PANTAS' : 'QUICK STATS'}
                     </div>
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] font-mono">
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[10px] font-mono">
                       <span style={{ color: '#06b6d4' }}><FooterCounter target={287} color="#06b6d4" /> <span style={{ color: 'rgba(6,182,212,0.4)' }}>{lang === 'ms' ? 'Set Data' : 'Datasets'}</span></span>
                       <span style={{ color: '#f59e0b' }}><FooterCounter target={18} color="#f59e0b" /> <span style={{ color: 'rgba(245,158,11,0.4)' }}>{lang === 'ms' ? 'Kategori' : 'Categories'}</span></span>
                       <span style={{ color: '#10b981' }}><FooterCounter target={19} color="#10b981" /> <span style={{ color: 'rgba(16,185,129,0.4)' }}>{lang === 'ms' ? 'Negeri/WP' : 'States/FT'}</span></span>
-                      <span style={{ color: '#8b5cf6' }}><FooterCounter target={6} color="#8b5cf6" /> <span style={{ color: 'rgba(139,92,246,0.4)' }}>{lang === 'ms' ? 'Lapisan Data' : 'Data Layers'}</span></span>
+                      <span style={{ color: '#8b5cf6' }}><FooterCounter target={6} color="#8b5cf6" /> <span style={{ color: 'rgba(139,92,246,0.4)' }}>{lang === 'ms' ? 'Lapisan' : 'Layers'}</span></span>
                     </div>
                   </div>
 
                   {/* Column 3: Data Sources */}
                   <div>
-                    <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: 'rgba(6,182,212,0.5)' }}>
+                    <div className="text-[9px] font-mono tracking-wider mb-2" style={{ color: 'rgba(6,182,212,0.5)' }}>
                       {lang === 'ms' ? 'SUMBER DATA' : 'DATA SOURCES'}
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="space-y-1.5">
                       {[
-                        { name: 'DOSM', color: '#06b6d4' },
-                        { name: 'BNM', color: '#f59e0b' },
-                        { name: 'KKM', color: '#ec4899' },
-                        { name: 'JDN', color: '#8b5cf6' },
+                        { name: 'DOSM OpenDOSM', name_ms: 'DOSM OpenDOSM', href: 'https://data.gov.my', color: '#06b6d4', icon: Database },
+                        { name: 'data.gov.my', name_ms: 'data.gov.my', href: 'https://data.gov.my', color: '#10b981', icon: Globe },
+                        { name: 'GitHub datagovmy-meta', name_ms: 'GitHub datagovmy-meta', href: 'https://github.com/data-gov-my/datagovmy-meta', color: '#b0bec5', icon: Github },
                       ].map(src => (
-                        <span
+                        <a
                           key={src.name}
-                          className="text-[9px] font-mono px-1.5 py-0.5 rounded transition-all duration-200 cursor-default hover:scale-110 hover:shadow-[0_0_12px_rgba(6,182,212,0.2)]"
+                          href={src.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 text-[9px] font-mono px-2 py-1 rounded transition-all duration-200 hover:scale-[1.02] min-h-[28px]"
                           style={{
-                            background: `${src.color}10`,
-                            border: `1px solid ${src.color}20`,
-                            color: src.color,
+                            background: `${src.color}08`,
+                            border: `1px solid ${src.color}15`,
+                            color: `${src.color}cc`,
                           }}
                           onMouseEnter={e => {
                             const el = e.currentTarget;
-                            el.style.background = `${src.color}20`;
-                            el.style.borderColor = `${src.color}40`;
-                            el.style.boxShadow = `0 0 12px ${src.color}20`;
+                            el.style.background = `${src.color}15`;
+                            el.style.borderColor = `${src.color}30`;
+                            el.style.boxShadow = `0 0 10px ${src.color}15`;
                           }}
                           onMouseLeave={e => {
                             const el = e.currentTarget;
-                            el.style.background = `${src.color}10`;
-                            el.style.borderColor = `${src.color}20`;
+                            el.style.background = `${src.color}08`;
+                            el.style.borderColor = `${src.color}15`;
                             el.style.boxShadow = 'none';
                           }}
                         >
-                          <Database size={8} className="inline mr-1" style={{ color: src.color }} />
-                          {src.name}
-                        </span>
+                          <src.icon size={9} style={{ color: src.color, flexShrink: 0 }} />
+                          <span className="truncate">{lang === 'ms' ? src.name_ms : src.name}</span>
+                          <ExternalLink size={6} className="opacity-40 ml-auto flex-shrink-0" />
+                        </a>
                       ))}
                     </div>
                   </div>
 
-                  {/* Column 4: License */}
+                  {/* Column 4: License + Links */}
                   <div>
-                    <div className="text-[10px] font-mono tracking-wider mb-2" style={{ color: 'rgba(6,182,212,0.5)' }}>
-                      {lang === 'ms' ? 'LESEN' : 'LICENSE'}
+                    <div className="text-[9px] font-mono tracking-wider mb-2" style={{ color: 'rgba(6,182,212,0.5)' }}>
+                      {lang === 'ms' ? 'LESEN & PAUTAN' : 'LICENSE & LINKS'}
                     </div>
                     <div className="flex items-center gap-1.5 mb-2">
                       <Copyright size={10} style={{ color: 'rgba(6,182,212,0.4)' }} />
-                      <span className="text-[10px] font-mono" style={{ color: 'rgba(6,182,212,0.5)' }}>CC BY 4.0</span>
+                      <span className="text-[9px] font-mono" style={{ color: 'rgba(6,182,212,0.5)' }}>CC BY 4.0</span>
                     </div>
                     <a
                       href="https://data.gov.my"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-[10px] font-mono hover:underline"
+                      className="inline-flex items-center gap-1 text-[9px] font-mono hover:underline mb-2 min-h-[28px]"
                       style={{ color: '#06b6d4' }}
                     >
                       <ExternalLink size={8} />
                       {lang === 'ms' ? 'Portal Data Terbuka' : 'Open Data Portal'}
                     </a>
-                  </div>
-                </div>
-
-                {/* Bottom row */}
-                <div className="border-t pt-3 flex flex-col sm:flex-row items-center justify-between gap-2" style={{ borderColor: 'rgba(6,182,212,0.08)' }}>
-                  <div className="text-[9px] font-mono" style={{ color: 'rgba(6,182,212,0.5)' }}>
-                    © {new Date().getFullYear()} Malaysia Open Data Command Center. All rights reserved.
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <FooterLiveClock />
-                    <div className="text-[9px] font-mono" style={{ color: 'rgba(6,182,212,0.5)' }}>
-                      Built with Next.js
+                    <div className="text-[8px] font-mono" style={{ color: 'rgba(6,182,212,0.35)' }}>
+                      {lang === 'ms' ? 'Hak cipta terpelihara' : 'All rights reserved'}
                     </div>
                   </div>
                 </div>
 
-                {/* Built with data.gov.my Open Data line */}
-                <div className="text-center mt-2">
-                  <span className="text-[9px] font-mono flex items-center justify-center gap-1.5" style={{ color: 'rgba(6,182,212,0.35)' }}>
-                    <Database size={8} style={{ color: 'rgba(6,182,212,0.35)' }} />
-                    {lang === 'ms' ? 'Dibina dengan data.gov.my Open Data' : 'Built with data.gov.my Open Data'}
-                    <Database size={8} style={{ color: 'rgba(6,182,212,0.35)' }} />
-                  </span>
+                {/* Bottom bar — clock, copyright, tech */}
+                <div className="border-t pt-3 flex flex-col sm:flex-row items-center justify-between gap-2" style={{ borderColor: 'rgba(6,182,212,0.08)' }}>
+                  <div className="text-[9px] font-mono" style={{ color: 'rgba(6,182,212,0.5)' }}>
+                    © {new Date().getFullYear()} {lang === 'ms' ? 'Pusat Perintah Data Terbuka Malaysia' : 'Malaysia Open Data Command Center'}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <FooterLiveClock />
+                    <div className="hidden sm:block h-3 w-px" style={{ background: 'rgba(6,182,212,0.12)' }} />
+                    <div className="text-[9px] font-mono" style={{ color: 'rgba(6,182,212,0.35)' }}>
+                      Next.js · {lang === 'ms' ? 'Data Terbuka' : 'Open Data'}
+                    </div>
+                  </div>
                 </div>
 
-                {/* Social / Data Links Row */}
-                <div className="flex flex-wrap items-center justify-center gap-3 mt-2">
-                  {[
-                    { icon: Globe, label: 'data.gov.my', href: 'https://data.gov.my', color: '#06b6d4' },
-                    { icon: Github, label: 'GitHub', href: 'https://github.com', color: '#b0bec5' },
-                    { icon: Twitter, label: 'X / Twitter', href: 'https://twitter.com', color: '#06b6d4' },
-                    { icon: FileText, label: 'API Docs', href: 'https://data.gov.my/api', color: '#f59e0b' },
-                    { icon: Linkedin, label: 'LinkedIn', href: 'https://linkedin.com', color: '#10b981' },
-                  ].map((link) => (
-                    <a
-                      key={link.label}
-                      href={link.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 px-2 py-1 rounded border text-[9px] font-mono transition-all duration-200 hover:scale-105"
-                      style={{
-                        background: `${link.color}08`,
-                        borderColor: `${link.color}15`,
-                        color: `${link.color}80`,
-                      }}
-                      onMouseEnter={e => {
-                        e.currentTarget.style.background = `${link.color}15`;
-                        e.currentTarget.style.borderColor = `${link.color}30`;
-                        e.currentTarget.style.color = link.color;
-                        e.currentTarget.style.boxShadow = `0 0 8px ${link.color}15`;
-                      }}
-                      onMouseLeave={e => {
-                        e.currentTarget.style.background = `${link.color}08`;
-                        e.currentTarget.style.borderColor = `${link.color}15`;
-                        e.currentTarget.style.color = `${link.color}80`;
-                        e.currentTarget.style.boxShadow = 'none';
-                      }}
-                    >
-                      <link.icon size={9} />
-                      {link.label}
-                      <ExternalLink size={6} className="opacity-50" />
-                    </a>
-                  ))}
-                </div>
-
-                {/* Made with love text */}
-                <div className="text-center mt-1 mb-1">
-                  <span className="text-[8px] font-mono" style={{ color: 'rgba(6,182,212,0.2)', letterSpacing: '0.15em' }}>
-                    MADE WITH ❤️ IN MALAYSIA
+                {/* Built with love */}
+                <div className="text-center mt-2 mb-1">
+                  <span className="text-[8px] font-mono flex items-center justify-center gap-1.5" style={{ color: 'rgba(6,182,212,0.25)', letterSpacing: '0.12em' }}>
+                    {lang === 'ms' ? 'DIBINA DENGAN ❤️ DI MALAYSIA' : 'MADE WITH ❤️ IN MALAYSIA'}
                   </span>
                 </div>
 
                 {/* Animated bottom scan line */}
-                <div className="mt-2 h-px w-full overflow-hidden" style={{ background: 'rgba(6,182,212,0.05)' }}>
+                <div className="mt-1 h-px w-full overflow-hidden" style={{ background: 'rgba(6,182,212,0.05)' }}>
                   <motion.div
                     className="h-full w-1/4"
                     style={{ background: 'linear-gradient(90deg, transparent, rgba(6,182,212,0.4), transparent)' }}
@@ -851,7 +892,7 @@ export default function Home() {
                 </div>
               </div>
             </div>
-          </footer>
+          </motion.footer>
         </motion.div>
         </LiveDataProvider>
       )}
@@ -899,7 +940,7 @@ export default function Home() {
             exit={{ opacity: 0, scale: 0.8 }}
             transition={{ duration: 0.2 }}
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            className="fixed bottom-6 right-6 w-10 h-10 rounded-full flex items-center justify-center border cursor-pointer transition-shadow hover:shadow-[0_0_20px_rgba(6,182,212,0.4)]"
+            className="fixed bottom-6 right-6 w-11 h-11 rounded-full flex items-center justify-center border cursor-pointer transition-shadow hover:shadow-[0_0_20px_rgba(6,182,212,0.4)]"
             style={{
               background: 'rgba(10,14,26,0.95)',
               borderColor: 'rgba(6,182,212,0.3)',
