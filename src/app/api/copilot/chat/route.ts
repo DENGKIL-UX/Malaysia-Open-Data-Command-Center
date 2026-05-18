@@ -1,17 +1,84 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// ─── Lazy-loaded ZAI SDK ───────────────────────────────────────────────
-let zaiInstance: Awaited<ReturnType<typeof import('z-ai-web-dev-sdk').default.create>> | null = null;
+// ══════════════════════════════════════════════════════════════════
+// CRITICAL: These two lines MUST be at the top of the file.
+// Without them, Cloudflare Workers returns 404 for this route.
+// ══════════════════════════════════════════════════════════════════
+export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
-async function getZAI() {
-  if (!zaiInstance) {
-    const ZAI = (await import('z-ai-web-dev-sdk')).default;
-    zaiInstance = await ZAI.create();
+// ─── Rule-based engine (edge-safe, always available) ───────────
+let processQueryFn: ((query: string, lang: 'en' | 'ms') => {
+  text: string;
+  type: string;
+  action?: { type: string; target: string };
+}) | null = null;
+
+async function getRuleBasedResponse(message: string, lang: 'en' | 'ms') {
+  if (!processQueryFn) {
+    try {
+      const mod = await import('@/lib/copilot/prompts');
+      processQueryFn = mod.processQuery;
+    } catch {
+      return null;
+    }
   }
-  return zaiInstance;
+  return processQueryFn(message, lang);
 }
 
-// ─── Knowledge Base for System Prompt ──────────────────────────────────
+// ─── LLM via direct fetch (edge-safe) ──────────────────────────
+// The z-ai-web-dev-sdk uses Node.js 'os' module which is NOT
+// available in edge runtime. We call the ZAI API directly via fetch.
+
+const ZAI_API_BASE = 'https://api.zhiwu.ai';
+
+interface ZAIConfig {
+  apiKey: string;
+  model: string;
+}
+
+function getZAIConfig(): ZAIConfig | null {
+  const apiKey = process.env.ZAI_API_KEY ?? process.env.OPENAI_API_KEY ?? '';
+  const model = process.env.ZAI_MODEL ?? 'gpt-4o-mini';
+  if (!apiKey) return null;
+  return { apiKey, model };
+}
+
+async function callLLMDirect(
+  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
+  config: ZAIConfig,
+): Promise<string | null> {
+  try {
+    const response = await fetch(`${ZAI_API_BASE}/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${config.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: config.model,
+        messages,
+        max_tokens: 500,
+        temperature: 0.7,
+      }),
+      signal: AbortSignal.timeout(12_000),
+    });
+
+    if (!response.ok) {
+      console.warn(`[Copilot LLM] API returned ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json();
+    const content = data?.choices?.[0]?.message?.content;
+    return content && content.trim().length > 0 ? content.trim() : null;
+  } catch (err) {
+    console.warn('[Copilot LLM] Direct fetch failed:', err instanceof Error ? err.message : String(err));
+    return null;
+  }
+}
+
+// ─── System Prompts ─────────────────────────────────────────────
 const SYSTEM_PROMPT_EN = `You are **AI Penasihat** (AI Advisor) for the **Malaysia Open Data Command Center** (Pusat Perintah Data Terbuka Malaysia). You are an expert AI assistant that helps users explore, understand, and navigate Malaysia's open data ecosystem.
 
 ## Your Knowledge:
@@ -91,13 +158,13 @@ const SYSTEM_PROMPT_MS = `Anda adalah **AI Penasihat** untuk **Pusat Perintah Da
 11. Apabila menerangkan trend, rujuk tahun dan kadar pertumbuhan khusus
 12. **Beza antara data peringkat nasional dan negeri** — angka nasional dahulu, butiran negeri kedua`;
 
-// ─── Conversation Message Type ─────────────────────────────────────────
+// ─── Conversation Message Type ─────────────────────────────────
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
 }
 
-// ─── POST Handler ──────────────────────────────────────────────────────
+// ─── POST Handler ──────────────────────────────────────────────
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -110,54 +177,93 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get ZAI instance
-    const zai = await getZAI();
+    const trimmedMessage = message.trim();
 
-    // Select system prompt based on language
-    const systemPrompt = lang === 'ms' ? SYSTEM_PROMPT_MS : SYSTEM_PROMPT_EN;
+    // ── Step 1: Always try rule-based first (instant, edge-safe) ──
+    const ruleResponse = await getRuleBasedResponse(trimmedMessage, lang);
 
-    // Build messages array with conversation history
-    const messages: Array<{ role: 'assistant' | 'user'; content: string }> = [
-      { role: 'assistant', content: systemPrompt },
-    ];
+    // ── Step 2: Try LLM if available (adds conversational depth) ──
+    const zaiConfig = getZAIConfig();
+    let llmResponse: string | null = null;
 
-    // Add conversation history (last 10 messages max for context window management)
-    const recentHistory = history.slice(-10);
-    for (const msg of recentHistory) {
+    if (zaiConfig) {
+      const systemPrompt = lang === 'ms' ? SYSTEM_PROMPT_MS : SYSTEM_PROMPT_EN;
+      const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+        { role: 'system', content: systemPrompt },
+      ];
+
+      // Add conversation history (last 10 messages)
+      const recentHistory = history.slice(-10);
+      for (const msg of recentHistory) {
+        messages.push({
+          role: msg.role,
+          content: msg.content,
+        });
+      }
+
+      // Add current user message
       messages.push({
-        role: msg.role,
-        content: msg.content,
+        role: 'user',
+        content: trimmedMessage,
+      });
+
+      llmResponse = await callLLMDirect(messages, zaiConfig);
+    }
+
+    // ── Step 3: Return best available response ──
+    // Prefer LLM response (more conversational), fall back to rule-based
+    if (llmResponse) {
+      return NextResponse.json({
+        success: true,
+        response: llmResponse,
+        type: 'text',
+        action: ruleResponse?.action, // Use rule-based action for navigation
+        source: 'llm',
       });
     }
 
-    // Add current user message
-    messages.push({
-      role: 'user',
-      content: message.trim(),
-    });
-
-    // Call LLM
-    const completion = await zai.chat.completions.create({
-      messages,
-      thinking: { type: 'disabled' },
-    });
-
-    const aiResponse = completion.choices[0]?.message?.content;
-
-    if (!aiResponse || aiResponse.trim().length === 0) {
-      return NextResponse.json(
-        { success: false, error: 'Empty response from AI' },
-        { status: 500 }
-      );
+    if (ruleResponse) {
+      return NextResponse.json({
+        success: true,
+        response: ruleResponse.text,
+        type: ruleResponse.type,
+        action: ruleResponse.action,
+        source: 'rule-based',
+      });
     }
 
+    // Neither LLM nor rule-based could handle it
+    const fallbackText = lang === 'ms'
+      ? 'Maaf, saya tidak dapat memproses permintaan anda. Cuba tanya tentang penduduk Malaysia, KDNK, set data, atau navigasi papan pemuka.'
+      : 'Sorry, I couldn\'t process your request. Try asking about Malaysia\'s population, GDP, datasets, or dashboard navigation.';
     return NextResponse.json({
       success: true,
-      response: aiResponse,
+      response: fallbackText,
       type: 'text',
+      source: 'fallback',
     });
   } catch (error) {
     console.error('[Copilot API] Error:', error);
+    // Final fallback: try rule-based engine
+    try {
+      const clonedBody = await request.clone().json().catch(() => null);
+      const msg = clonedBody?.message ?? '';
+      const ln = clonedBody?.lang ?? 'en';
+      if (msg) {
+        const ruleResponse = await getRuleBasedResponse(msg, ln);
+        if (ruleResponse) {
+          return NextResponse.json({
+            success: true,
+            response: ruleResponse.text,
+            type: ruleResponse.type,
+            action: ruleResponse.action,
+            source: 'rule-based',
+          });
+        }
+      }
+    } catch {
+      // Rule-based also failed
+    }
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
       { success: false, error: errorMessage },

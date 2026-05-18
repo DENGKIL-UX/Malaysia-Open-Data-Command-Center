@@ -90,9 +90,31 @@ export function useCopilot() {
             role: 'assistant',
             content: data.response,
             timestamp: Date.now(),
-            type: 'text',
+            type: data.type ?? 'text',
+            action: data.action,
           };
           setMessages(prev => [...prev, assistantMessage]);
+
+          // Dispatch navigation events from server-side rule-based response
+          if (data.action) {
+            switch (data.action.type) {
+              case 'navigate':
+                window.dispatchEvent(new CustomEvent('copilot:navigate', {
+                  detail: { tab: data.action.target },
+                }));
+                break;
+              case 'show-metric':
+                window.dispatchEvent(new CustomEvent('copilot:show-metric', {
+                  detail: { metric: data.action.target },
+                }));
+                break;
+              case 'highlight':
+                window.dispatchEvent(new CustomEvent('copilot:highlight', {
+                  detail: { target: data.action.target },
+                }));
+                break;
+            }
+          }
         } else {
           // Fallback to rule-based
           throw new Error(data.error || 'AI service unavailable');
