@@ -15,6 +15,7 @@ import { DatasetComparisonTool } from '@/components/dashboard/dataset-comparison
 import { DATASET_CATEGORIES, FREQUENCY_COLORS } from '@/lib/data/malaysia-data';
 import { DATASETS } from '@/lib/data/datasets';
 import type { Lang } from '@/lib/dashboard-types';
+import { useCopilot } from '@/hooks/use-copilot';
 
 // ─── Animated Counter Hook ──────────────────────────────────────
 function useAnimatedCounter(target: number, duration = 600) {
@@ -303,6 +304,12 @@ export function DatasetsSection({ lang }: { lang: Lang }) {
   const [compareOpen, setCompareOpen] = useState(false);
   const [comparePreselected, setComparePreselected] = useState<string[]>([]);
   const perPage = 20;
+  const { registerView } = useCopilot();
+
+  // Register view context for copilot
+  useEffect(() => {
+    registerView('datasets', { filterCategory: categoryFilter !== 'ALL' ? categoryFilter : undefined });
+  }, [categoryFilter, registerView]);
 
   const filtered = useMemo(() => {
     let result = DATASETS;

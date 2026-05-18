@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, TrendingUp, Baby, Heart, Briefcase, Database,
@@ -10,6 +10,7 @@ import dynamic from 'next/dynamic';
 import { STATES, MAP_LAYERS } from '@/lib/data/malaysia-data';
 import type { Lang, LayerId } from '@/lib/dashboard-types';
 import { StateSearch } from '@/components/dashboard/state-search';
+import { useCopilot } from '@/hooks/use-copilot';
 
 // Dynamic import for GeoJSON map (avoid SSR issues)
 const MalaysiaGeoJSONMap = dynamic(() => import('@/components/map/malaysia-geojson-map'), { ssr: false });
@@ -317,6 +318,17 @@ export function GeoMapSection({ lang, onViewProfile }: { lang: Lang; onViewProfi
   const [showComparison, setShowComparison] = useState(false);
   const [compareStateA, setCompareStateA] = useState('');
   const [compareStateB, setCompareStateB] = useState('');
+  const { registerView } = useCopilot();
+
+  // Register view context for copilot
+  useEffect(() => {
+    registerView('geomap', { selectedState: selectedState || undefined });
+  }, [registerView]);
+
+  // Re-register when selectedState changes
+  useEffect(() => {
+    registerView('geomap', { selectedState: selectedState || undefined });
+  }, [selectedState, registerView]);
 
   const selectedData = useMemo(() => STATES.find(s => s.id === selectedState), [selectedState]);
   const hoveredData = useMemo(() => STATES.find(s => s.id === hoveredState), [hoveredState]);

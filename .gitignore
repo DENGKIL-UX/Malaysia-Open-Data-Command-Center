@@ -61,4 +61,4 @@ server.log
 .zscripts/
 agent-ctx/
 worklog.md
-Caddyfile
+Caddyfileupload/

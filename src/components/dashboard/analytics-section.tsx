@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   TrendingUp, Activity, Database, Layers,
@@ -19,6 +19,7 @@ import {
 } from '@/lib/data/malaysia-data';
 import { DATASETS } from '@/lib/data/datasets';
 import type { Lang } from '@/lib/dashboard-types';
+import { useCopilot } from '@/hooks/use-copilot';
 import { HUDBracket, SectionHeaderLine } from '@/components/dashboard/particle-background';
 import { DataQualityDashboard } from '@/components/dashboard/data-quality-dashboard';
 
@@ -112,6 +113,13 @@ function ScanBeamOverlay({ color = '#06b6d4' }: { color?: string }) {
 
 // ─── Analytics Section ───────────────────────────────────────────
 export function AnalyticsSection({ lang, onNavigateGeoMap }: { lang: Lang; onNavigateGeoMap?: (stateId?: string, layer?: string) => void }) {
+  const { registerView } = useCopilot();
+
+  // Register view context for copilot
+  useEffect(() => {
+    registerView('analytics', { chartType: 'trend' });
+  }, [registerView]);
+
   // State comparison radar chart
   const topStates = STATES.slice().sort((a, b) => b.population - a.population).slice(0, 5);
   const radarData = [

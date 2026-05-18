@@ -37,6 +37,7 @@ import { auditTrail } from '@/engine/audit/trail';
 
 import type { TabId } from '@/lib/dashboard-types';
 import { useLang } from '@/i18n';
+import { CopilotProvider } from '@/components/copilot';
 
 // ─── Focus Trap Hook ──────────────────────────────────────────────
 function useFocusTrap(isOpen: boolean, containerRef: React.RefObject<HTMLElement | null>) {
@@ -303,6 +304,65 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [booted]);
 
+  // Copilot navigation event listeners
+  useEffect(() => {
+    if (!booted) return;
+
+    const handleCopilotNavigate = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      const target = detail?.target;
+      if (target) {
+        const tabMap: Record<string, TabId> = {
+          overview: 'overview',
+          geomap: 'geomap',
+          datasets: 'datasets',
+          analytics: 'analytics',
+          intelligence: 'intelligence',
+          comparison: 'analytics',
+        };
+        const tabId = tabMap[target];
+        if (tabId) {
+          setActiveTab(tabId);
+          try { auditTrail.tabChange(tabId); } catch {}
+        }
+      }
+    };
+
+    const handleCopilotCompare = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      const states = detail?.states;
+      if (states?.length) {
+        setActiveTab('geomap');
+        try { auditTrail.tabChange('geomap'); } catch {}
+      }
+    };
+
+    const handleCopilotOpenDataset = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.id) {
+        setActiveTab('datasets');
+        try { auditTrail.tabChange('datasets'); } catch {}
+      }
+    };
+
+    const handleCopilotShowMetric = (_e: Event) => {
+      setActiveTab('analytics');
+      try { auditTrail.tabChange('analytics'); } catch {}
+    };
+
+    window.addEventListener('copilot-navigate', handleCopilotNavigate as EventListener);
+    window.addEventListener('copilot-compare', handleCopilotCompare as EventListener);
+    window.addEventListener('copilot-open-dataset', handleCopilotOpenDataset as EventListener);
+    window.addEventListener('copilot-show-metric', handleCopilotShowMetric as EventListener);
+
+    return () => {
+      window.removeEventListener('copilot-navigate', handleCopilotNavigate as EventListener);
+      window.removeEventListener('copilot-compare', handleCopilotCompare as EventListener);
+      window.removeEventListener('copilot-open-dataset', handleCopilotOpenDataset as EventListener);
+      window.removeEventListener('copilot-show-metric', handleCopilotShowMetric as EventListener);
+    };
+  }, [booted]);
+
   // Audit trail helper (safe for client-side)
   const audit = useCallback((type: string, detail: string) => {
     try { auditTrail.tabChange(detail); } catch {}
@@ -388,6 +448,7 @@ export default function Home() {
   ];
 
   return (
+    <CopilotProvider>
     <div className="min-h-screen flex flex-col relative" data-scan-lines={settings.showScanLines ? 'true' : 'false'} style={{ background: '#0a0e1a', zoom: settings.fontSize === 'small' ? 1 : settings.fontSize === 'medium' ? 1.15 : 1.3 }}>
       <a href="#main-content" className="skip-to-content">
         {lang === 'ms' ? 'Langkau ke kandungan utama' : 'Skip to main content'}
@@ -940,7 +1001,7 @@ export default function Home() {
             exit={{ opacity: 0, scale: 0.8 }}
             transition={{ duration: 0.2 }}
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            className="fixed bottom-6 right-6 w-11 h-11 rounded-full flex items-center justify-center border cursor-pointer transition-shadow hover:shadow-[0_0_20px_rgba(6,182,212,0.4)]"
+            className="fixed bottom-6 right-24 w-11 h-11 rounded-full flex items-center justify-center border cursor-pointer transition-shadow hover:shadow-[0_0_20px_rgba(6,182,212,0.4)]"
             style={{
               background: 'rgba(10,14,26,0.95)',
               borderColor: 'rgba(6,182,212,0.3)',
@@ -1061,5 +1122,6 @@ export default function Home() {
         )}
       </AnimatePresence>
     </div>
+    </CopilotProvider>
   );
 }

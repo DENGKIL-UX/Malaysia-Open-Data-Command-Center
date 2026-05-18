@@ -17,6 +17,7 @@ import {
 } from '@/lib/data/malaysia-data';
 import { DATASETS } from '@/lib/data/datasets';
 import type { Lang } from '@/lib/dashboard-types';
+import { useCopilot } from '@/hooks/use-copilot';
 import { HUDBracket, SectionHeaderLine } from '@/components/dashboard/particle-background';
 import { KPICard } from '@/components/dashboard/kpi-card';
 import { DataEnginePulse } from '@/components/dashboard/data-engine-pulse';
@@ -393,6 +394,12 @@ function CategoryProgressBar({ cat, lang, index, maxVal }: {
 // ─── Overview Section ─────────────────────────────────────────────
 export function OverviewSection({ lang, onNavigateDatasets }: { lang: Lang; onNavigateDatasets?: (category?: string) => void }) {
   const [explorerMetric, setExplorerMetric] = useState<'population' | 'gdp' | 'gdpGrowth' | 'births' | 'unemployment' | 'datasets' | null>(null);
+  const { registerView } = useCopilot();
+
+  // Register view context for copilot
+  useEffect(() => {
+    registerView('overview', { visibleMetrics: ['gdp', 'population', 'unemployment', 'cpi'] });
+  }, [registerView]);
 
   // ── Live Data from LiveDataProvider ──
   const { kpiMap, anyLoading, isLive, status } = useLiveData();
