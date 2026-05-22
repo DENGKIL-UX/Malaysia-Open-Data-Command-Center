@@ -14,58 +14,19 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
-
-      - name: Install dependencies
-        run: bun install
-
       - name: Fetch latest datasets from datagovmy-meta
         run: |
-          # Create a temporary script to fetch and format data
-          cat > fetch_datasets.mjs << 'EOF'
-          import { githubDOSMClient } from './src/lib/dosm/github-dosm-client.ts';
+          # Fetch data-catalogue.json
+          curl -f -L -o data-catalogue.json \
+            https://raw.githubusercontent.com/data-gov-my/datagovmy-meta/main/data-catalogue.json
           
-          const datasets = await githubDOSMClient.getAllDatasetMeta();
-          const formatted = datasets.map(d => ({
-            id: d.id,
-            title_en: d.title.en,
-            title_ms: d.title.ms,
-            description_en: d.description.en,
-            description_ms: d.description.ms,
-            frequency: d.frequency.id,
-            geography: d.geography,
-            demography: d.demography,
-            dataset_begin: parseInt(d.date_range.start),
-            dataset_end: parseInt(d.date_range.end),
-            data_source: d.source,
-            category_en: d.fields.find(f => f.id === 'category')?.description.en || '',
-            category_ms: d.fields.find(f => f.id === 'category')?.description.ms || '',
-            subcategory_en: d.fields.find(f => f.id === 'subcategory')?.description.en || '',
-            subcategory_ms: d.fields.find(f => f.id === 'subcategory')?.description.ms || '',
-            category_sort: 1,
-            link_parquet: d.link_parquet,
-            link_csv: d.link_csv,
-            last_updated: d._fetched_at || new Date().toISOString(),
-            data_as_of: d.date_range.end,
-          }));
+          # Fetch malaysia_open_data_catalogue.json
+          curl -f -L -o malaysia_open_data_catalogue.json \
+            https://raw.githubusercontent.com/data-gov-my/datagovmy-meta/main/malaysia_open_data_catalogue.json
           
-          // Write to file
-          const fs = await import('fs');
-          await fs.promises.writeFile(
-            './src/lib/data/datasets.json',
-            JSON.stringify(formatted, null, 2)
-          );
-          console.log(`Updated ${formatted.length} datasets`);
-          EOF
-          
-          # Run the script
-          bun run fetch_datasets.mjs
-          
-          # Clean up
-          rm fetch_datasets.mjs
+          # Fetch datasets from data-catalogue directory
+          curl -f -L -o src/lib/data/datasets.json \
+            https://raw.githubusercontent.com/data-gov-my/datagovmy-meta/main/data-catalogue/datasets.json
 
       - name: Commit and push changes
         run: |
