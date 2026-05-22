@@ -1,0 +1,77 @@
+name: Update Static Data from datagovmy-meta
+
+on:
+  schedule:
+    - cron: '0 0 * * 1' # Every Monday at midnight UTC
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Fetch latest datasets from datagovmy-meta
+        run: |
+          # Create a temporary script to fetch and format data
+          cat > fetch_datasets.mjs << 'EOF'
+          import { githubDOSMClient } from './src/lib/dosm/github-dosm-client.ts';
+          
+          const datasets = await githubDOSMClient.getAllDatasetMeta();
+          const formatted = datasets.map(d => ({
+            id: d.id,
+            title_en: d.title.en,
+            title_ms: d.title.ms,
+            description_en: d.description.en,
+            description_ms: d.description.ms,
+            frequency: d.frequency.id,
+            geography: d.geography,
+            demography: d.demography,
+            dataset_begin: parseInt(d.date_range.start),
+            dataset_end: parseInt(d.date_range.end),
+            data_source: d.source,
+            category_en: d.fields.find(f => f.id === 'category')?.description.en || '',
+            category_ms: d.fields.find(f => f.id === 'category')?.description.ms || '',
+            subcategory_en: d.fields.find(f => f.id === 'subcategory')?.description.en || '',
+            subcategory_ms: d.fields.find(f => f.id === 'subcategory')?.description.ms || '',
+            category_sort: 1,
+            link_parquet: d.link_parquet,
+            link_csv: d.link_csv,
+            last_updated: d._fetched_at || new Date().toISOString(),
+            data_as_of: d.date_range.end,
+          }));
+          
+          // Write to file
+          const fs = await import('fs');
+          await fs.promises.writeFile(
+            './src/lib/data/datasets.json',
+            JSON.stringify(formatted, null, 2)
+          );
+          console.log(`Updated ${formatted.length} datasets`);
+          EOF
+          
+          # Run the script
+          bun run fetch_datasets.mjs
+          
+          # Clean up
+          rm fetch_datasets.mjs
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git add .
+          git diff --cached --quiet || exit 0
+          git commit -m "chore: auto-update datasets from datagovmy-meta"
+          git push
