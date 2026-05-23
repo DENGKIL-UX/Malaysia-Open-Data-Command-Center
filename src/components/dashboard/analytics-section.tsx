@@ -387,7 +387,7 @@ export function AnalyticsSection({ lang, onNavigateGeoMap }: { lang: Lang; onNav
               {lang === 'ms' ? 'TREND KDNK (RM B)' : 'GDP TREND (RM B)'}
             </span>
           </div>
-          <ResponsiveContainer width="100%" height={220} role="img" aria-label="GDP trend area chart from 2019 to 2024">
+      <ResponsiveContainer width="100%" height={220}>
             <AreaChart data={gdpTrend}>
               <defs>
                 <linearGradient id="gdpGrad" x1="0" y1="0" x2="0" y2="1">
