@@ -278,7 +278,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Determine the data array
-    const dataArray: unknown[] = Array.isArray(parsed) ? parsed : (parsed as Record<string, unknown>)?.data ?? [];
+    const dataArray: unknown[] = Array.isArray(parsed) ? parsed : [parsed];
 
     if (dataArray.length === 0) {
       const suggestion = WRONG_ID_SUGGESTIONS[datasetId];
