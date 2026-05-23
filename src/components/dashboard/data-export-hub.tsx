@@ -351,7 +351,7 @@ export function DataExportHub({ lang, isOpen, onClose }: DataExportHubProps) {
           id: `${sourceId}-${Date.now()}`,
           sourceId,
           sourceLabel,
-          format: 'csv',
+          format: 'csv' as const,
           timestamp: new Date(),
           fileSize: formatFileSize(size),
         }, ...prev].slice(0, 20));
@@ -364,7 +364,7 @@ export function DataExportHub({ lang, isOpen, onClose }: DataExportHubProps) {
           id: `${sourceId}-${Date.now()}`,
           sourceId,
           sourceLabel,
-          format: 'json',
+          format: 'json' as const,
           timestamp: new Date(),
           fileSize: formatFileSize(size),
         }, ...prev].slice(0, 20));
@@ -402,7 +402,7 @@ export function DataExportHub({ lang, isOpen, onClose }: DataExportHubProps) {
                 id: `${sourceId}-${Date.now()}`,
                 sourceId,
                 sourceLabel,
-                format: 'png',
+                format: 'png' as const,
                 timestamp: new Date(),
                 fileSize: formatFileSize(size),
               }, ...prev].slice(0, 20));
@@ -717,3 +717,4 @@ export function DataExportHub({ lang, isOpen, onClose }: DataExportHubProps) {
 }
 
 export default DataExportHub;
+
