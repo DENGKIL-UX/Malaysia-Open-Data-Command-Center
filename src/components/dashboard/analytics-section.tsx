@@ -423,7 +423,7 @@ export function AnalyticsSection({ lang, onNavigateGeoMap }: { lang: Lang; onNav
               {lang === 'ms' ? 'PERBANDINGAN NEGERI TERATAS' : 'TOP STATES COMPARISON'}
             </span>
           </div>
-          <ResponsiveContainer width="100%" height={220} role="img" aria-label="Radar chart comparing top 5 states across metrics">
+      <ResponsiveContainer width="100%" height={220}>
             <RadarChart data={radarData}>
               <PolarGrid stroke="rgba(6,182,212,0.1)" />
               <PolarAngleAxis dataKey="metric" tick={{ fill: '#8899aa', fontSize: 9 }} />
