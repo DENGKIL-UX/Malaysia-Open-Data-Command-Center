@@ -179,7 +179,7 @@ export function CommandPalette({ lang, onClose, onAction }: {
 
   // ── Group filtered results by category ──
   const groupedResults = useMemo(() => {
-    const groups = new Map<CommandCategory, PaletteCommand[]>();
+    const groups = new globalThis.Map<CommandCategory, PaletteCommand[]>();
     for (const cmd of filtered) {
       const existing = groups.get(cmd.category) || [];
       existing.push(cmd);

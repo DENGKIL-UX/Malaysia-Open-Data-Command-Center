@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { message, lang = 'en', history = [] }: { message: string; lang: 'en' | 'ms'; history: ChatMessage[] } = parsedBody;
+  const { message, lang = 'en', history = [] }: { message?: string; lang?: 'en' | 'ms'; history?: ChatMessage[]; } = await request.json();
 
     if (!message || typeof message !== 'string' || !message.trim()) {
       return NextResponse.json(

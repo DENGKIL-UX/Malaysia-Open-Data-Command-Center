@@ -126,7 +126,7 @@ const EXPORT_SOURCES: ExportSource[] = [
 function getSourceData(sourceId: string, lang: Lang): { headers: string[]; rows: string[][]; json: Record<string, unknown>[] } {
   switch (sourceId) {
     case 'state-metrics': {
-      const headers = ['State', 'Abbreviation', 'Population (000)', 'GDP (RM M)', 'GDP Growth (%)', 'Births (000)', 'Deaths (000)', 'Unemployment (%)', 'Area (km²)', 'Density (/km²)', 'Datasets'];
+      const headers = ['State', 'Abbreviation', 'Population (000)', 'GDP (RM M)', 'GDP Growth (%)', 'Births (000)', 'Deaths (000)', 'Unemployment (%)', 'Area (km²)', 'Density (/km²)', 'Datasets[...]
       const rows = STATES.map(s => [
         lang === 'ms' ? s.name_ms : s.name,
         s.abbr,
@@ -351,7 +351,7 @@ export function DataExportHub({ lang, isOpen, onClose }: DataExportHubProps) {
           id: `${sourceId}-${Date.now()}`,
           sourceId,
           sourceLabel,
-          format: 'csv',
+          format: 'csv' as const,
           timestamp: new Date(),
           fileSize: formatFileSize(size),
         }, ...prev].slice(0, 20));
@@ -364,7 +364,7 @@ export function DataExportHub({ lang, isOpen, onClose }: DataExportHubProps) {
           id: `${sourceId}-${Date.now()}`,
           sourceId,
           sourceLabel,
-          format: 'json',
+          format: 'json' as const,
           timestamp: new Date(),
           fileSize: formatFileSize(size),
         }, ...prev].slice(0, 20));
@@ -402,7 +402,7 @@ export function DataExportHub({ lang, isOpen, onClose }: DataExportHubProps) {
                 id: `${sourceId}-${Date.now()}`,
                 sourceId,
                 sourceLabel,
-                format: 'png',
+                format: 'png' as const,
                 timestamp: new Date(),
                 fileSize: formatFileSize(size),
               }, ...prev].slice(0, 20));
@@ -495,7 +495,9 @@ export function DataExportHub({ lang, isOpen, onClose }: DataExportHubProps) {
                       {isSelected && <CheckCircle2 size={10} style={{ color: '#0a0e1a' }} />}
                     </div>
 
-                    <SourceIcon size={12} style={{ color: isSelected ? source.color : 'rgba(6,182,212,0.4)', flexShrink: 0 }} />
+                    <div style={{ color: isSelected ? source.color : 'rgba(6,182,212,0.4)', flexShrink: 0 }}>
+                      <SourceIcon size={12} />
+                    </div>
 
                     <span className="flex-1 truncate">
                       {lang === 'ms' ? source.label_ms : source.label_en}
@@ -549,7 +551,7 @@ export function DataExportHub({ lang, isOpen, onClose }: DataExportHubProps) {
                 </div>
                 <div className="space-y-1.5 max-h-40 overflow-y-auto custom-scrollbar">
                   {exportHistory.map(entry => {
-                    const FormatIcon = entry.format === 'csv' ? FileText : entry.format === 'json' ? Braces : Image;
+                    const FormatIcon = entry.format === 'csv' ? FileText : entry.format === 'json' ? Braces : ImageIcon;
                     const formatColor = entry.format === 'csv' ? '#06b6d4' : entry.format === 'json' ? '#f59e0b' : '#10b981';
                     return (
                       <div
@@ -560,7 +562,9 @@ export function DataExportHub({ lang, isOpen, onClose }: DataExportHubProps) {
                           borderColor: 'rgba(6,182,212,0.06)',
                         }}
                       >
-                        <FormatIcon size={9} style={{ color: formatColor, flexShrink: 0 }} />
+                        <div style={{ color: formatColor, flexShrink: 0 }}>
+                          <FormatIcon size={9} />
+                        </div>
                         <span className="flex-1 truncate" style={{ color: '#b0bec5' }}>{entry.sourceLabel}</span>
                         <span
                           className="px-1 py-0.5 rounded text-[8px] uppercase"
