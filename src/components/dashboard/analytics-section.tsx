@@ -456,7 +456,7 @@ export function AnalyticsSection({ lang, onNavigateGeoMap }: { lang: Lang; onNav
               {lang === 'ms' ? 'KADAR PERTUMBUHAN KDNK' : 'GDP GROWTH RATE'}
             </span>
           </div>
-          <ResponsiveContainer width="100%" height={200} role="img" aria-label="Bar chart showing GDP growth rate from 2019 to 2024">
+          <ResponsiveContainer width="100%" height={200} >
             <BarChart data={gdpGrowthRateData} barCategoryGap="20%">
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(6,182,212,0.06)" />
               <XAxis dataKey="year" tick={CHART_AXIS_TICK} axisLine={CHART_AXIS_LINE} tickLine={CHART_TICK_LINE} />
@@ -491,7 +491,7 @@ export function AnalyticsSection({ lang, onNavigateGeoMap }: { lang: Lang; onNav
               {lang === 'ms' ? 'SUMBANGAN SEKTOR KDNK' : 'GDP SECTOR CONTRIBUTION'}
             </span>
           </div>
-          <ResponsiveContainer width="100%" height={200} role="img" aria-label="Horizontal bar chart showing GDP sector contribution percentages">
+          <ResponsiveContainer width="100%" height={200} >
             <BarChart data={sectorContributionData} layout="vertical" barCategoryGap="15%">
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(6,182,212,0.06)" />
               <XAxis type="number" tick={CHART_AXIS_TICK} axisLine={CHART_AXIS_LINE} tickLine={CHART_TICK_LINE} />
@@ -539,7 +539,7 @@ export function AnalyticsSection({ lang, onNavigateGeoMap }: { lang: Lang; onNav
             {lang === 'ms' ? 'TABURAN KATEGORI SET DATA' : 'DATASET CATEGORY DISTRIBUTION'}
           </span>
         </div>
-        <ResponsiveContainer width="100%" height={280} role="img" aria-label="Bar chart showing dataset category distribution">
+        <ResponsiveContainer width="100%" height={280} >
           <BarChart data={catDist} layout="vertical" barCategoryGap="8%">
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(6,182,212,0.06)" />
             <XAxis type="number" tick={CHART_AXIS_TICK} axisLine={CHART_AXIS_LINE} tickLine={CHART_TICK_LINE} />
@@ -1112,7 +1112,7 @@ export function AnalyticsSection({ lang, onNavigateGeoMap }: { lang: Lang; onNav
           <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full" style={{ background: '#06b6d4' }} /><span className="text-[8px] font-mono" style={{ color: '#b0bec5' }}>{lang === 'ms' ? 'Semenanjung' : 'Peninsular'}</span></div>
           <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full" style={{ background: '#f59e0b' }} /><span className="text-[8px] font-mono" style={{ color: '#b0bec5' }}>{lang === 'ms' ? 'Timur' : 'East'}</span></div>
         </div>
-        <ResponsiveContainer width="100%" height={280} role="img" aria-label="GDP per capita ranking bar chart">
+        <ResponsiveContainer width="100%" height={280} >
           <BarChart data={gdpPerCapita} layout="vertical" barCategoryGap="8%">
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(6,182,212,0.06)" />
             <XAxis type="number" tick={CHART_AXIS_TICK} axisLine={CHART_AXIS_LINE} tickLine={CHART_TICK_LINE} />
