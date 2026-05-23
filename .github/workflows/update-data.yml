@@ -1,0 +1,38 @@
+name: Update Static Data from datagovmy-meta
+
+on:
+  schedule:
+    - cron: '0 0 * * 1' # Every Monday at midnight UTC
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch latest datasets from datagovmy-meta
+        run: |
+          # Fetch data-catalogue.json
+          curl -f -L -o data-catalogue.json \
+            https://raw.githubusercontent.com/data-gov-my/datagovmy-meta/main/data-catalogue.json
+          
+          # Fetch malaysia_open_data_catalogue.json
+          curl -f -L -o malaysia_open_data_catalogue.json \
+            https://raw.githubusercontent.com/data-gov-my/datagovmy-meta/main/malaysia_open_data_catalogue.json
+          
+          # Fetch datasets from data-catalogue directory
+          curl -f -L -o src/lib/data/datasets.json \
+            https://raw.githubusercontent.com/data-gov-my/datagovmy-meta/main/data-catalogue/datasets.json
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git add .
+          git diff --cached --quiet || exit 0
+          git commit -m "chore: auto-update datasets from datagovmy-meta"
+          git push
